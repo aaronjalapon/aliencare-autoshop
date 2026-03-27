@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\JsonResponse;
 
 /**
  * Exception thrown when an alert is not found.
@@ -19,10 +20,10 @@ class AlertNotFoundException extends Exception
     /**
      * Create a new exception instance.
      *
-     * @param int $alertId The alert ID that was not found
-     * @param string|null $message Custom error message
-     * @param int $code HTTP status code
-     * @param \Throwable|null $previous Previous exception
+     * @param  int  $alertId  The alert ID that was not found
+     * @param  string|null  $message  Custom error message
+     * @param  int  $code  HTTP status code
+     * @param  \Throwable|null  $previous  Previous exception
      */
     public function __construct(
         int $alertId,
@@ -55,7 +56,7 @@ class AlertNotFoundException extends Exception
     /**
      * Render the exception as an HTTP response.
      */
-    public function render(): \Illuminate\Http\JsonResponse
+    public function render(): JsonResponse
     {
         return response()->json([
             'success' => false,

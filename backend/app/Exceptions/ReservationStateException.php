@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\JsonResponse;
 
 /**
  * Exception thrown when a reservation state transition is invalid.
@@ -29,12 +30,12 @@ class ReservationStateException extends Exception
     /**
      * Create a new exception instance.
      *
-     * @param int $reservationId The reservation ID
-     * @param string $currentState The current state
-     * @param string $targetState The attempted target state
-     * @param string|null $message Custom error message
-     * @param int $code HTTP status code
-     * @param \Throwable|null $previous Previous exception
+     * @param  int  $reservationId  The reservation ID
+     * @param  string  $currentState  The current state
+     * @param  string  $targetState  The attempted target state
+     * @param  string|null  $message  Custom error message
+     * @param  int  $code  HTTP status code
+     * @param  \Throwable|null  $previous  Previous exception
      */
     public function __construct(
         int $reservationId,
@@ -88,7 +89,7 @@ class ReservationStateException extends Exception
     /**
      * Render the exception as an HTTP response.
      */
-    public function render(): \Illuminate\Http\JsonResponse
+    public function render(): JsonResponse
     {
         return response()->json([
             'success' => false,

@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Contracts\Services;
 
+use App\Exceptions\InsufficientStockException;
+use App\Exceptions\InventoryNotFoundException;
+use App\Models\Inventory;
+use App\Models\StockTransaction;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Interface for Inventory Service operations.
@@ -17,7 +22,7 @@ interface InventoryServiceInterface
     /**
      * Check stock levels and return detailed status for an item.
      *
-     * @param  string  $itemId  The unique identifier for the inventory item
+     * @param  int|string  $itemId  The unique identifier for the inventory item
      * @param  int  $requestedQuantity  The quantity being requested (default: 1)
      * @return array{
      *     item_id: string,
@@ -33,32 +38,32 @@ interface InventoryServiceInterface
      *     unit_price: float
      * }
      *
-     * @throws \App\Exceptions\InventoryNotFoundException When item does not exist
+     * @throws InventoryNotFoundException When item does not exist
      */
-    public function checkStockStatus(string $itemId, int $requestedQuantity = 1): array;
+    public function checkStockStatus(int|string $itemId, int $requestedQuantity = 1): array;
 
     /**
      * Process stock adjustment with full transaction logging.
      *
-     * @param  string  $itemId  The unique identifier for the inventory item
+     * @param  int|string  $itemId  The unique identifier for the inventory item
      * @param  int  $quantity  Positive for stock increase, negative for decrease
      * @param  string  $transactionType  Type of transaction (sale, procurement, etc.)
      * @param  string|null  $referenceNumber  Optional reference number for tracking
      * @param  string|null  $notes  Optional notes about the transaction
      * @param  string  $createdBy  Identity of who created the transaction
      * @return array{
-     *     inventory: \App\Models\Inventory,
-     *     transaction: \App\Models\StockTransaction,
+     *     inventory: Inventory,
+     *     transaction: StockTransaction,
      *     previous_stock: int,
      *     new_stock: int,
      *     quantity_changed: int
      * }
      *
-     * @throws \App\Exceptions\InventoryNotFoundException When item does not exist
-     * @throws \App\Exceptions\InsufficientStockException When stock is insufficient for deduction
+     * @throws InventoryNotFoundException When item does not exist
+     * @throws InsufficientStockException When stock is insufficient for deduction
      */
     public function adjustStock(
-        string $itemId,
+        int|string $itemId,
         int $quantity,
         string $transactionType,
         ?string $referenceNumber = null,
@@ -77,8 +82,8 @@ interface InventoryServiceInterface
      *         out_of_stock_items: int,
      *         stock_accuracy: float
      *     },
-     *     category_breakdown: \Illuminate\Support\Collection,
-     *     top_value_items: \Illuminate\Support\Collection,
+     *     category_breakdown: Collection,
+     *     top_value_items: Collection,
      *     alerts: array{
      *         critical_items: int,
      *         low_stock_items: int,
@@ -95,9 +100,9 @@ interface InventoryServiceInterface
      * @param  Carbon  $endDate  End date of the analysis period
      * @return array{
      *     period: array{start_date: string, end_date: string, days: int},
-     *     transaction_summary: \Illuminate\Support\Collection,
-     *     top_moving_items: \Illuminate\Support\Collection,
-     *     category_performance: \Illuminate\Support\Collection,
+     *     transaction_summary: Collection,
+     *     top_moving_items: Collection,
+     *     category_performance: Collection,
      *     daily_summary: array
      * }
      */
@@ -106,7 +111,7 @@ interface InventoryServiceInterface
     /**
      * Forecast demand for an item based on historical data.
      *
-     * @param  string  $itemId  The unique identifier for the inventory item
+     * @param  int|string  $itemId  The unique identifier for the inventory item
      * @param  int  $forecastDays  Number of days to forecast (default: 30)
      * @return array{
      *     item_id: string,
@@ -123,7 +128,7 @@ interface InventoryServiceInterface
      *     historical_transactions: int
      * }
      *
-     * @throws \App\Exceptions\InventoryNotFoundException When item does not exist
+     * @throws InventoryNotFoundException When item does not exist
      */
-    public function forecastDemand(string $itemId, int $forecastDays = 30): array;
+    public function forecastDemand(int|string $itemId, int $forecastDays = 30): array;
 }

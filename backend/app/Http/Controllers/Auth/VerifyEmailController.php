@@ -18,6 +18,6 @@ class VerifyEmailController extends Controller
 
         $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
 
-        return redirect($frontendUrl . '/dashboard?verified=1');
+        return redirect($frontendUrl.'/dashboard?verified=1');
     }
 }

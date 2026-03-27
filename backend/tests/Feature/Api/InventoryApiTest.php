@@ -62,7 +62,7 @@ class InventoryApiTest extends TestCase
                 'success',
                 'data' => [
                     'data' => [
-                        '*' => ['id', 'item_id', 'part_name', 'stock'],
+                        '*' => ['id', 'item_id', 'item_name', 'stock'],
                     ],
                 ],
             ]);
@@ -103,8 +103,8 @@ class InventoryApiTest extends TestCase
 
     public function test_index_filters_by_search_term(): void
     {
-        Inventory::factory()->create(['part_name' => 'Engine Oil Filter']);
-        Inventory::factory()->create(['part_name' => 'Brake Pad']);
+        Inventory::factory()->create(['item_name' => 'Engine Oil Filter']);
+        Inventory::factory()->create(['item_name' => 'Brake Pad']);
 
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/inventory?search=Engine');
@@ -131,12 +131,10 @@ class InventoryApiTest extends TestCase
     public function test_store_creates_new_inventory_item(): void
     {
         $data = [
-            'item_id' => 'PART-001',
-            'part_name' => 'Test Part',
+            'item_name' => 'Test Part',
             'category' => 'Engine',
             'unit_price' => 99.99,
             'reorder_level' => 10,
-            'reorder_quantity' => 50,
             'stock' => 100,
         ];
 
@@ -150,16 +148,15 @@ class InventoryApiTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('inventories', [
-            'item_id' => 'PART-001',
-            'part_name' => 'Test Part',
+            'item_name' => 'Test Part',
+            'category' => 'Engine',
         ]);
     }
 
     public function test_store_requires_authentication(): void
     {
         $response = $this->postJson('/api/v1/inventory', [
-            'item_id' => 'PART-001',
-            'part_name' => 'Test Part',
+            'item_name' => 'Test Part',
         ]);
 
         $response->assertStatus(401);
@@ -171,30 +168,31 @@ class InventoryApiTest extends TestCase
             ->postJson('/api/v1/inventory', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['item_id', 'part_name', 'category']);
+            ->assertJsonValidationErrors(['item_name', 'category', 'stock', 'reorder_level', 'unit_price']);
     }
 
-    public function test_store_validates_unique_item_id(): void
+    public function test_store_validates_item_name_max_length(): void
     {
-        $inventory = Inventory::factory()->create();
+        $longName = str_repeat('A', 256);
 
         $response = $this->actingAs($this->user)
             ->postJson('/api/v1/inventory', [
-                'item_id' => $inventory->item_id,
-                'part_name' => 'Another Part',
+                'item_name' => $longName,
                 'category' => 'Engine',
+                'stock' => 10,
+                'reorder_level' => 5,
+                'unit_price' => 99.99,
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors('item_id');
+            ->assertJsonValidationErrors('item_name');
     }
 
     public function test_store_validates_numeric_fields(): void
     {
         $response = $this->actingAs($this->user)
             ->postJson('/api/v1/inventory', [
-                'item_id' => 'PART-001',
-                'part_name' => 'Test Part',
+                'item_name' => 'Test Part',
                 'category' => 'Engine',
                 'unit_price' => 'not-a-number',
                 'stock' => 'not-a-number',
@@ -211,13 +209,13 @@ class InventoryApiTest extends TestCase
         $inventory = Inventory::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->getJson("/api/v1/inventory/{$inventory->id}");
+            ->getJson("/api/v1/inventory/{$inventory->item_id}");
 
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
                 'data' => [
-                    'id' => $inventory->id,
+                    'id' => $inventory->item_id,
                     'item_id' => $inventory->item_id,
                 ],
             ]);
@@ -227,7 +225,7 @@ class InventoryApiTest extends TestCase
     {
         $inventory = Inventory::factory()->create();
 
-        $response = $this->getJson("/api/v1/inventory/{$inventory->id}");
+        $response = $this->getJson("/api/v1/inventory/{$inventory->item_id}");
 
         $response->assertStatus(401);
     }
@@ -244,11 +242,11 @@ class InventoryApiTest extends TestCase
 
     public function test_update_modifies_inventory_item(): void
     {
-        $inventory = Inventory::factory()->create(['part_name' => 'Old Name']);
+        $inventory = Inventory::factory()->create(['item_name' => 'Old Name']);
 
         $response = $this->actingAs($this->user)
-            ->putJson("/api/v1/inventory/{$inventory->id}", [
-                'part_name' => 'New Name',
+            ->putJson("/api/v1/inventory/{$inventory->item_id}", [
+                'item_name' => 'New Name',
                 'category' => $inventory->category,
             ]);
 
@@ -259,8 +257,8 @@ class InventoryApiTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('inventories', [
-            'id' => $inventory->id,
-            'part_name' => 'New Name',
+            'item_id' => $inventory->item_id,
+            'item_name' => 'New Name',
         ]);
     }
 
@@ -268,8 +266,8 @@ class InventoryApiTest extends TestCase
     {
         $inventory = Inventory::factory()->create();
 
-        $response = $this->putJson("/api/v1/inventory/{$inventory->id}", [
-            'part_name' => 'New Name',
+        $response = $this->putJson("/api/v1/inventory/{$inventory->item_id}", [
+            'item_name' => 'New Name',
         ]);
 
         $response->assertStatus(401);
@@ -279,7 +277,7 @@ class InventoryApiTest extends TestCase
     {
         $response = $this->actingAs($this->user)
             ->putJson('/api/v1/inventory/99999', [
-                'part_name' => 'New Name',
+                'item_name' => 'New Name',
                 'category' => 'Engine',
             ]);
 
@@ -293,7 +291,7 @@ class InventoryApiTest extends TestCase
         $inventory = Inventory::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->deleteJson("/api/v1/inventory/{$inventory->id}");
+            ->deleteJson("/api/v1/inventory/{$inventory->item_id}");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -302,7 +300,7 @@ class InventoryApiTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('inventories', [
-            'id' => $inventory->id,
+            'item_id' => $inventory->item_id,
             'status' => 'discontinued',
         ]);
     }
@@ -311,7 +309,7 @@ class InventoryApiTest extends TestCase
     {
         $inventory = Inventory::factory()->create();
 
-        $response = $this->deleteJson("/api/v1/inventory/{$inventory->id}");
+        $response = $this->deleteJson("/api/v1/inventory/{$inventory->item_id}");
 
         $response->assertStatus(401);
     }
@@ -323,7 +321,7 @@ class InventoryApiTest extends TestCase
         $inventory = Inventory::factory()->create(['stock' => 50]);
 
         $response = $this->actingAs($this->user)
-            ->getJson("/api/v1/inventory/{$inventory->id}/stock-status?requested_quantity=10");
+            ->getJson("/api/v1/inventory/{$inventory->item_id}/stock-status?requested_quantity=10");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -336,7 +334,7 @@ class InventoryApiTest extends TestCase
     {
         $inventory = Inventory::factory()->create();
 
-        $response = $this->getJson("/api/v1/inventory/{$inventory->id}/stock-status");
+        $response = $this->getJson("/api/v1/inventory/{$inventory->item_id}/stock-status");
 
         $response->assertStatus(401);
     }
@@ -419,7 +417,7 @@ class InventoryApiTest extends TestCase
         $this->assertDatabaseHas('stock_transactions', [
             'item_id' => $inventory->item_id,
             'transaction_type' => 'procurement',
-            'quantity_change' => 50,
+            'quantity' => 50,
         ]);
     }
 
@@ -498,7 +496,7 @@ class InventoryApiTest extends TestCase
         $this->assertDatabaseHas('stock_transactions', [
             'item_id' => $inventory->item_id,
             'transaction_type' => 'sale',
-            'quantity_change' => -20,
+            'quantity' => -20,
         ]);
     }
 

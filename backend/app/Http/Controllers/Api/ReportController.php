@@ -51,7 +51,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate daily usage report: ' . $e->getMessage(),
+                'message' => 'Failed to generate daily usage report: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -64,11 +64,12 @@ class ReportController extends Controller
         Gate::authorize('generate-reports');
 
         try {
-            $month = Carbon::parse($request->input('month', now()->format('Y-m')));
+            $year = (int) $request->input('year');
+            $month = (int) $request->input('month');
 
             $report = $this->reportService->generateMonthlyProcurementReport(
-                $month->year,
-                $month->month,
+                $year,
+                $month,
                 Auth::check() ? Auth::user()->name : 'System'
             );
 
@@ -85,7 +86,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate monthly procurement report: ' . $e->getMessage(),
+                'message' => 'Failed to generate monthly procurement report: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -120,7 +121,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate reconciliation report: ' . $e->getMessage(),
+                'message' => 'Failed to generate reconciliation report: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -176,7 +177,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch reports: ' . $e->getMessage(),
+                'message' => 'Failed to fetch reports: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -198,7 +199,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch dashboard analytics: ' . $e->getMessage(),
+                'message' => 'Failed to fetch dashboard analytics: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -223,7 +224,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch usage analytics: ' . $e->getMessage(),
+                'message' => 'Failed to fetch usage analytics: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -248,7 +249,7 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch procurement analytics: ' . $e->getMessage(),
+                'message' => 'Failed to fetch procurement analytics: '.$e->getMessage(),
             ], 500);
         }
     }

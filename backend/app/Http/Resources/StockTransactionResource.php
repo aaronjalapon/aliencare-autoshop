@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * API Resource for StockTransaction model.
  *
- * @mixin \App\Models\StockTransaction
+ * @mixin StockTransaction
  */
 class StockTransactionResource extends JsonResource
 {

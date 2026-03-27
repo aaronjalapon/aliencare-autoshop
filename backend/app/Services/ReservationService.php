@@ -46,7 +46,7 @@ class ReservationService implements ReservationServiceInterface
     {
         $reservation = $this->reservationRepository->findById($id);
 
-        if (!$reservation) {
+        if (! $reservation) {
             throw new ReservationNotFoundException($id);
         }
 
@@ -66,7 +66,7 @@ class ReservationService implements ReservationServiceInterface
         return DB::transaction(function () use ($itemId, $quantity, $jobOrderNumber, $notes, $reservedBy) {
             $inventory = $this->inventoryRepository->findByIdWithLock((int) $itemId);
 
-            if (!$inventory) {
+            if (! $inventory) {
                 throw new InventoryNotFoundException($itemId);
             }
 
@@ -77,7 +77,7 @@ class ReservationService implements ReservationServiceInterface
                     $itemId,
                     $availableStock,
                     $quantity,
-                    "Insufficient available stock for reservation"
+                    'Insufficient available stock for reservation'
                 );
             }
 
@@ -158,7 +158,7 @@ class ReservationService implements ReservationServiceInterface
                     $id,
                     $reservation->status,
                     'approved',
-                    "Only pending reservations can be approved"
+                    'Only pending reservations can be approved'
                 );
             }
 
@@ -169,7 +169,7 @@ class ReservationService implements ReservationServiceInterface
                     (string) $inventory->item_id,
                     $inventory->stock,
                     $reservation->quantity,
-                    "Insufficient stock to approve reservation"
+                    'Insufficient stock to approve reservation'
                 );
             }
 
@@ -208,7 +208,7 @@ class ReservationService implements ReservationServiceInterface
      */
     public function rejectReservation(int $id, ?string $reason = null, string $rejectedBy = 'System'): Reservation
     {
-        return DB::transaction(function () use ($id, $reason, $rejectedBy) {
+        return DB::transaction(function () use ($id, $reason) {
             $reservation = $this->reservationRepository->findByIdOrFail($id);
 
             if ($reservation->status !== 'pending') {
@@ -216,7 +216,7 @@ class ReservationService implements ReservationServiceInterface
                     $id,
                     $reservation->status,
                     'rejected',
-                    "Only pending reservations can be rejected"
+                    'Only pending reservations can be rejected'
                 );
             }
 
@@ -236,7 +236,7 @@ class ReservationService implements ReservationServiceInterface
      */
     public function completeReservation(int $id, string $completedBy = 'System'): Reservation
     {
-        return DB::transaction(function () use ($id, $completedBy) {
+        return DB::transaction(function () use ($id) {
             $reservation = $this->reservationRepository->findByIdOrFail($id);
 
             if ($reservation->status !== 'approved') {
@@ -244,7 +244,7 @@ class ReservationService implements ReservationServiceInterface
                     $id,
                     $reservation->status,
                     'completed',
-                    "Only approved reservations can be completed"
+                    'Only approved reservations can be completed'
                 );
             }
 
@@ -267,12 +267,12 @@ class ReservationService implements ReservationServiceInterface
         return DB::transaction(function () use ($id, $reason, $cancelledBy) {
             $reservation = $this->reservationRepository->findByIdOrFail($id);
 
-            if (!in_array($reservation->status, ['pending', 'approved'])) {
+            if (! in_array($reservation->status, ['pending', 'approved'])) {
                 throw new ReservationStateException(
                     $id,
                     $reservation->status,
                     'cancelled',
-                    "Only pending or approved reservations can be cancelled"
+                    'Only pending or approved reservations can be cancelled'
                 );
             }
 

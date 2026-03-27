@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Models\User;
 use App\Contracts\Repositories\AlertRepositoryInterface;
 use App\Contracts\Repositories\ArchiveRepositoryInterface;
 use App\Contracts\Repositories\InventoryRepositoryInterface;
@@ -15,6 +14,7 @@ use App\Contracts\Services\AlertServiceInterface;
 use App\Contracts\Services\InventoryServiceInterface;
 use App\Contracts\Services\ReportServiceInterface;
 use App\Contracts\Services\ReservationServiceInterface;
+use App\Models\User;
 use App\Repositories\Eloquent\AlertRepository;
 use App\Repositories\Eloquent\ArchiveRepository;
 use App\Repositories\Eloquent\InventoryRepository;
@@ -96,7 +96,7 @@ class AppServiceProvider extends ServiceProvider
         $securityConfig = config('inventory.security', []);
         $isRestricted = (bool) ($securityConfig['restrict_sensitive_endpoints'] ?? false);
 
-        if (!$isRestricted) {
+        if (! $isRestricted) {
             return true;
         }
 

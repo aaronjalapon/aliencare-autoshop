@@ -103,7 +103,7 @@ class AlertService implements AlertServiceInterface
     {
         $alert = $this->alertRepository->findById($id);
 
-        if (!$alert) {
+        if (! $alert) {
             throw new AlertNotFoundException($id);
         }
 
@@ -115,7 +115,7 @@ class AlertService implements AlertServiceInterface
 
         if ($notes) {
             $existingMessage = $alert->message ?? '';
-            $updateData['message'] = $existingMessage . "\n\nNote: " . $notes;
+            $updateData['message'] = $existingMessage."\n\nNote: ".$notes;
         }
 
         return $this->alertRepository->update($id, $updateData);
@@ -192,8 +192,9 @@ class AlertService implements AlertServiceInterface
         }
 
         $shortfall = $item->reorder_level - $item->stock;
+
         return sprintf(
-            "Low stock alert for %s. Current: %d, Reorder Level: %d. Consider ordering %d units.",
+            'Low stock alert for %s. Current: %d, Reorder Level: %d. Consider ordering %d units.',
             $item->item_name,
             $item->stock,
             $item->reorder_level,

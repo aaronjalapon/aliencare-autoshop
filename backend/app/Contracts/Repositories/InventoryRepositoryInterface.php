@@ -6,6 +6,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\Inventory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 
 /**
@@ -19,25 +20,25 @@ interface InventoryRepositoryInterface
     /**
      * Find an inventory item by its ID.
      *
-     * @param int $itemId The unique identifier for the inventory item
+     * @param  int  $itemId  The unique identifier for the inventory item
      */
     public function findById(int|string $itemId): ?Inventory;
 
     /**
      * Find an inventory item by ID or throw an exception.
      *
-     * @param int $itemId The unique identifier for the inventory item
+     * @param  int  $itemId  The unique identifier for the inventory item
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function findByIdOrFail(int|string $itemId): Inventory;
 
     /**
      * Find an inventory item by ID with a database lock for update.
      *
-     * @param int $itemId The unique identifier for the inventory item
+     * @param  int  $itemId  The unique identifier for the inventory item
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function findByIdWithLock(int|string $itemId): Inventory;
 
@@ -50,29 +51,29 @@ interface InventoryRepositoryInterface
      *     low_stock?: bool,
      *     search?: string
      * } $filters Optional filters to apply
-     * @param int $perPage Number of items per page
+     * @param  int  $perPage  Number of items per page
      */
     public function all(array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Create a new inventory item.
      *
-     * @param array<string, mixed> $data The inventory item data
+     * @param  array<string, mixed>  $data  The inventory item data
      */
     public function create(array $data): Inventory;
 
     /**
      * Update an existing inventory item.
      *
-     * @param int $itemId The unique identifier for the inventory item
-     * @param array<string, mixed> $data The data to update
+     * @param  int  $itemId  The unique identifier for the inventory item
+     * @param  array<string, mixed>  $data  The data to update
      */
     public function update(int|string $itemId, array $data): Inventory;
 
     /**
      * Delete an inventory item (soft delete by setting status to discontinued).
      *
-     * @param int $itemId The unique identifier for the inventory item
+     * @param  int  $itemId  The unique identifier for the inventory item
      */
     public function delete(int|string $itemId): bool;
 
@@ -96,7 +97,7 @@ interface InventoryRepositoryInterface
     /**
      * Get top value items by total inventory value.
      *
-     * @param int $limit Maximum number of items to return
+     * @param  int  $limit  Maximum number of items to return
      */
     public function getTopValueItems(int $limit = 10): Collection;
 

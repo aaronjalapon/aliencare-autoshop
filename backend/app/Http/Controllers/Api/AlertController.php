@@ -47,7 +47,7 @@ class AlertController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch alerts: ' . $e->getMessage(),
+                'message' => 'Failed to fetch alerts: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -72,7 +72,7 @@ class AlertController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate alerts: ' . $e->getMessage(),
+                'message' => 'Failed to generate alerts: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -92,7 +92,7 @@ class AlertController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch alert statistics: ' . $e->getMessage(),
+                'message' => 'Failed to fetch alert statistics: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -117,7 +117,7 @@ class AlertController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to acknowledge alert: ' . $e->getMessage(),
+                'message' => 'Failed to acknowledge alert: '.$e->getMessage(),
             ], 404);
         }
     }
@@ -144,7 +144,7 @@ class AlertController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to bulk acknowledge alerts: ' . $e->getMessage(),
+                'message' => 'Failed to bulk acknowledge alerts: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -169,7 +169,7 @@ class AlertController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to cleanup alerts: ' . $e->getMessage(),
+                'message' => 'Failed to cleanup alerts: '.$e->getMessage(),
             ], 500);
         }
     }

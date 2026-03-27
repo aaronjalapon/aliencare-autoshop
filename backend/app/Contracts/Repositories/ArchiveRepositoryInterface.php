@@ -6,6 +6,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\Archive;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 
 /**
@@ -19,16 +20,16 @@ interface ArchiveRepositoryInterface
     /**
      * Find an archive entry by its ID.
      *
-     * @param int $id The unique identifier for the archive entry
+     * @param  int  $id  The unique identifier for the archive entry
      */
     public function findById(int|string $id): ?Archive;
 
     /**
      * Find an archive entry by ID or throw an exception.
      *
-     * @param int $id The unique identifier for the archive entry
+     * @param  int  $id  The unique identifier for the archive entry
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function findByIdOrFail(int|string $id): Archive;
 
@@ -43,29 +44,29 @@ interface ArchiveRepositoryInterface
      *     start_date?: string,
      *     end_date?: string
      * } $filters Optional filters to apply
-     * @param int $perPage Number of items per page
+     * @param  int  $perPage  Number of items per page
      */
     public function all(array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Create a new archive entry.
      *
-     * @param array<string, mixed> $data The archive entry data
+     * @param  array<string, mixed>  $data  The archive entry data
      */
     public function create(array $data): Archive;
 
     /**
      * Get all archive entries for a specific entity.
      *
-     * @param string $entityType The type of entity (inventory, reservation, etc.)
-     * @param int $entityId The entity ID
+     * @param  string  $entityType  The type of entity (inventory, reservation, etc.)
+     * @param  int  $entityId  The entity ID
      */
     public function getByEntity(string $entityType, int $entityId): Collection;
 
     /**
      * Get archive entries by action type.
      *
-     * @param string $action The action type (created, updated, deleted, etc.)
+     * @param  string  $action  The action type (created, updated, deleted, etc.)
      */
     public function getByAction(string $action): Collection;
 }

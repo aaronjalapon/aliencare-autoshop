@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Alert;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * API Resource for Alert model.
  *
- * @mixin \App\Models\Alert
+ * @mixin Alert
  */
 class AlertResource extends JsonResource
 {

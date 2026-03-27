@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * Abstract base repository implementing common CRUD operations.
@@ -18,7 +20,7 @@ abstract class BaseRepository
     /**
      * Create a new repository instance.
      *
-     * @param Model $model The Eloquent model instance
+     * @param  Model  $model  The Eloquent model instance
      */
     public function __construct(
         protected Model $model
@@ -35,7 +37,7 @@ abstract class BaseRepository
     /**
      * Find a record by its primary key.
      *
-     * @param int|string $id The primary key value
+     * @param  int|string  $id  The primary key value
      */
     public function findById(int|string $id): ?Model
     {
@@ -45,9 +47,9 @@ abstract class BaseRepository
     /**
      * Find a record by its primary key or throw an exception.
      *
-     * @param int|string $id The primary key value
+     * @param  int|string  $id  The primary key value
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function findByIdOrFail(int|string $id): Model
     {
@@ -57,7 +59,7 @@ abstract class BaseRepository
     /**
      * Get paginated records.
      *
-     * @param int $perPage Number of records per page
+     * @param  int  $perPage  Number of records per page
      */
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
@@ -67,7 +69,7 @@ abstract class BaseRepository
     /**
      * Create a new record.
      *
-     * @param array<string, mixed> $data The data to create the record with
+     * @param  array<string, mixed>  $data  The data to create the record with
      */
     public function create(array $data): Model
     {
@@ -77,10 +79,10 @@ abstract class BaseRepository
     /**
      * Update an existing record.
      *
-     * @param int|string $id The primary key value
-     * @param array<string, mixed> $data The data to update
+     * @param  int|string  $id  The primary key value
+     * @param  array<string, mixed>  $data  The data to update
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function update(int|string $id, array $data): Model
     {
@@ -93,9 +95,9 @@ abstract class BaseRepository
     /**
      * Delete a record.
      *
-     * @param int|string $id The primary key value
+     * @param  int|string  $id  The primary key value
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function delete(int|string $id): bool
     {
@@ -113,7 +115,7 @@ abstract class BaseRepository
     /**
      * Create a new query builder instance.
      *
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @return Builder
      */
     protected function newQuery()
     {

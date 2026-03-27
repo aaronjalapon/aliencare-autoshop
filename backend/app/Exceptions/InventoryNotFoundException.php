@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\JsonResponse;
 
 /**
  * Exception thrown when an inventory item is not found.
@@ -55,7 +56,7 @@ class InventoryNotFoundException extends Exception
     /**
      * Render the exception as an HTTP response.
      */
-    public function render(): \Illuminate\Http\JsonResponse
+    public function render(): JsonResponse
     {
         return response()->json([
             'success' => false,

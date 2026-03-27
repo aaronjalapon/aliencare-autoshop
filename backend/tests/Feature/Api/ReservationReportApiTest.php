@@ -37,7 +37,7 @@ class ReservationReportApiTest extends TestCase
                 'success',
                 'data' => [
                     'data' => [
-                        '*' => ['id', 'item_id', 'job_order_number', 'quantity_reserved'],
+                        '*' => ['id', 'item_id', 'job_order_number', 'quantity'],
                     ],
                 ],
             ]);
@@ -146,7 +146,7 @@ class ReservationReportApiTest extends TestCase
         $this->assertDatabaseHas('reservations', [
             'item_id' => $inventory->item_id,
             'job_order_number' => 'JOB-001',
-            'quantity_reserved' => 10,
+            'quantity' => 10,
         ]);
     }
 
@@ -243,7 +243,7 @@ class ReservationReportApiTest extends TestCase
         $reservation = Reservation::factory()->create([
             'item_id' => $inventory->item_id,
             'status' => 'pending',
-            'quantity_reserved' => 10,
+            'quantity' => 10,
         ]);
 
         $response = $this->actingAs($this->user)
@@ -312,7 +312,7 @@ class ReservationReportApiTest extends TestCase
         $reservation = Reservation::factory()->create([
             'item_id' => $inventory->item_id,
             'status' => 'approved',
-            'quantity_reserved' => 10,
+            'quantity' => 10,
         ]);
 
         $response = $this->actingAs($this->user)
@@ -387,7 +387,7 @@ class ReservationReportApiTest extends TestCase
                 'success',
                 'data' => [
                     'data' => [
-                        '*' => ['id', 'report_type', 'report_period'],
+                        '*' => ['id', 'report_type', 'report_date'],
                     ],
                 ],
             ]);
@@ -415,8 +415,8 @@ class ReservationReportApiTest extends TestCase
 
     public function test_report_index_filters_by_date_range(): void
     {
-        Report::factory()->create(['report_period' => '2024-01-01']);
-        Report::factory()->create(['report_period' => '2024-06-01']);
+        Report::factory()->create(['report_date' => '2024-01-01']);
+        Report::factory()->create(['report_date' => '2024-06-01']);
 
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/reports?start_date=2024-01-01&end_date=2024-03-01');
@@ -491,7 +491,8 @@ class ReservationReportApiTest extends TestCase
     {
         $response = $this->actingAs($this->user)
             ->postJson('/api/v1/reports/monthly-procurement', [
-                'month' => '2024-01',
+                'year' => 2024,
+                'month' => 1,
             ]);
 
         $response->assertStatus(200)
@@ -508,7 +509,8 @@ class ReservationReportApiTest extends TestCase
     public function test_generate_monthly_procurement_report_requires_authentication(): void
     {
         $response = $this->postJson('/api/v1/reports/monthly-procurement', [
-            'month' => '2024-01',
+            'year' => 2024,
+            'month' => 1,
         ]);
 
         $response->assertStatus(401);

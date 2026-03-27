@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Reservation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * API Resource for Reservation model.
  *
- * @mixin \App\Models\Reservation
+ * @mixin Reservation
  */
 class ReservationResource extends JsonResource
 {

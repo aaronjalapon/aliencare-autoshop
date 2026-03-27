@@ -87,7 +87,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create inventory item: ' . $e->getMessage(),
+                'message' => 'Failed to create inventory item: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -128,7 +128,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update inventory item: ' . $e->getMessage(),
+                'message' => 'Failed to update inventory item: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -148,7 +148,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to discontinue inventory item: ' . $e->getMessage(),
+                'message' => 'Failed to discontinue inventory item: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -211,7 +211,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to add stock: ' . $e->getMessage(),
+                'message' => 'Failed to add stock: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -254,7 +254,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to deduct stock: ' . $e->getMessage(),
+                'message' => 'Failed to deduct stock: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -288,7 +288,7 @@ class InventoryController extends Controller
                     'previous_stock' => $result['previous_stock'],
                     'new_stock' => $result['new_stock'],
                 ],
-                'message' => ucfirst($transactionType) . ' logged successfully',
+                'message' => ucfirst($transactionType).' logged successfully',
             ]);
         } catch (InventoryNotFoundException $e) {
             return response()->json([
@@ -303,7 +303,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to log transaction: ' . $e->getMessage(),
+                'message' => 'Failed to log transaction: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -324,7 +324,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate alerts: ' . $e->getMessage(),
+                'message' => 'Failed to generate alerts: '.$e->getMessage(),
             ], 500);
         }
     }

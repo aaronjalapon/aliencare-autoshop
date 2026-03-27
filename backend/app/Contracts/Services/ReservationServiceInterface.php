@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Contracts\Services;
 
+use App\Exceptions\InsufficientStockException;
+use App\Exceptions\InventoryNotFoundException;
 use App\Models\Reservation;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Collection;
 
 /**
  * Interface for Reservation Service operations.
@@ -26,14 +31,14 @@ interface ReservationServiceInterface
      * } $filters Optional filters to apply
      * @param  int  $perPage  Number of items per page
      */
-    public function getReservations(array $filters = [], int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator;
+    public function getReservations(array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Get a single reservation by ID.
      *
      * @param  int  $id  Reservation ID
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function getReservation(int $id): Reservation;
 
@@ -51,8 +56,8 @@ interface ReservationServiceInterface
      *     message: string
      * }
      *
-     * @throws \App\Exceptions\InventoryNotFoundException
-     * @throws \App\Exceptions\InsufficientStockException
+     * @throws InventoryNotFoundException
+     * @throws InsufficientStockException
      */
     public function reservePartsForJob(
         string $itemId,
@@ -89,7 +94,7 @@ interface ReservationServiceInterface
      * @param  int  $id  Reservation ID
      * @param  string  $approvedBy  Identity of approver
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      * @throws \InvalidArgumentException When reservation cannot be approved
      */
     public function approveReservation(int $id, string $approvedBy = 'System'): Reservation;
@@ -101,7 +106,7 @@ interface ReservationServiceInterface
      * @param  string|null  $reason  Reason for rejection
      * @param  string  $rejectedBy  Identity of who rejected
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      * @throws \InvalidArgumentException When reservation cannot be rejected
      */
     public function rejectReservation(int $id, ?string $reason = null, string $rejectedBy = 'System'): Reservation;
@@ -112,7 +117,7 @@ interface ReservationServiceInterface
      * @param  int  $id  Reservation ID
      * @param  string  $completedBy  Identity of who completed
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      * @throws \InvalidArgumentException When reservation cannot be completed
      */
     public function completeReservation(int $id, string $completedBy = 'System'): Reservation;
@@ -124,7 +129,7 @@ interface ReservationServiceInterface
      * @param  string|null  $reason  Reason for cancellation
      * @param  string  $cancelledBy  Identity of who cancelled
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      * @throws \InvalidArgumentException When reservation cannot be cancelled
      */
     public function cancelReservation(int $id, ?string $reason = null, string $cancelledBy = 'System'): Reservation;
@@ -137,7 +142,7 @@ interface ReservationServiceInterface
      *     pending: int,
      *     approved: int,
      *     total_reserved_value: float,
-     *     by_category: \Illuminate\Support\Collection
+     *     by_category: Collection
      * }
      */
     public function getActiveReservationsSummary(): array;

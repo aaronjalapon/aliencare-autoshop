@@ -6,6 +6,8 @@ namespace App\Contracts\Services;
 
 use App\Models\Report;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * Interface for Report Service operations.
@@ -25,14 +27,14 @@ interface ReportServiceInterface
      * } $filters Optional filters to apply
      * @param  int  $perPage  Number of items per page
      */
-    public function getReports(array $filters = [], int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator;
+    public function getReports(array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Get a single report by ID.
      *
      * @param  int  $id  Report ID
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function getReport(int $id): Report;
 

@@ -40,7 +40,7 @@ class TransactionArchiveApiTest extends TestCase
                 'success',
                 'data' => [
                     'data' => [
-                        '*' => ['id', 'item_id', 'transaction_type', 'quantity_change'],
+                        '*' => ['id', 'item_id', 'transaction_type', 'quantity'],
                     ],
                 ],
             ]);
@@ -379,8 +379,8 @@ class TransactionArchiveApiTest extends TestCase
             'entity_type' => 'Inventory',
             'entity_id' => 1,
             'action' => 'updated',
-            'old_values' => json_encode(['stock' => 10]),
-            'new_values' => json_encode(['stock' => 20]),
+            'old_data' => json_encode(['stock' => 10]),
+            'new_data' => json_encode(['stock' => 20]),
         ]);
 
         $response = $this->actingAs($this->user)
@@ -393,8 +393,8 @@ class TransactionArchiveApiTest extends TestCase
                     'entity_type',
                     'entity_id',
                     'action',
-                    'old_values',
-                    'new_values',
+                    'old_data',
+                    'new_data',
                 ],
             ]);
     }
@@ -415,7 +415,7 @@ class TransactionArchiveApiTest extends TestCase
         $this->assertDatabaseHas('stock_transactions', [
             'item_id' => $inventory->item_id,
             'transaction_type' => 'procurement',
-            'quantity_change' => 10,
+            'quantity' => 10,
         ]);
     }
 
@@ -442,8 +442,8 @@ class TransactionArchiveApiTest extends TestCase
             ->get();
 
         $this->assertCount(2, $transactions);
-        $this->assertEquals(50, $transactions[0]->quantity_change);
-        $this->assertEquals(-20, $transactions[1]->quantity_change);
+        $this->assertEquals(50, $transactions[0]->quantity);
+        $this->assertEquals(-20, $transactions[1]->quantity);
     }
 
     public function test_archive_records_system_changes(): void
@@ -451,8 +451,8 @@ class TransactionArchiveApiTest extends TestCase
         $inventory = Inventory::factory()->create();
 
         $this->actingAs($this->user)
-            ->putJson("/api/v1/inventory/{$inventory->id}", [
-                'part_name' => 'Updated Name',
+            ->putJson("/api/v1/inventory/{$inventory->item_id}", [
+                'item_name' => 'Updated Name',
                 'category' => $inventory->category,
             ]);
 
