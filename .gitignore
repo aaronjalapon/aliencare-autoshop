@@ -1,29 +1,49 @@
-/.phpunit.cache
-/bootstrap/ssr
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/resources/js/actions
-/resources/js/routes
-/resources/js/wayfinder
-/storage/*.key
-/storage/pail
-/vendor
+# Backend
+/backend/.phpunit.cache
+/backend/bootstrap/ssr
+/backend/node_modules
+/backend/public/build
+/backend/public/hot
+/backend/public/storage
+/backend/storage/*.key
+/backend/storage/pail
+/backend/vendor
+
+# Frontend
+/frontend/node_modules
+/frontend/dist
+/frontend/.vite
+
+# Environment files
 .env
 .env.backup
 .env.production
-.phpactor.json
-.phpunit.result.cache
-/dev-tools
-Homestead.json
-Homestead.yaml
-npm-debug.log
-yarn-error.log
-/auth.json
+
+# IDE
 /.fleet
 /.idea
 /.nova
 /.vscode
 /.zed
+
+# OS
 .DS_Store
+
+# Old root-level files (to be cleaned up)
+/node_modules
+/vendor
+/.phpunit.cache
+/.vite
+/public/build
+
+# Dev tools
+/dev-tools
+
+# Misc
+npm-debug.log
+yarn-error.log
+/auth.json
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
