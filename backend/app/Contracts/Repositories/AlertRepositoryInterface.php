@@ -6,6 +6,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\Alert;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 
 /**
@@ -19,16 +20,16 @@ interface AlertRepositoryInterface
     /**
      * Find an alert by its ID.
      *
-     * @param int $id The unique identifier for the alert
+     * @param  int  $id  The unique identifier for the alert
      */
     public function findById(int|string $id): ?Alert;
 
     /**
      * Find an alert by ID or throw an exception.
      *
-     * @param int $id The unique identifier for the alert
+     * @param  int  $id  The unique identifier for the alert
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function findByIdOrFail(int|string $id): Alert;
 
@@ -41,22 +42,22 @@ interface AlertRepositoryInterface
      *     alert_type?: string,
      *     item_id?: int
      * } $filters Optional filters to apply
-     * @param int $perPage Number of items per page
+     * @param  int  $perPage  Number of items per page
      */
     public function all(array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Create a new alert.
      *
-     * @param array<string, mixed> $data The alert data
+     * @param  array<string, mixed>  $data  The alert data
      */
     public function create(array $data): Alert;
 
     /**
      * Update an existing alert.
      *
-     * @param int $id The unique identifier for the alert
-     * @param array<string, mixed> $data The data to update
+     * @param  int  $id  The unique identifier for the alert
+     * @param  array<string, mixed>  $data  The data to update
      */
     public function update(int|string $id, array $data): Alert;
 
@@ -68,23 +69,22 @@ interface AlertRepositoryInterface
     /**
      * Get alerts by urgency level.
      *
-     * @param string $urgency The urgency level (low, medium, high, critical)
+     * @param  string  $urgency  The urgency level (low, medium, high, critical)
      */
     public function getByUrgency(string $urgency): Collection;
 
     /**
      * Find an existing low stock alert for an inventory item.
      *
-     * @param int $itemId The inventory item ID
+     * @param  int  $itemId  The inventory item ID
      */
     public function findExistingLowStockAlert(int $itemId): ?Alert;
 
     /**
      * Bulk acknowledge multiple alerts.
      *
-     * @param array<int> $ids Array of alert IDs to acknowledge
-     * @param string $acknowledgedBy Identity of who acknowledged the alerts
-     *
+     * @param  array<int>  $ids  Array of alert IDs to acknowledge
+     * @param  string  $acknowledgedBy  Identity of who acknowledged the alerts
      * @return int Number of alerts acknowledged
      */
     public function bulkAcknowledge(array $ids, string $acknowledgedBy): int;
@@ -92,8 +92,7 @@ interface AlertRepositoryInterface
     /**
      * Delete old acknowledged alerts.
      *
-     * @param int $daysOld Delete alerts acknowledged more than this many days ago
-     *
+     * @param  int  $daysOld  Delete alerts acknowledged more than this many days ago
      * @return int Number of alerts deleted
      */
     public function cleanupOldAlerts(int $daysOld): int;

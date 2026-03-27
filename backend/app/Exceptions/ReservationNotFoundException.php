@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\JsonResponse;
 
 /**
  * Exception thrown when a reservation is not found.
@@ -19,10 +20,10 @@ class ReservationNotFoundException extends Exception
     /**
      * Create a new exception instance.
      *
-     * @param int $reservationId The reservation ID that was not found
-     * @param string|null $message Custom error message
-     * @param int $code HTTP status code
-     * @param \Throwable|null $previous Previous exception
+     * @param  int  $reservationId  The reservation ID that was not found
+     * @param  string|null  $message  Custom error message
+     * @param  int  $code  HTTP status code
+     * @param  \Throwable|null  $previous  Previous exception
      */
     public function __construct(
         int $reservationId,
@@ -55,7 +56,7 @@ class ReservationNotFoundException extends Exception
     /**
      * Render the exception as an HTTP response.
      */
-    public function render(): \Illuminate\Http\JsonResponse
+    public function render(): JsonResponse
     {
         return response()->json([
             'success' => false,

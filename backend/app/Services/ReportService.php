@@ -139,7 +139,7 @@ class ReportService implements ReportServiceInterface
         $activeItems = $this->inventoryRepository->getActiveItems();
         $transactions = $this->transactionRepository->getByDateRange($startDate, $endDate);
 
-        $reconciliation = $activeItems->map(function ($item) use ($transactions, $startDate) {
+        $reconciliation = $activeItems->map(function ($item) use ($transactions) {
             $itemTransactions = $transactions->where('item_id', $item->item_id);
 
             $totalIn = $itemTransactions->filter(fn ($t) => $t->quantity > 0)->sum('quantity');
@@ -174,6 +174,7 @@ class ReportService implements ReportServiceInterface
             'items_with_discrepancy' => $discrepancies->count(),
             'total_discrepancy_value' => $discrepancies->sum(function ($item) use ($activeItems) {
                 $inventory = $activeItems->firstWhere('item_id', $item['item_id']);
+
                 return abs($item['discrepancy']) * ($inventory->unit_price ?? 0);
             }),
             'discrepancies' => $discrepancies->take(20)->values(),

@@ -6,8 +6,12 @@ namespace App\Console\Commands;
 
 use App\Events\LowStockAlert;
 use App\Jobs\GenerateAutomatedReports;
+use App\Models\Archive;
 use App\Models\Inventory;
+use App\Models\Report;
+use App\Models\Reservation;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class RunInventoryMaintenance extends Command
 {
@@ -120,8 +124,8 @@ class RunInventoryMaintenance extends Command
         // Clean up old reports (keep last 12 months)
         $cutoffDate = now()->subMonths(12);
 
-        $deletedReports = \App\Models\Report::where('generated_date', '<', $cutoffDate)->count();
-        \App\Models\Report::where('generated_date', '<', $cutoffDate)->delete();
+        $deletedReports = Report::where('generated_date', '<', $cutoffDate)->count();
+        Report::where('generated_date', '<', $cutoffDate)->delete();
 
         if ($deletedReports > 0) {
             $this->line("✓ Deleted {$deletedReports} old reports");
@@ -130,16 +134,16 @@ class RunInventoryMaintenance extends Command
         // Clean up old archive entries (keep last 24 months)
         $archiveCutoffDate = now()->subMonths(24);
 
-        $deletedArchives = \App\Models\Archive::where('archived_date', '<', $archiveCutoffDate)->count();
-        \App\Models\Archive::where('archived_date', '<', $archiveCutoffDate)->delete();
+        $deletedArchives = Archive::where('archived_date', '<', $archiveCutoffDate)->count();
+        Archive::where('archived_date', '<', $archiveCutoffDate)->delete();
 
         if ($deletedArchives > 0) {
             $this->line("✓ Deleted {$deletedArchives} old archive entries");
         }
 
         // Clean up expired reservations
-        $expiredReservations = \App\Models\Reservation::expired()->count();
-        \App\Models\Reservation::expired()->update(['status' => 'cancelled']);
+        $expiredReservations = Reservation::expired()->count();
+        Reservation::expired()->update(['status' => 'cancelled']);
 
         if ($expiredReservations > 0) {
             $this->line("✓ Cancelled {$expiredReservations} expired reservations");
@@ -156,7 +160,7 @@ class RunInventoryMaintenance extends Command
         $totalItems = Inventory::active()->count();
         $lowStockCount = Inventory::lowStock()->active()->count();
         $outOfStockCount = Inventory::where('stock', 0)->active()->count();
-        $totalValue = Inventory::active()->sum(\Illuminate\Support\Facades\DB::raw('stock * unit_price'));
+        $totalValue = Inventory::active()->sum(DB::raw('stock * unit_price'));
 
         $healthScore = $this->calculateInventoryHealthScore($totalItems, $lowStockCount, $outOfStockCount);
 

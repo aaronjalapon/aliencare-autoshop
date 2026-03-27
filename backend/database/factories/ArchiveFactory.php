@@ -6,7 +6,7 @@ use App\Models\Archive;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Archive>
+ * @extends Factory<Archive>
  */
 class ArchiveFactory extends Factory
 {
@@ -26,7 +26,7 @@ class ArchiveFactory extends Factory
             'old_data' => json_encode(['stock' => fake()->numberBetween(0, 50)]),
             'new_data' => json_encode(['stock' => fake()->numberBetween(0, 100)]),
             'user_id' => null,
-            'reference_number' => 'REF-' . fake()->unique()->numberBetween(1000, 9999),
+            'reference_number' => 'REF-'.fake()->unique()->numberBetween(1000, 9999),
             'notes' => fake()->optional()->sentence(),
             'archived_date' => fake()->dateTimeBetween('-1 year', 'now'),
         ];

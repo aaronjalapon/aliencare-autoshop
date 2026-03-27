@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
+use App\Events\LowStockAlert;
 use App\Events\StockUpdated;
 use App\Models\Archive;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -55,7 +56,7 @@ class LogStockTransaction implements ShouldQueue
             // Check for low stock and fire alert if needed
             if ($event->inventory->isLowStock()) {
                 Log::info("Low stock detected for {$event->inventory->item_id}, firing alert event");
-                event(new \App\Events\LowStockAlert($event->inventory));
+                event(new LowStockAlert($event->inventory));
             }
 
         } catch (\Exception $e) {

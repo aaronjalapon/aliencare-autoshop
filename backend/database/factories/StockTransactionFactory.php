@@ -9,7 +9,7 @@ use App\Models\StockTransaction;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\StockTransaction>
+ * @extends Factory<StockTransaction>
  */
 class StockTransactionFactory extends Factory
 {

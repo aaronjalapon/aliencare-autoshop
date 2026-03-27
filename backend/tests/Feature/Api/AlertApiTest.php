@@ -78,7 +78,7 @@ class AlertApiTest extends TestCase
     public function test_index_filters_by_alert_type(): void
     {
         Alert::factory()->create(['alert_type' => 'low_stock']);
-        Alert::factory()->create(['alert_type' => 'critical_stock']);
+        Alert::factory()->create(['alert_type' => 'out_of_stock']);
 
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/alerts?alert_type=low_stock');
@@ -107,6 +107,7 @@ class AlertApiTest extends TestCase
         Inventory::factory()->create([
             'stock' => 5,
             'reorder_level' => 10,
+            'status' => 'active',
         ]);
 
         $response = $this->actingAs($this->user)
@@ -132,6 +133,7 @@ class AlertApiTest extends TestCase
         $inventory = Inventory::factory()->create([
             'stock' => 5,
             'reorder_level' => 10,
+            'status' => 'active',
         ]);
 
         // Generate alerts twice

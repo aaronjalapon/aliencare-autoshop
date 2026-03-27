@@ -30,21 +30,28 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install Node Dependencies
         run: npm ci
+        working-directory: frontend
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        working-directory: backend
 
       - name: Build Assets
         run: npm run build
+        working-directory: frontend
 
       - name: Copy Environment File
         run: cp .env.example .env
+        working-directory: backend
 
       - name: Generate Application Key
         run: php artisan key:generate
+        working-directory: backend
 
       - name: Tests
         run: ./vendor/bin/pest
+        working-directory: backend

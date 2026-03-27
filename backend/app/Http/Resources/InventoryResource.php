@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Inventory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * API Resource for Inventory model.
  *
- * @mixin \App\Models\Inventory
+ * @mixin Inventory
  */
 class InventoryResource extends JsonResource
 {
@@ -22,7 +23,7 @@ class InventoryResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->item_id,
             'item_id' => $this->item_id,
             'item_name' => $this->item_name,
             'description' => $this->description,

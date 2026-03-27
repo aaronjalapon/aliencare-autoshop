@@ -27,7 +27,7 @@ class InventoryService implements InventoryServiceInterface
     /**
      * Check stock levels and return status.
      *
-     * @param  string  $itemId  The unique identifier for the inventory item
+     * @param  int|string  $itemId  The unique identifier for the inventory item
      * @param  int  $requestedQuantity  The quantity being requested (default: 1)
      * @return array{
      *     item_id: string,
@@ -45,8 +45,9 @@ class InventoryService implements InventoryServiceInterface
      *
      * @throws InventoryNotFoundException When item does not exist
      */
-    public function checkStockStatus(string $itemId, int $requestedQuantity = 1): array
+    public function checkStockStatus(int|string $itemId, int $requestedQuantity = 1): array
     {
+        $itemId = $this->normalizeItemId($itemId);
         $this->validateItemId($itemId);
 
         $inventory = Inventory::where('item_id', $itemId)->first();
@@ -76,7 +77,7 @@ class InventoryService implements InventoryServiceInterface
     /**
      * Process stock adjustment with full transaction logging.
      *
-     * @param  string  $itemId  The unique identifier for the inventory item
+     * @param  int|string  $itemId  The unique identifier for the inventory item
      * @param  int  $quantity  Positive for stock increase, negative for decrease
      * @param  string  $transactionType  Type of transaction (sale, procurement, etc.)
      * @param  string|null  $referenceNumber  Optional reference number for tracking
@@ -94,13 +95,14 @@ class InventoryService implements InventoryServiceInterface
      * @throws InsufficientStockException When stock is insufficient for deduction
      */
     public function adjustStock(
-        string $itemId,
+        int|string $itemId,
         int $quantity,
         string $transactionType,
         ?string $referenceNumber = null,
         ?string $notes = null,
         string $createdBy = 'System'
     ): array {
+        $itemId = $this->normalizeItemId($itemId);
         $this->validateItemId($itemId);
         $this->validateQuantity($quantity);
         $this->validateTransactionType($transactionType);
@@ -247,7 +249,7 @@ class InventoryService implements InventoryServiceInterface
     /**
      * Forecast demand for an item based on historical data.
      *
-     * @param  string  $itemId  The unique identifier for the inventory item
+     * @param  int|string  $itemId  The unique identifier for the inventory item
      * @param  int  $forecastDays  Number of days to forecast (default: from config)
      * @return array{
      *     item_id: string,
@@ -266,8 +268,9 @@ class InventoryService implements InventoryServiceInterface
      *
      * @throws InventoryNotFoundException When item does not exist
      */
-    public function forecastDemand(string $itemId, int $forecastDays = 0): array
+    public function forecastDemand(int|string $itemId, int $forecastDays = 0): array
     {
+        $itemId = $this->normalizeItemId($itemId);
         $this->validateItemId($itemId);
 
         // Use config default if not specified
@@ -306,6 +309,14 @@ class InventoryService implements InventoryServiceInterface
         if (empty(trim($itemId))) {
             throw new \InvalidArgumentException('Item ID cannot be empty');
         }
+    }
+
+    /**
+     * Normalize item IDs to a string value used by queries and exceptions.
+     */
+    private function normalizeItemId(int|string $itemId): string
+    {
+        return (string) $itemId;
     }
 
     /**

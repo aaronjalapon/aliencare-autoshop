@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\JsonResponse;
 
 /**
  * Exception thrown when report generation fails.
@@ -24,11 +25,11 @@ class ReportGenerationException extends Exception
     /**
      * Create a new exception instance.
      *
-     * @param string $reportType The type of report
-     * @param string|null $message Custom error message
-     * @param array|null $context Additional context about the failure
-     * @param int $code HTTP status code
-     * @param \Throwable|null $previous Previous exception
+     * @param  string  $reportType  The type of report
+     * @param  string|null  $message  Custom error message
+     * @param  array|null  $context  Additional context about the failure
+     * @param  int  $code  HTTP status code
+     * @param  \Throwable|null  $previous  Previous exception
      */
     public function __construct(
         string $reportType,
@@ -72,7 +73,7 @@ class ReportGenerationException extends Exception
     /**
      * Render the exception as an HTTP response.
      */
-    public function render(): \Illuminate\Http\JsonResponse
+    public function render(): JsonResponse
     {
         $response = [
             'success' => false,

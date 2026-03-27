@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Contracts\Services;
 
 use App\Models\Alert;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Collection;
 
 /**
  * Interface for Alert Service operations.
@@ -25,7 +28,7 @@ interface AlertServiceInterface
      * } $filters Optional filters to apply
      * @param  int  $perPage  Number of items per page
      */
-    public function getAlerts(array $filters = [], int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator;
+    public function getAlerts(array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Generate low stock alerts for items below reorder level.
@@ -33,7 +36,7 @@ interface AlertServiceInterface
      * @return array{
      *     created: int,
      *     updated: int,
-     *     alerts: \Illuminate\Support\Collection
+     *     alerts: Collection
      * }
      */
     public function generateLowStockAlerts(): array;
@@ -45,7 +48,7 @@ interface AlertServiceInterface
      *     total_unacknowledged: int,
      *     by_urgency: array,
      *     by_type: array,
-     *     recent_alerts: \Illuminate\Support\Collection
+     *     recent_alerts: Collection
      * }
      */
     public function getAlertStatistics(): array;
@@ -57,7 +60,7 @@ interface AlertServiceInterface
      * @param  string  $acknowledgedBy  Identity of who acknowledged
      * @param  string|null  $notes  Optional notes
      *
-     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     * @throws ModelNotFoundException
      */
     public function acknowledgeAlert(int $id, string $acknowledgedBy = 'System', ?string $notes = null): Alert;
 
@@ -69,7 +72,7 @@ interface AlertServiceInterface
      * @return array{
      *     acknowledged_count: int,
      *     failed_count: int,
-     *     alerts: \Illuminate\Support\Collection
+     *     alerts: Collection
      * }
      */
     public function bulkAcknowledgeAlerts(array $ids, string $acknowledgedBy = 'System'): array;

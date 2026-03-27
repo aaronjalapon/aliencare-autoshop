@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use App\Events\LowStockAlert;
+use App\Models\Alert;
 use App\Models\Report;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -71,7 +72,7 @@ class HandleLowStockAlert implements ShouldQueue
                 ? "CRITICAL: {$inventory->item_name} is out of stock! Immediate restocking required."
                 : "HIGH PRIORITY: {$inventory->item_name} stock is critically low ({$inventory->stock} units remaining).";
 
-            \App\Models\Alert::firstOrCreate(
+            Alert::firstOrCreate(
                 [
                     'item_id' => $inventory->item_id,
                     'alert_type' => $alertType,

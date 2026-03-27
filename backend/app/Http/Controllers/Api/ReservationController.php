@@ -251,7 +251,7 @@ class ReservationController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch summary: ' . $e->getMessage(),
+                'message' => 'Failed to fetch summary: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -282,7 +282,7 @@ class ReservationController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create multiple reservations: ' . $e->getMessage(),
+                'message' => 'Failed to create multiple reservations: '.$e->getMessage(),
             ], 500);
         }
     }
