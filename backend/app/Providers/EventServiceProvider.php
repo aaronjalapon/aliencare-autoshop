@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Events\CustomerAccountApproved;
+use App\Events\CustomerAccountCreated;
+use App\Events\CustomerAccountRejected;
 use App\Events\LowStockAlert;
 use App\Events\ReservationUpdated;
 use App\Events\StockUpdated;
 use App\Listeners\HandleLowStockAlert;
 use App\Listeners\LogReservationActivity;
 use App\Listeners\LogStockTransaction;
+use App\Listeners\NotifyCustomerOfApproval;
+use App\Listeners\NotifyCustomerOfRejection;
+use App\Listeners\NotifyFrontDeskOfPendingAccount;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -38,6 +44,19 @@ class EventServiceProvider extends ServiceProvider
 
         ReservationUpdated::class => [
             LogReservationActivity::class,
+        ],
+
+        // CIM Events
+        CustomerAccountCreated::class => [
+            NotifyFrontDeskOfPendingAccount::class,
+        ],
+
+        CustomerAccountApproved::class => [
+            NotifyCustomerOfApproval::class,
+        ],
+
+        CustomerAccountRejected::class => [
+            NotifyCustomerOfRejection::class,
         ],
     ];
 

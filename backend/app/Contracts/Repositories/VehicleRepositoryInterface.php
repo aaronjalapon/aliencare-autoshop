@@ -6,6 +6,7 @@ namespace App\Contracts\Repositories;
 
 use App\Models\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 interface VehicleRepositoryInterface
 {
@@ -27,4 +28,15 @@ interface VehicleRepositoryInterface
      * @param  array<string, mixed>  $data
      */
     public function update(int|string $id, array $data): Vehicle;
+
+    /**
+     * @return Collection<int, Vehicle>
+     */
+    public function getByCustomer(int $customerId): Collection;
+
+    public function approveVehicle(int $vehicleId, int $approvedBy): Vehicle;
+
+    public function rejectVehicle(int $vehicleId): void;
+
+    public function deleteVehicle(int $vehicleId): void;
 }

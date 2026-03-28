@@ -22,14 +22,21 @@ class CustomerFactory extends Factory
             'email' => $this->faker->unique()->safeEmail(),
             'phone_number' => $this->faker->phoneNumber(),
             'license_number' => $this->faker->optional(0.7)->bothify('??-####-#######'),
-            'status' => 'active',
+            'account_status' => 'approved',
         ];
     }
 
-    public function inactive(): static
+    public function pending(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'inactive',
+            'account_status' => 'pending',
+        ]);
+    }
+
+    public function rejected(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_status' => 'rejected',
         ]);
     }
 }

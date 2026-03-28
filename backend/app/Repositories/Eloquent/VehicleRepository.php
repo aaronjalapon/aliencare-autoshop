@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Repositories\Eloquent;
 
 use App\Contracts\Repositories\VehicleRepositoryInterface;
+use App\Enums\VehicleApprovalStatus;
 use App\Models\Vehicle;
 use App\Repositories\BaseRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class VehicleRepository extends BaseRepository implements VehicleRepositoryInterface
 {
@@ -57,5 +59,36 @@ class VehicleRepository extends BaseRepository implements VehicleRepositoryInter
         $record->update($data);
 
         return $record->fresh('customer');
+    }
+
+    public function getByCustomer(int $customerId): Collection
+    {
+        return $this->model->where('customer_id', $customerId)->get();
+    }
+
+    public function approveVehicle(int $vehicleId, int $approvedBy): Vehicle
+    {
+        $vehicle = $this->model->findOrFail($vehicleId);
+        $vehicle->update([
+            'approval_status' => VehicleApprovalStatus::Approved,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+        ]);
+
+        return $vehicle->fresh('customer');
+    }
+
+    public function rejectVehicle(int $vehicleId): void
+    {
+        $vehicle = $this->model->findOrFail($vehicleId);
+        $vehicle->update([
+            'approval_status' => VehicleApprovalStatus::Rejected,
+        ]);
+    }
+
+    public function deleteVehicle(int $vehicleId): void
+    {
+        $vehicle = $this->model->findOrFail($vehicleId);
+        $vehicle->delete();
     }
 }

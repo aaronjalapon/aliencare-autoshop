@@ -19,6 +19,13 @@ class VehicleResource extends JsonResource
             'model' => $this->model,
             'year' => $this->year,
             'color' => $this->color,
+            'vin' => $this->vin,
+            'approval_status' => $this->approval_status,
+            'approved_by' => $this->when($this->relationLoaded('approvedBy') && $this->approvedBy, [
+                'id' => $this->approvedBy?->id,
+                'name' => $this->approvedBy?->name,
+            ]),
+            'approved_at' => $this->approved_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
 

@@ -19,9 +19,13 @@ class JobOrderApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Customer $customer;
+
     private Vehicle $vehicle;
+
     private Mechanic $mechanic;
+
     private Bay $bay;
 
     protected function setUp(): void

@@ -19,7 +19,14 @@ class CustomerResource extends JsonResource
             'email' => $this->email,
             'phone_number' => $this->phone_number,
             'license_number' => $this->license_number,
-            'status' => $this->status,
+            'account_status' => $this->account_status,
+            'approved_by' => $this->when($this->relationLoaded('approvedBy') && $this->approvedBy, [
+                'id' => $this->approvedBy?->id,
+                'name' => $this->approvedBy?->name,
+            ]),
+            'approved_at' => $this->approved_at?->toISOString(),
+            'rejection_reason' => $this->rejection_reason,
+            'vehicles_count' => $this->when($this->vehicles_count !== null, $this->vehicles_count),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
 

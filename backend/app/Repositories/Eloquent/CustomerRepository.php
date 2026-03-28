@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Repositories\Eloquent;
 
 use App\Contracts\Repositories\CustomerRepositoryInterface;
+use App\Enums\AccountStatus;
 use App\Models\Customer;
+use App\Models\CustomerAuditLog;
+use App\Models\CustomerTransaction;
 use App\Repositories\BaseRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
@@ -30,8 +33,8 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
     {
         $query = $this->model->newQuery();
 
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+        if (isset($filters['account_status'])) {
+            $query->where('account_status', $filters['account_status']);
         }
 
         if (isset($filters['search'])) {
@@ -58,5 +61,90 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
         $record->update($data);
 
         return $record->fresh();
+    }
+
+    public function registerCustomer(array $data): Customer
+    {
+        $data['account_status'] = AccountStatus::Pending;
+
+        return $this->model->create($data);
+    }
+
+    public function approveAccount(int $customerId, int $approvedBy): Customer
+    {
+        $customer = $this->model->findOrFail($customerId);
+        $customer->update([
+            'account_status' => AccountStatus::Approved,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'rejection_reason' => null,
+        ]);
+
+        return $customer->fresh();
+    }
+
+    public function rejectAccount(int $customerId, string $reason): void
+    {
+        $customer = $this->model->findOrFail($customerId);
+        $customer->update([
+            'account_status' => AccountStatus::Rejected,
+            'rejection_reason' => $reason,
+        ]);
+    }
+
+    public function softDelete(int $customerId): void
+    {
+        $customer = $this->model->findOrFail($customerId);
+        $customer->update(['account_status' => AccountStatus::Deleted]);
+        $customer->delete();
+    }
+
+    public function updatePersonalInfo(int $customerId, array $data): Customer
+    {
+        $customer = $this->model->findOrFail($customerId);
+        $customer->update($data);
+
+        return $customer->fresh();
+    }
+
+    public function getAuditLog(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = CustomerAuditLog::where('customer_id', $customerId);
+
+        if (isset($filters['action'])) {
+            $query->where('action', $filters['action']);
+        }
+
+        if (isset($filters['entity_type'])) {
+            $query->where('entity_type', $filters['entity_type']);
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+    }
+
+    public function getTransactions(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = CustomerTransaction::where('customer_id', $customerId);
+
+        if (isset($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+    }
+
+    public function linkTransaction(int $customerId, array $data): CustomerTransaction
+    {
+        $data['customer_id'] = $customerId;
+
+        return CustomerTransaction::create($data);
+    }
+
+    public function findPendingAccounts(int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->model->newQuery()
+            ->where('account_status', AccountStatus::Pending)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
     }
 }

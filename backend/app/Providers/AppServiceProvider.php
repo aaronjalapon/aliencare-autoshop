@@ -14,10 +14,12 @@ use App\Contracts\Repositories\ReservationRepositoryInterface;
 use App\Contracts\Repositories\StockTransactionRepositoryInterface;
 use App\Contracts\Repositories\VehicleRepositoryInterface;
 use App\Contracts\Services\AlertServiceInterface;
+use App\Contracts\Services\CustomerServiceInterface;
 use App\Contracts\Services\InventoryServiceInterface;
 use App\Contracts\Services\JobOrderServiceInterface;
 use App\Contracts\Services\ReportServiceInterface;
 use App\Contracts\Services\ReservationServiceInterface;
+use App\Contracts\Services\VehicleServiceInterface;
 use App\Models\User;
 use App\Repositories\Eloquent\AlertRepository;
 use App\Repositories\Eloquent\ArchiveRepository;
@@ -29,10 +31,12 @@ use App\Repositories\Eloquent\ReservationRepository;
 use App\Repositories\Eloquent\StockTransactionRepository;
 use App\Repositories\Eloquent\VehicleRepository;
 use App\Services\AlertService;
+use App\Services\CustomerService;
 use App\Services\InventoryService;
 use App\Services\JobOrderService;
 use App\Services\ReportService;
 use App\Services\ReservationService;
+use App\Services\VehicleService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -69,6 +73,8 @@ class AppServiceProvider extends ServiceProvider
         ReportServiceInterface::class => ReportService::class,
         AlertServiceInterface::class => AlertService::class,
         JobOrderServiceInterface::class => JobOrderService::class,
+        CustomerServiceInterface::class => CustomerService::class,
+        VehicleServiceInterface::class => VehicleService::class,
     ];
 
     /**
@@ -96,6 +102,14 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('view-reports', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('generate-reports', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+
+        // CIM gates
+        Gate::define('approve-customers', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('reject-customers', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('delete-customers', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('approve-vehicles', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('view-audit-logs', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('link-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
     }
 
     private function canAccessSensitiveEndpoints(User $user): bool

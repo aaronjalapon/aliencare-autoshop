@@ -35,6 +35,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'index'])->name('health.check');
 
+// Public customer self-registration
+Route::post('/v1/customers/register', [CustomerController::class, 'register'])->name('api.v1.customers.register');
+
 /*
 |--------------------------------------------------------------------------
 | Authentication Routes
@@ -174,11 +177,25 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::post('/', [CustomerController::class, 'store'])->name('store');
         Route::get('/{id}', [CustomerController::class, 'show'])->name('show');
         Route::put('/{id}', [CustomerController::class, 'update'])->name('update');
+        Route::put('/{id}/approve', [CustomerController::class, 'approve'])->name('approve');
+        Route::put('/{id}/reject', [CustomerController::class, 'reject'])->name('reject');
+        Route::put('/{id}/request-delete', [CustomerController::class, 'requestDelete'])->name('request-delete');
+        Route::delete('/{id}', [CustomerController::class, 'destroy'])->name('destroy');
+        Route::put('/{id}/personal-info', [CustomerController::class, 'updatePersonalInfo'])->name('personal-info');
+        Route::get('/{id}/audit-log', [CustomerController::class, 'auditLog'])->name('audit-log');
+        Route::get('/{id}/transactions', [CustomerController::class, 'transactions'])->name('transactions');
+        Route::post('/{id}/transactions', [CustomerController::class, 'linkTransaction'])->name('link-transaction');
+        Route::get('/{id}/vehicles', [CustomerController::class, 'vehicles'])->name('vehicles');
+        Route::post('/{id}/vehicles', [VehicleController::class, 'storeForCustomer'])->name('vehicles.store');
+        Route::get('/{id}/job-orders', [CustomerController::class, 'jobOrders'])->name('job-orders');
     });
 
     Route::prefix('vehicles')->name('vehicles.')->group(function () {
         Route::get('/', [VehicleController::class, 'index'])->name('index');
         Route::post('/', [VehicleController::class, 'store'])->name('store');
+        Route::put('/{id}', [VehicleController::class, 'update'])->name('update');
+        Route::put('/{id}/approve', [VehicleController::class, 'approve'])->name('approve');
+        Route::delete('/{id}', [VehicleController::class, 'destroy'])->name('destroy');
     });
 
     Route::get('/bays', [BayController::class, 'index'])->name('bays.index');

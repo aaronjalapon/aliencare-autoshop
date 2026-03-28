@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Contracts\Repositories;
 
 use App\Models\Customer;
+use App\Models\CustomerTransaction;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface CustomerRepositoryInterface
@@ -27,4 +28,37 @@ interface CustomerRepositoryInterface
      * @param  array<string, mixed>  $data
      */
     public function update(int|string $id, array $data): Customer;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function registerCustomer(array $data): Customer;
+
+    public function approveAccount(int $customerId, int $approvedBy): Customer;
+
+    public function rejectAccount(int $customerId, string $reason): void;
+
+    public function softDelete(int $customerId): void;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updatePersonalInfo(int $customerId, array $data): Customer;
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function getAuditLog(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator;
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function getTransactions(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function linkTransaction(int $customerId, array $data): CustomerTransaction;
+
+    public function findPendingAccounts(int $perPage = 15): LengthAwarePaginator;
 }
