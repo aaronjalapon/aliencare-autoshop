@@ -8,6 +8,7 @@ import SettingsLayout from '@/components/layout/settings/layout';
 
 // Public pages
 import AboutUs from '@/pages/aboutus';
+import FAQs from '@/pages/faqs';
 import Welcome from '@/pages/welcome';
 
 // Auth pages
@@ -33,17 +34,12 @@ export default function App() {
             {/* Public routes */}
             <Route path="/" element={<Welcome />} />
             <Route path="/about" element={<AboutUs />} />
+            <Route path="/faqs" element={<FAQs />} />
 
             {/* Guest-only routes (auth) */}
-            <Route
-                element={
-                    <GuestRoute>
-                        <AuthLayout />
-                    </GuestRoute>
-                }
-            >
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+            <Route element={<GuestRoute><Login /></GuestRoute>} path="/login" />
+            <Route element={<GuestRoute><Register /></GuestRoute>} path="/register" />
+            <Route element={<GuestRoute><AuthLayout /></GuestRoute>}>
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
             </Route>
