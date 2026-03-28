@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
         // Seed inventory management data
         $this->call([
             InventorySeeder::class,
+            JobOrderSeeder::class,
         ]);
     }
 }

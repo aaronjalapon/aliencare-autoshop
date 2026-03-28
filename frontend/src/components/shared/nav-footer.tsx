@@ -1,7 +1,7 @@
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
-import { Link } from 'react-router-dom';
 import { type ComponentPropsWithoutRef } from 'react';
+import { Link } from 'react-router-dom';
 
 export function NavFooter({
     items,

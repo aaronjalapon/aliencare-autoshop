@@ -1,14 +1,14 @@
-import { FormEvent, useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { authService } from '@/services/authService';
-import { ApiError } from '@/services/api';
-import { flattenValidationErrors } from '@/lib/validation-errors';
+import AuthLayout from '@/components/layout/auth-layout';
 import InputError from '@/components/shared/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AuthLayout from '@/components/layout/auth-layout';
+import { flattenValidationErrors } from '@/lib/validation-errors';
+import { ApiError } from '@/services/api';
+import { authService } from '@/services/authService';
 import { LoaderCircle } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 export default function ResetPassword() {
     const { token } = useParams<{ token: string }>();

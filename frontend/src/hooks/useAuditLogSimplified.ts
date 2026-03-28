@@ -31,7 +31,7 @@ interface UseAuditLogReturn {
 const DEFAULT_FILTERS: AuditLogFilters = {
     per_page: 50,
     page: 1,
-    entity_type: 'all'
+    entity_type: 'all',
 };
 
 const DEFAULT_STATS: AuditStats = {
@@ -41,7 +41,7 @@ const DEFAULT_STATS: AuditStats = {
     month_transactions: 0,
     unique_users: 0,
     transaction_types: [],
-    users: []
+    users: [],
 };
 
 export function useAuditLog(initialFilters: AuditLogFilters = {}): UseAuditLogReturn {
@@ -56,30 +56,32 @@ export function useAuditLog(initialFilters: AuditLogFilters = {}): UseAuditLogRe
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     // Fetch audit data
-    const fetchAuditData = useCallback(async (showRefreshing = false) => {
-        try {
-            if (showRefreshing) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
+    const fetchAuditData = useCallback(
+        async (showRefreshing = false) => {
+            try {
+                if (showRefreshing) {
+                    setRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
+                setError(null);
+
+                const data = await auditService.getCombinedAuditData(filters);
+
+                setTransactions(data.transactions);
+                setArchives(data.archives);
+                setStats(data.stats);
+                setLastUpdated(new Date());
+            } catch (err) {
+                console.error('Error fetching audit data:', err);
+                setError(err instanceof Error ? err.message : 'An error occurred while fetching audit data');
+            } finally {
+                setLoading(false);
+                setRefreshing(false);
             }
-            setError(null);
-
-            const data = await auditService.getCombinedAuditData(filters);
-
-            setTransactions(data.transactions);
-            setArchives(data.archives);
-            setStats(data.stats);
-            setLastUpdated(new Date());
-
-        } catch (err) {
-            console.error('Error fetching audit data:', err);
-            setError(err instanceof Error ? err.message : 'An error occurred while fetching audit data');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, [filters]);
+        },
+        [filters],
+    );
 
     // Manual refresh function
     const refresh = useCallback(async () => {
@@ -88,7 +90,7 @@ export function useAuditLog(initialFilters: AuditLogFilters = {}): UseAuditLogRe
 
     // Update filters
     const updateFilters = useCallback((newFilters: AuditLogFilters) => {
-        setFilters(prev => ({ ...prev, ...newFilters }));
+        setFilters((prev) => ({ ...prev, ...newFilters }));
     }, []);
 
     // Initial data fetch
@@ -115,6 +117,6 @@ export function useAuditLog(initialFilters: AuditLogFilters = {}): UseAuditLogRe
         filters,
 
         // Status
-        lastUpdated
+        lastUpdated,
     };
 }

@@ -1,13 +1,13 @@
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
-import { Link, useLocation } from 'react-router-dom';
 import { LucideBell, Search, Settings, UserCircle2 } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 export function NavMain({ items = [] }: { items: NavItem[] }) {
     const { pathname } = useLocation();
     return (
         <SidebarGroup className="-mt-2 px-2 py-0">
-            <SidebarGroupLabel className="mb-0 justify-center text-center text-sidebar-primary text-base">Front Desk</SidebarGroupLabel>
+            <SidebarGroupLabel className="mb-0 justify-center text-center text-base text-sidebar-primary">Front Desk</SidebarGroupLabel>
 
             {/* Icons Row */}
             <div className="flex items-center justify-center gap-4 px-2 pb-2">

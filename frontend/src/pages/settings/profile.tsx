@@ -1,19 +1,19 @@
-import { FormEvent, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { authService } from '@/services/authService';
-import { ApiError } from '@/services/api';
 import { flattenValidationErrors } from '@/lib/validation-errors';
+import { ApiError } from '@/services/api';
+import { authService } from '@/services/authService';
 import { type BreadcrumbItem } from '@/types';
 import { Transition } from '@headlessui/react';
+import { FormEvent, useState } from 'react';
 
+import AppLayout from '@/components/layout/app-layout';
+import SettingsLayout from '@/components/layout/settings/layout';
 import DeleteUser from '@/components/shared/delete-user';
 import HeadingSmall from '@/components/shared/heading-small';
 import InputError from '@/components/shared/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/components/layout/app-layout';
-import SettingsLayout from '@/components/layout/settings/layout';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {

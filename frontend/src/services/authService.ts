@@ -1,5 +1,5 @@
-import { api } from './api';
 import { User } from '@/types';
+import { api } from './api';
 
 export interface LoginData {
     email: string;
@@ -69,11 +69,7 @@ class AuthService {
         return api.patch('/settings/profile', data);
     }
 
-    async updatePassword(data: {
-        current_password: string;
-        password: string;
-        password_confirmation: string;
-    }): Promise<{ message: string }> {
+    async updatePassword(data: { current_password: string; password: string; password_confirmation: string }): Promise<{ message: string }> {
         return api.put('/settings/password', data);
     }
 

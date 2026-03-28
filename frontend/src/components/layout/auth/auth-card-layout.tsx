@@ -1,7 +1,7 @@
 import AppLogoIcon from '@/components/shared/app-logo-icon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Link } from 'react-router-dom';
 import { type PropsWithChildren } from 'react';
+import { Link } from 'react-router-dom';
 
 export default function AuthCardLayout({
     children,

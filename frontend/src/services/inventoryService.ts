@@ -3,8 +3,8 @@
  * Handles all inventory-related API calls to Laravel backend
  */
 
-import { api, ApiResponse, PaginatedResponse } from './api';
 import { DashboardAnalytics, InventoryItem, StockTransaction } from '@/types/inventory';
+import { api, ApiResponse, PaginatedResponse } from './api';
 
 type LowStockAlertsPayload = InventoryItem[] | { alert_count?: number; alerts?: InventoryItem[]; data?: InventoryItem[] };
 
@@ -127,10 +127,9 @@ class InventoryService {
 
     // Check stock status for quantity
     async checkStockStatus(itemId: string, quantity: number): Promise<ApiResponse<{ available: boolean; current_stock: number }>> {
-        return api.get<ApiResponse<{ available: boolean; current_stock: number }>>(
-            `/v1/inventory/${itemId}/stock-status`,
-            { quantity: quantity.toString() }
-        );
+        return api.get<ApiResponse<{ available: boolean; current_stock: number }>>(`/v1/inventory/${itemId}/stock-status`, {
+            quantity: quantity.toString(),
+        });
     }
 
     // Add stock (procurement)
@@ -144,7 +143,9 @@ class InventoryService {
     }
 
     // Log return/damage
-    async logReturnDamage(operation: StockOperation & { type: 'return' | 'damage' }): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
+    async logReturnDamage(
+        operation: StockOperation & { type: 'return' | 'damage' },
+    ): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
         return api.post<ApiResponse<{ message: string; transaction: StockTransaction }>>('/v1/inventory/log-return-damage', operation);
     }
 
@@ -165,14 +166,16 @@ class InventoryService {
     }
 
     // Get stock transactions with filters
-    async getStockTransactions(filters: {
-        item_id?: string;
-        transaction_type?: string;
-        start_date?: string;
-        end_date?: string;
-        per_page?: number;
-        page?: number;
-    } = {}): Promise<ApiResponse<PaginatedResponse<StockTransaction>>> {
+    async getStockTransactions(
+        filters: {
+            item_id?: string;
+            transaction_type?: string;
+            start_date?: string;
+            end_date?: string;
+            per_page?: number;
+            page?: number;
+        } = {},
+    ): Promise<ApiResponse<PaginatedResponse<StockTransaction>>> {
         const params: Record<string, string | number> = {};
 
         Object.entries(filters).forEach(([key, value]) => {
@@ -185,15 +188,17 @@ class InventoryService {
     }
 
     // Get archives/audit logs with filters
-    async getArchives(filters: {
-        entity_type?: string;
-        entity_id?: string;
-        action?: string;
-        start_date?: string;
-        end_date?: string;
-        per_page?: number;
-        page?: number;
-    } = {}): Promise<ApiResponse<PaginatedResponse<ArchiveEntry>>> {
+    async getArchives(
+        filters: {
+            entity_type?: string;
+            entity_id?: string;
+            action?: string;
+            start_date?: string;
+            end_date?: string;
+            per_page?: number;
+            page?: number;
+        } = {},
+    ): Promise<ApiResponse<PaginatedResponse<ArchiveEntry>>> {
         const params: Record<string, string | number> = {};
 
         Object.entries(filters).forEach(([key, value]) => {

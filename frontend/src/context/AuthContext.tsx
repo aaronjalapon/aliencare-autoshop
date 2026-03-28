@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authService } from '@/services/authService';
 import type { User } from '@/types';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 interface AuthContextType {
     user: User | null;
@@ -45,11 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
     };
 
-    return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
-            {children}
-        </AuthContext.Provider>
-    );
+    return <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextType {

@@ -3,8 +3,8 @@
  * Handles all reporting and analytics API calls to Laravel backend
  */
 
-import { api, ApiResponse, PaginatedResponse } from './api';
 import { Report } from '@/types/inventory';
+import { api, ApiResponse, PaginatedResponse } from './api';
 
 export interface ReportFilters {
     report_type?: 'daily_usage' | 'monthly_procurement' | 'reconciliation' | 'low_stock' | 'reservation_summary';
@@ -61,28 +61,8 @@ class ReportsService {
     }
 
     // Get dashboard analytics
-    async getDashboardAnalytics(): Promise<ApiResponse<{
-        total_items: number;
-        total_value: number;
-        low_stock_count: number;
-        recent_activity: Array<{
-            id: number;
-            type: string;
-            description: string;
-            created_at: string;
-        }>;
-        top_categories: Array<{
-            category: string;
-            count: number;
-            value: number;
-        }>;
-        monthly_trends: Array<{
-            month: string;
-            procurement_value: number;
-            usage_value: number;
-        }>;
-    }>> {
-        return api.get<ApiResponse<{
+    async getDashboardAnalytics(): Promise<
+        ApiResponse<{
             total_items: number;
             total_value: number;
             low_stock_count: number;
@@ -102,56 +82,39 @@ class ReportsService {
                 procurement_value: number;
                 usage_value: number;
             }>;
-        }>>('/v1/reports/analytics/dashboard');
+        }>
+    > {
+        return api.get<
+            ApiResponse<{
+                total_items: number;
+                total_value: number;
+                low_stock_count: number;
+                recent_activity: Array<{
+                    id: number;
+                    type: string;
+                    description: string;
+                    created_at: string;
+                }>;
+                top_categories: Array<{
+                    category: string;
+                    count: number;
+                    value: number;
+                }>;
+                monthly_trends: Array<{
+                    month: string;
+                    procurement_value: number;
+                    usage_value: number;
+                }>;
+            }>
+        >('/v1/reports/analytics/dashboard');
     }
 
     // Get usage analytics for specific period
-    async getUsageAnalytics(startDate: string, endDate: string): Promise<ApiResponse<{
-        date_range: {
-            start_date: string;
-            end_date: string;
-        };
-        summary: {
-            total_consumed: number;
-            total_cost: number;
-            unique_items_used: number;
-            most_used_item: {
-                part_number: string;
-                item_name: string;
-                consumed: number;
-            } | null;
-            active_categories: number;
-        };
-        usage_by_item: Array<{
-            item_id: number;
-            item_name: string;
-            part_number: string;
-            description: string;
-            category: string;
-            consumed: number;
-            cost: number;
-            unit_price: number;
-            transaction_count: number;
-        }>;
-        category_breakdown: Array<{
-            category: string;
-            consumed: number;
-            cost: number;
-            item_count: number;
-        }>;
-        top_consumed_items: Array<{
-            item_id: number;
-            item_name: string;
-            part_number: string;
-            description: string;
-            category: string;
-            consumed: number;
-            cost: number;
-            unit_price: number;
-            transaction_count: number;
-        }>;
-    }>> {
-        return api.get<ApiResponse<{
+    async getUsageAnalytics(
+        startDate: string,
+        endDate: string,
+    ): Promise<
+        ApiResponse<{
             date_range: {
                 start_date: string;
                 end_date: string;
@@ -195,31 +158,63 @@ class ReportsService {
                 unit_price: number;
                 transaction_count: number;
             }>;
-        }>>('/v1/reports/analytics/usage', { start_date: startDate, end_date: endDate });
+        }>
+    > {
+        return api.get<
+            ApiResponse<{
+                date_range: {
+                    start_date: string;
+                    end_date: string;
+                };
+                summary: {
+                    total_consumed: number;
+                    total_cost: number;
+                    unique_items_used: number;
+                    most_used_item: {
+                        part_number: string;
+                        item_name: string;
+                        consumed: number;
+                    } | null;
+                    active_categories: number;
+                };
+                usage_by_item: Array<{
+                    item_id: number;
+                    item_name: string;
+                    part_number: string;
+                    description: string;
+                    category: string;
+                    consumed: number;
+                    cost: number;
+                    unit_price: number;
+                    transaction_count: number;
+                }>;
+                category_breakdown: Array<{
+                    category: string;
+                    consumed: number;
+                    cost: number;
+                    item_count: number;
+                }>;
+                top_consumed_items: Array<{
+                    item_id: number;
+                    item_name: string;
+                    part_number: string;
+                    description: string;
+                    category: string;
+                    consumed: number;
+                    cost: number;
+                    unit_price: number;
+                    transaction_count: number;
+                }>;
+            }>
+        >('/v1/reports/analytics/usage', { start_date: startDate, end_date: endDate });
     }
 
     // Get procurement analytics for specific period
-    async getProcurementAnalytics(startDate: string, endDate: string): Promise<ApiResponse<{
-        total_procured: number;
-        total_value: number;
-        by_supplier: Array<{
-            supplier: string;
-            quantity: number;
-            value: number;
-            items_count: number;
-        }>;
-        by_category: Array<{
-            category: string;
-            quantity: number;
-            value: number;
-        }>;
-        monthly_breakdown: Array<{
-            month: string;
-            quantity: number;
-            value: number;
-        }>;
-    }>> {
-        return api.get<ApiResponse<{
+    async getProcurementAnalytics(
+        startDate: string,
+        endDate: string,
+    ): Promise<
+        ApiResponse<{
             total_procured: number;
             total_value: number;
             by_supplier: Array<{
@@ -238,7 +233,30 @@ class ReportsService {
                 quantity: number;
                 value: number;
             }>;
-        }>>('/v1/reports/analytics/procurement', { start_date: startDate, end_date: endDate });
+        }>
+    > {
+        return api.get<
+            ApiResponse<{
+                total_procured: number;
+                total_value: number;
+                by_supplier: Array<{
+                    supplier: string;
+                    quantity: number;
+                    value: number;
+                    items_count: number;
+                }>;
+                by_category: Array<{
+                    category: string;
+                    quantity: number;
+                    value: number;
+                }>;
+                monthly_breakdown: Array<{
+                    month: string;
+                    quantity: number;
+                    value: number;
+                }>;
+            }>
+        >('/v1/reports/analytics/procurement', { start_date: startDate, end_date: endDate });
     }
 
     // Export report to PDF/Excel (if implemented in backend)
@@ -246,7 +264,7 @@ class ReportsService {
         const response = await fetch(`${window.location.origin}/api/v1/reports/${reportId}/export?format=${format}`, {
             method: 'GET',
             headers: {
-                'Accept': format === 'pdf' ? 'application/pdf' : 'application/vnd.ms-excel',
+                Accept: format === 'pdf' ? 'application/pdf' : 'application/vnd.ms-excel',
                 'X-Requested-With': 'XMLHttpRequest',
             },
         });

@@ -1,18 +1,18 @@
 import { Breadcrumbs } from '@/components/shared/breadcrumbs';
 import { Icon } from '@/components/shared/icon';
+import { UserMenuContent } from '@/components/shared/user-menu-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { NavigationMenu, NavigationMenuItem, NavigationMenuList, navigationMenuTriggerStyle } from '@/components/ui/navigation-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { UserMenuContent } from '@/components/shared/user-menu-content';
+import { useAuth } from '@/context/AuthContext';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
 import { type BreadcrumbItem, type NavItem } from '@/types';
-import { Link, useLocation } from 'react-router-dom';
 import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
 

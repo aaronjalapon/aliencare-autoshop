@@ -6,23 +6,31 @@ namespace App\Providers;
 
 use App\Contracts\Repositories\AlertRepositoryInterface;
 use App\Contracts\Repositories\ArchiveRepositoryInterface;
+use App\Contracts\Repositories\CustomerRepositoryInterface;
 use App\Contracts\Repositories\InventoryRepositoryInterface;
+use App\Contracts\Repositories\JobOrderRepositoryInterface;
 use App\Contracts\Repositories\ReportRepositoryInterface;
 use App\Contracts\Repositories\ReservationRepositoryInterface;
 use App\Contracts\Repositories\StockTransactionRepositoryInterface;
+use App\Contracts\Repositories\VehicleRepositoryInterface;
 use App\Contracts\Services\AlertServiceInterface;
 use App\Contracts\Services\InventoryServiceInterface;
+use App\Contracts\Services\JobOrderServiceInterface;
 use App\Contracts\Services\ReportServiceInterface;
 use App\Contracts\Services\ReservationServiceInterface;
 use App\Models\User;
 use App\Repositories\Eloquent\AlertRepository;
 use App\Repositories\Eloquent\ArchiveRepository;
+use App\Repositories\Eloquent\CustomerRepository;
 use App\Repositories\Eloquent\InventoryRepository;
+use App\Repositories\Eloquent\JobOrderRepository;
 use App\Repositories\Eloquent\ReportRepository;
 use App\Repositories\Eloquent\ReservationRepository;
 use App\Repositories\Eloquent\StockTransactionRepository;
+use App\Repositories\Eloquent\VehicleRepository;
 use App\Services\AlertService;
 use App\Services\InventoryService;
+use App\Services\JobOrderService;
 use App\Services\ReportService;
 use App\Services\ReservationService;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -51,12 +59,16 @@ class AppServiceProvider extends ServiceProvider
         ReportRepositoryInterface::class => ReportRepository::class,
         StockTransactionRepositoryInterface::class => StockTransactionRepository::class,
         ArchiveRepositoryInterface::class => ArchiveRepository::class,
+        JobOrderRepositoryInterface::class => JobOrderRepository::class,
+        CustomerRepositoryInterface::class => CustomerRepository::class,
+        VehicleRepositoryInterface::class => VehicleRepository::class,
 
         // Service bindings
         InventoryServiceInterface::class => InventoryService::class,
         ReservationServiceInterface::class => ReservationService::class,
         ReportServiceInterface::class => ReportService::class,
         AlertServiceInterface::class => AlertService::class,
+        JobOrderServiceInterface::class => JobOrderService::class,
     ];
 
     /**

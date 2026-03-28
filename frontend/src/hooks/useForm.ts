@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { api, ApiError } from '@/services/api';
 import { flattenValidationErrors } from '@/lib/validation-errors';
+import { api, ApiError } from '@/services/api';
+import { useCallback, useState } from 'react';
 
 interface UseFormOptions {
     onSuccess?: () => void;
@@ -17,20 +17,23 @@ export function useForm<T extends Record<string, unknown>>(initialData: T) {
         setData((prev) => ({ ...prev, [field]: value }));
     }, []);
 
-    const reset = useCallback((...fields: (keyof T)[]) => {
-        if (fields.length === 0) {
-            setData(initialData);
-        } else {
-            setData((prev) => {
-                const updated = { ...prev };
-                fields.forEach((field) => {
-                    updated[field] = initialData[field];
+    const reset = useCallback(
+        (...fields: (keyof T)[]) => {
+            if (fields.length === 0) {
+                setData(initialData);
+            } else {
+                setData((prev) => {
+                    const updated = { ...prev };
+                    fields.forEach((field) => {
+                        updated[field] = initialData[field];
+                    });
+                    return updated;
                 });
-                return updated;
-            });
-        }
-        setErrors({});
-    }, [initialData]);
+            }
+            setErrors({});
+        },
+        [initialData],
+    );
 
     const clearErrors = useCallback((...fields: (keyof T)[]) => {
         if (fields.length === 0) {
@@ -52,9 +55,7 @@ export function useForm<T extends Record<string, unknown>>(initialData: T) {
             setErrors({});
 
             try {
-                const response = method === 'get'
-                    ? await api.get(url)
-                    : await api[method](url, data);
+                const response = method === 'get' ? await api.get(url) : await api[method](url, data);
                 setRecentlySuccessful(true);
                 setTimeout(() => setRecentlySuccessful(false), 2000);
                 options?.onSuccess?.();
@@ -73,7 +74,7 @@ export function useForm<T extends Record<string, unknown>>(initialData: T) {
                 setProcessing(false);
             }
         },
-        [data]
+        [data],
     );
 
     return {

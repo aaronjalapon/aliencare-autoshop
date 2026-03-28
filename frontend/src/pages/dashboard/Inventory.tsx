@@ -4,10 +4,10 @@ import { InventoryTable } from '@/components/inventory/InventoryTable';
 import { ReservationPanel } from '@/components/inventory/ReservationPanel';
 import { StockAlerts } from '@/components/inventory/StockAlerts';
 import { UsageReports } from '@/components/inventory/UsageReports';
+import AppLayout from '@/components/layout/app-layout';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlerts } from '@/hooks/useAlerts';
-import AppLayout from '@/components/layout/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { AlertTriangle, BookOpen, FileText, LayoutDashboard, Package, Shield } from 'lucide-react';
 
@@ -27,7 +27,7 @@ export default function Inventory() {
 
     // Ensure alerts is always an array and calculate unacknowledged count
     const safeAlerts = Array.isArray(alerts) ? alerts : [];
-    const unacknowledgedAlerts = safeAlerts.filter(alert => !alert.acknowledged).length;
+    const unacknowledgedAlerts = safeAlerts.filter((alert) => !alert.acknowledged).length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -56,7 +56,7 @@ export default function Inventory() {
                                         <Package className="h-4 w-4" />
                                         Inventory
                                     </TabsTrigger>
-                                    <TabsTrigger value="alerts" className="flex items-center gap-2 relative">
+                                    <TabsTrigger value="alerts" className="relative flex items-center gap-2">
                                         <AlertTriangle className="h-4 w-4" />
                                         Alerts
                                         {unacknowledgedAlerts > 0 && (

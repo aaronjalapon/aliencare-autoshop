@@ -1,15 +1,15 @@
-import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { ApiError } from '@/services/api';
-import { flattenValidationErrors } from '@/lib/validation-errors';
+import AuthLayout from '@/components/layout/auth-layout';
 import InputError from '@/components/shared/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AuthLayout from '@/components/layout/auth-layout';
+import { useAuth } from '@/context/AuthContext';
+import { flattenValidationErrors } from '@/lib/validation-errors';
+import { ApiError } from '@/services/api';
 import { LoaderCircle } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Login({ status }: { status?: string }) {
     const { login } = useAuth();
@@ -91,12 +91,7 @@ export default function Login({ status }: { status?: string }) {
                     </div>
 
                     <div className="flex items-center space-x-3">
-                        <Checkbox
-                            id="remember"
-                            tabIndex={3}
-                            checked={remember}
-                            onCheckedChange={(checked) => setRemember(checked === true)}
-                        />
+                        <Checkbox id="remember" tabIndex={3} checked={remember} onCheckedChange={(checked) => setRemember(checked === true)} />
                         <Label htmlFor="remember">Remember me</Label>
                     </div>
 

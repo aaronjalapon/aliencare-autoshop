@@ -23,7 +23,7 @@ export default function DeleteUser() {
         setError('');
 
         try {
-            await api.delete('/profile', );
+            await api.delete('/profile');
             await logout();
             navigate('/');
         } catch (err: unknown) {

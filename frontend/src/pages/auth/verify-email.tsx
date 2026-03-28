@@ -1,9 +1,9 @@
-import { FormEvent, useState } from 'react';
+import AuthLayout from '@/components/layout/auth-layout';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/authService';
-import { Button } from '@/components/ui/button';
-import AuthLayout from '@/components/layout/auth-layout';
 import { LoaderCircle } from 'lucide-react';
+import { FormEvent, useState } from 'react';
 
 export default function VerifyEmail() {
     const { logout } = useAuth();

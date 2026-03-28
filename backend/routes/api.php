@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ArchiveController;
+use App\Http\Controllers\Api\BayController;
+use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\Api\JobOrderController;
+use App\Http\Controllers\Api\MechanicController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -143,4 +148,39 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::get('/', [ArchiveController::class, 'index'])->name('index');
         Route::get('/{id}', [ArchiveController::class, 'show'])->name('show');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Job Order & Service Management Routes
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('job-orders')->name('job-orders.')->group(function () {
+        Route::get('/', [JobOrderController::class, 'index'])->name('index');
+        Route::post('/', [JobOrderController::class, 'store'])->name('store');
+        Route::get('/{id}', [JobOrderController::class, 'show'])->name('show');
+        Route::put('/{id}', [JobOrderController::class, 'update'])->name('update');
+        Route::put('/{id}/approve', [JobOrderController::class, 'approve'])->name('approve');
+        Route::put('/{id}/start', [JobOrderController::class, 'start'])->name('start');
+        Route::put('/{id}/complete', [JobOrderController::class, 'complete'])->name('complete');
+        Route::put('/{id}/settle', [JobOrderController::class, 'settle'])->name('settle');
+        Route::delete('/{id}/cancel', [JobOrderController::class, 'cancel'])->name('cancel');
+        Route::post('/{id}/items', [JobOrderController::class, 'addItem'])->name('items.store');
+        Route::delete('/{id}/items/{itemId}', [JobOrderController::class, 'removeItem'])->name('items.destroy');
+    });
+
+    Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/', [CustomerController::class, 'index'])->name('index');
+        Route::post('/', [CustomerController::class, 'store'])->name('store');
+        Route::get('/{id}', [CustomerController::class, 'show'])->name('show');
+        Route::put('/{id}', [CustomerController::class, 'update'])->name('update');
+    });
+
+    Route::prefix('vehicles')->name('vehicles.')->group(function () {
+        Route::get('/', [VehicleController::class, 'index'])->name('index');
+        Route::post('/', [VehicleController::class, 'store'])->name('store');
+    });
+
+    Route::get('/bays', [BayController::class, 'index'])->name('bays.index');
+    Route::get('/mechanics', [MechanicController::class, 'index'])->name('mechanics.index');
 });

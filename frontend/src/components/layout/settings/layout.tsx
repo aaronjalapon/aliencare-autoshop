@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { type NavItem } from '@/types';
-import { Link, useLocation } from 'react-router-dom';
 import { type PropsWithChildren } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 const sidebarNavItems: NavItem[] = [
     {

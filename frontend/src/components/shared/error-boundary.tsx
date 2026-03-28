@@ -28,9 +28,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
                 <div className="flex min-h-screen items-center justify-center p-6">
                     <div className="max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
                         <h1 className="text-xl font-semibold">Something went wrong</h1>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            An unexpected error occurred. Please refresh the page and try again.
-                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground">An unexpected error occurred. Please refresh the page and try again.</p>
                     </div>
                 </div>
             );

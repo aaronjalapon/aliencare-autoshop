@@ -35,86 +35,98 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
     }, [fetchInventory]);
 
     const updateFilters = useCallback((newFilters: Partial<InventoryFilters>) => {
-        setFilters(prev => ({ ...prev, ...newFilters }));
+        setFilters((prev) => ({ ...prev, ...newFilters }));
     }, []);
 
-    const addStock = useCallback(async (operation: StockOperation) => {
-        try {
-            await inventoryService.addStock(operation);
-            await fetchInventory(); // Refresh data
+    const addStock = useCallback(
+        async (operation: StockOperation) => {
+            try {
+                await inventoryService.addStock(operation);
+                await fetchInventory(); // Refresh data
 
-            // Dispatch event for real-time updates
-            dispatchStockTransaction(operation.item_id, 'procurement', operation.quantity, {
-                reference_number: operation.reference_number,
-                notes: operation.notes
-            });
+                // Dispatch event for real-time updates
+                dispatchStockTransaction(operation.item_id, 'procurement', operation.quantity, {
+                    reference_number: operation.reference_number,
+                    notes: operation.notes,
+                });
 
-            return true;
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to add stock');
-            return false;
-        }
-    }, [fetchInventory]);
+                return true;
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to add stock');
+                return false;
+            }
+        },
+        [fetchInventory],
+    );
 
-    const deductStock = useCallback(async (operation: StockOperation) => {
-        try {
-            await inventoryService.deductStock(operation);
-            await fetchInventory(); // Refresh data
+    const deductStock = useCallback(
+        async (operation: StockOperation) => {
+            try {
+                await inventoryService.deductStock(operation);
+                await fetchInventory(); // Refresh data
 
-            // Dispatch event for real-time updates
-            dispatchStockTransaction(operation.item_id, 'sale', -operation.quantity, {
-                reference_number: operation.reference_number,
-                notes: operation.notes
-            });
+                // Dispatch event for real-time updates
+                dispatchStockTransaction(operation.item_id, 'sale', -operation.quantity, {
+                    reference_number: operation.reference_number,
+                    notes: operation.notes,
+                });
 
-            return true;
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to deduct stock');
-            return false;
-        }
-    }, [fetchInventory]);
+                return true;
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to deduct stock');
+                return false;
+            }
+        },
+        [fetchInventory],
+    );
 
-    const createItem = useCallback(async (item: NewInventoryItem) => {
-        try {
-            const response = await inventoryService.createInventoryItem(item);
-            await fetchInventory(); // Refresh data
+    const createItem = useCallback(
+        async (item: NewInventoryItem) => {
+            try {
+                const response = await inventoryService.createInventoryItem(item);
+                await fetchInventory(); // Refresh data
 
-            // Dispatch event for real-time updates
-            if (item.item_id) {
-                dispatchInventoryUpdate(item.item_id, 'created', {
+                // Dispatch event for real-time updates
+                if (item.item_id) {
+                    dispatchInventoryUpdate(item.item_id, 'created', {
+                        item_name: item.item_name,
+                        category: item.category,
+                        stock: item.stock,
+                    });
+                }
+
+                return { success: true, data: response.data };
+            } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to create item';
+                setError(errorMessage);
+                return { success: false, error: errorMessage };
+            }
+        },
+        [fetchInventory],
+    );
+
+    const updateItem = useCallback(
+        async (itemId: number, item: Partial<NewInventoryItem>) => {
+            try {
+                const response = await inventoryService.updateInventoryItem(itemId, item);
+                await fetchInventory(); // Refresh data
+
+                // Dispatch event for real-time updates
+                dispatchInventoryUpdate(itemId, 'updated', {
                     item_name: item.item_name,
                     category: item.category,
-                    stock: item.stock
+                    stock: item.stock,
                 });
+
+                return { success: true, data: response.data };
+            } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to update item';
+                setError(errorMessage);
+                return { success: false, error: errorMessage };
             }
-
-            return { success: true, data: response.data };
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to create item';
-            setError(errorMessage);
-            return { success: false, error: errorMessage };
-        }
-    }, [fetchInventory]);
-
-    const updateItem = useCallback(async (itemId: number, item: Partial<NewInventoryItem>) => {
-        try {
-            const response = await inventoryService.updateInventoryItem(itemId, item);
-            await fetchInventory(); // Refresh data
-
-            // Dispatch event for real-time updates
-            dispatchInventoryUpdate(itemId, 'updated', {
-                item_name: item.item_name,
-                category: item.category,
-                stock: item.stock
-            });
-
-            return { success: true, data: response.data };
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to update item';
-            setError(errorMessage);
-            return { success: false, error: errorMessage };
-        }
-    }, [fetchInventory]);
+        },
+        [fetchInventory],
+    );
 
     return {
         data,
@@ -228,15 +240,12 @@ export function useDashboardAnalytics() {
 
     // Listen for inventory events to auto-refresh analytics
     useEffect(() => {
-        const cleanup = inventoryEvents.listenMultiple(
-            ['inventory-updated', 'stock-transaction', 'reservation-updated'],
-            () => {
-                // Debounce the refresh to avoid too many API calls
-                setTimeout(() => {
-                    fetchAnalytics();
-                }, 1000);
-            }
-        );
+        const cleanup = inventoryEvents.listenMultiple(['inventory-updated', 'stock-transaction', 'reservation-updated'], () => {
+            // Debounce the refresh to avoid too many API calls
+            setTimeout(() => {
+                fetchAnalytics();
+            }, 1000);
+        });
 
         return cleanup;
     }, [fetchAnalytics]);
@@ -260,14 +269,16 @@ export function useDashboardAnalytics() {
 }
 
 // Hook for stock transactions
-export function useStockTransactions(filters: {
-    item_id?: string;
-    transaction_type?: string;
-    start_date?: string;
-    end_date?: string;
-    per_page?: number;
-    page?: number;
-} = {}) {
+export function useStockTransactions(
+    filters: {
+        item_id?: string;
+        transaction_type?: string;
+        start_date?: string;
+        end_date?: string;
+        per_page?: number;
+        page?: number;
+    } = {},
+) {
     const [data, setData] = useState<PaginatedResponse<StockTransaction> | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

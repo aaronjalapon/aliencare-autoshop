@@ -21,6 +21,7 @@ class Reservation extends Model
         'priority_level',
         'is_urgent',
         'job_order_number',
+        'job_order_id',
         'requested_by',
         'approved_by',
         'requested_date',
@@ -46,6 +47,14 @@ class Reservation extends Model
     public function inventory(): BelongsTo
     {
         return $this->belongsTo(Inventory::class, 'item_id', 'item_id');
+    }
+
+    /**
+     * Get the job order for this reservation.
+     */
+    public function jobOrder(): BelongsTo
+    {
+        return $this->belongsTo(JobOrder::class);
     }
 
     /**

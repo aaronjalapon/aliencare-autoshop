@@ -1,12 +1,12 @@
-import { FormEvent, useRef, useState } from 'react';
-import { authService } from '@/services/authService';
-import { ApiError } from '@/services/api';
-import { flattenValidationErrors } from '@/lib/validation-errors';
-import InputError from '@/components/shared/input-error';
 import AppLayout from '@/components/layout/app-layout';
 import SettingsLayout from '@/components/layout/settings/layout';
+import InputError from '@/components/shared/input-error';
+import { flattenValidationErrors } from '@/lib/validation-errors';
+import { ApiError } from '@/services/api';
+import { authService } from '@/services/authService';
 import { type BreadcrumbItem } from '@/types';
 import { Transition } from '@headlessui/react';
+import { FormEvent, useRef, useState } from 'react';
 
 import HeadingSmall from '@/components/shared/heading-small';
 import { Button } from '@/components/ui/button';

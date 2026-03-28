@@ -59,10 +59,7 @@ function toApiErrorResponse(value: unknown): ApiErrorResponse | null {
     if (isRecord(rawErrors)) {
         const normalizedEntries = Object.entries(rawErrors).map(([key, entry]) => {
             if (Array.isArray(entry)) {
-                return [
-                    key,
-                    entry.filter((item): item is string => typeof item === 'string'),
-                ] as const;
+                return [key, entry.filter((item): item is string => typeof item === 'string')] as const;
             }
 
             if (typeof entry === 'string') {
@@ -90,7 +87,7 @@ class ApiClient {
         this.baseURL = baseURL;
         this.defaultHeaders = {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
         };
     }
@@ -137,11 +134,7 @@ class ApiClient {
             const errorData = toApiErrorResponse(rawError);
 
             if (response.status === 422) {
-                throw new ApiError(
-                    errorData?.message || 'Validation failed',
-                    response.status,
-                    errorData || undefined
-                );
+                throw new ApiError(errorData?.message || 'Validation failed', response.status, errorData || undefined);
             }
 
             if (response.status === 401) {
@@ -149,11 +142,7 @@ class ApiClient {
                 throw error;
             }
 
-            throw new ApiError(
-                errorData?.message || `HTTP error! status: ${response.status}`,
-                response.status,
-                errorData || undefined
-            );
+            throw new ApiError(errorData?.message || `HTTP error! status: ${response.status}`, response.status, errorData || undefined);
         }
 
         const data = await response.json();
@@ -207,7 +196,7 @@ export class ApiError<TResponse extends ApiErrorResponse = ApiErrorResponse> ext
     constructor(
         message: string,
         public status?: number,
-        public response?: TResponse
+        public response?: TResponse,
     ) {
         super(message);
         this.name = 'ApiError';
