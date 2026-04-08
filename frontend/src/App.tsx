@@ -20,6 +20,7 @@ import VerifyEmail from '@/pages/auth/verify-email';
 
 // Front Desk pages
 import Dashboard from '@/pages/dashboard/dashboard';
+import FrontdeskProfile from '@/pages/dashboard/profile';
 import Inventory from '@/pages/dashboard/Inventory';
 import Services from '@/pages/dashboard/services';
 import JobOrders from '@/pages/dashboard/job-orders';
@@ -36,6 +37,7 @@ import Profile from '@/pages/settings/profile';
 // Admin pages
 import AdminDashboard from '@/pages/admin/dashboard';
 import FrontDeskAccounts from '@/pages/admin/frontdesk-accounts';
+import AdminProfile from '@/pages/admin/profile';
 
 // Customer pages
 import CustomerDashboard from '@/pages/customer/dashboard';
@@ -70,6 +72,7 @@ export default function App() {
                 }
             >
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/profile" element={<FrontdeskProfile />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/job-orders" element={<JobOrders />} />
@@ -117,6 +120,7 @@ export default function App() {
                 }
             >
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/profile" element={<AdminProfile />} />
                 <Route path="/admin/frontdesk-accounts" element={<FrontDeskAccounts />} />
             </Route>
 

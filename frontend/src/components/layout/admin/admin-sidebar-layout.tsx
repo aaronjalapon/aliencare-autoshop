@@ -1,7 +1,7 @@
 import { AppContent } from '@/components/shared/app-content';
 import { AppShell } from '@/components/shared/app-shell';
 import { AdminSidebar } from '@/components/shared/admin-sidebar';
-import { AppSidebarHeader } from '@/components/shared/app-sidebar-header';
+import { PageHeader } from '@/components/shared/page-header';
 import { type BreadcrumbItem } from '@/types';
 import { type PropsWithChildren } from 'react';
 
@@ -10,7 +10,7 @@ export default function AdminSidebarLayout({ children, breadcrumbs = [] }: Props
         <AppShell variant="sidebar">
             <AdminSidebar />
             <AppContent variant="sidebar" className="overflow-x-hidden">
-                <AppSidebarHeader breadcrumbs={breadcrumbs} />
+                <PageHeader />
                 {children}
             </AppContent>
         </AppShell>

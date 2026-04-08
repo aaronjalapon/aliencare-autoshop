@@ -137,3 +137,10 @@
         @apply bg-background text-foreground;
     }
 }
+
+@layer utilities {
+    .profile-card {
+        background: linear-gradient(145deg, #1e1e22 0%, #0d0d10 100%);
+        border: 1px solid #2a2a2e;
+    }
+}

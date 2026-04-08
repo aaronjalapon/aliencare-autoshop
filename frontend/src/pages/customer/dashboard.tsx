@@ -19,7 +19,7 @@ export default function CustomerDashboard() {
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {/* Active Services Card */}
-                    <div className="rounded-xl border bg-card p-6 shadow-sm">
+                    <div className="profile-card rounded-xl p-6">
                         <div className="flex items-center gap-2">
                             <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                 <svg className="h-5 w-5 text-[#d4af37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -33,7 +33,7 @@ export default function CustomerDashboard() {
                     </div>
 
                     {/* Pending Payments Card */}
-                    <div className="rounded-xl border bg-card p-6 shadow-sm">
+                    <div className="profile-card rounded-xl p-6">
                         <div className="flex items-center gap-2">
                             <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                 <svg className="h-5 w-5 text-[#d4af37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -47,7 +47,7 @@ export default function CustomerDashboard() {
                     </div>
 
                     {/* Vehicles Card */}
-                    <div className="rounded-xl border bg-card p-6 shadow-sm">
+                    <div className="profile-card rounded-xl p-6">
                         <div className="flex items-center gap-2">
                             <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                 <svg className="h-5 w-5 text-[#d4af37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -62,7 +62,7 @@ export default function CustomerDashboard() {
                 </div>
 
                 {/* Recent Activity */}
-                <div className="rounded-xl border bg-card p-6 shadow-sm">
+                <div className="profile-card rounded-xl p-6">
                     <h2 className="text-lg font-semibold">Recent Activity</h2>
                     <div className="mt-4 flex items-center justify-center py-8 text-muted-foreground">
                         <p>No recent activity</p>
