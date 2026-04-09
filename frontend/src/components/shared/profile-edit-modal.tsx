@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface EditField {
     label: string;
@@ -14,21 +14,42 @@ interface ProfileEditModalProps {
     onClose: () => void;
     title: string;
     fields: EditField[];
+    onSave: (values: Record<string, string>) => Promise<void>;
 }
 
-export function ProfileEditModal({ open, onClose, title, fields }: ProfileEditModalProps) {
+export function ProfileEditModal({ open, onClose, title, fields, onSave }: ProfileEditModalProps) {
     const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.key, f.value])));
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
-    // Re-sync when fields change (different modal section opened)
+    // Re-sync values when fields change (different section/vehicle opened)
+    useEffect(() => {
+        setValues(Object.fromEntries(fields.map((f) => [f.key, f.value])));
+        setSaveError(null);
+    }, [fields]);
+
     const handleChange = (key: string, val: string) => setValues((prev) => ({ ...prev, [key]: val }));
 
-    const handleSave = () => {
-        // TODO: wire up to API when backend endpoints are ready
-        onClose();
+    const handleSave = async () => {
+        setSaving(true);
+        setSaveError(null);
+        try {
+            await onSave(values);
+            onClose();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to save changes.';
+            setSaveError(message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleOpenChange = (o: boolean) => {
+        if (!o && !saving) onClose();
     };
 
     return (
-        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="border-[#2a2a2e] bg-linear-to-br from-[#1e1e22] to-[#0d0d10] sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="text-base font-semibold">{title}</DialogTitle>
@@ -55,20 +76,24 @@ export function ProfileEditModal({ open, onClose, title, fields }: ProfileEditMo
                             )}
                         </div>
                     ))}
+
+                    {saveError && <p className="text-xs text-red-500">{saveError}</p>}
                 </div>
 
                 <DialogFooter className="gap-2">
                     <button
                         onClick={onClose}
-                        className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm font-medium transition-colors hover:bg-[#1e1e22]"
+                        disabled={saving}
+                        className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm font-medium transition-colors hover:bg-[#1e1e22] disabled:opacity-50"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSave}
-                        className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]"
+                        disabled={saving}
+                        className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e] disabled:opacity-60"
                     >
-                        Save Changes
+                        {saving ? 'Saving…' : 'Save Changes'}
                     </button>
                 </DialogFooter>
             </DialogContent>

@@ -1,16 +1,23 @@
 import { RoleAvatar } from '@/components/shared/role-avatar';
 import { useAuth } from '@/context/AuthContext';
+import { useCustomerProfile } from '@/hooks/useCustomerProfile';
+import { customerService } from '@/services/customerService';
+import type { Vehicle } from '@/types/customer';
 import { CalendarDays, Car, FileText, History, Mail, MapPin, Phone, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import { AddVehicleModal } from './add-vehicle-modal';
 import { type EditField, ProfileEditModal } from './profile-edit-modal';
 
-type SectionKey = 'personal' | 'vehicles' | 'account' | 'special';
-
 export function UserProfileContent() {
     const { user } = useAuth();
-    const [activeModal, setActiveModal] = useState<SectionKey | null>(null);
+    const { customer, loading, refetch } = useCustomerProfile();
+
+    const [personalEditOpen, setPersonalEditOpen] = useState(false);
+    const [vehicleEditTarget, setVehicleEditTarget] = useState<Vehicle | null>(null);
     const [addVehicleOpen, setAddVehicleOpen] = useState(false);
+
+    // For non-customer roles — keep existing edit capability (non-functional placeholder)
+    const [nonCustomerSection, setNonCustomerSection] = useState<'personal' | 'account' | 'special' | null>(null);
 
     const isCustomer = user?.role === 'customer';
     const isFrontdesk = user?.role === 'frontdesk';
@@ -22,51 +29,39 @@ export function UserProfileContent() {
         ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
         : '—';
 
-    const modalConfig: Record<SectionKey, { title: string; fields: EditField[] }> = {
-        personal: {
-            title: 'Edit Personal Information',
-            fields: [
-                { label: 'Phone Number', key: 'phone', value: '0912 345 6789', type: 'tel' },
-                { label: 'Email Address', key: 'email', value: user?.email ?? '', type: 'email' },
-                { label: 'Address', key: 'address', value: 'Davao Street, Mindanao', type: 'text' },
-            ],
-        },
-        vehicles: {
-            title: 'Edit My Vehicles',
-            fields: [
-                { label: 'Vehicle 1 – Make / Model', key: 'v1_model', value: 'Toyota Innova', type: 'text' },
-                { label: 'Vehicle 1 – Plate Number', key: 'v1_plate', value: 'CAV 1234', type: 'text' },
-                { label: 'Vehicle 2 – Make / Model', key: 'v2_model', value: 'Honda Civic', type: 'text' },
-                { label: 'Vehicle 2 – Plate Number', key: 'v2_plate', value: 'XYZ 4567', type: 'text' },
-            ],
-        },
-        account: {
-            title: 'Edit Account Details',
-            fields: isCustomer
-                ? [
-                      { label: 'Last Service Date', key: 'last_service', value: 'Sep 1, 2025', type: 'text' },
-                      { label: 'Outstanding Balance', key: 'balance', value: '₱ 0.00', type: 'text' },
-                  ]
-                : isFrontdesk
-                  ? [{ label: 'Department', key: 'department', value: 'Operations', type: 'text' }]
-                  : [{ label: 'System Access', key: 'access', value: 'Full Access', type: 'text' }],
-        },
-        special: {
-            title: 'Edit Special Information',
-            fields: [
-                { label: 'Preferred Contact', key: 'contact', value: 'SMS', type: 'text' },
-                { label: 'Notes', key: 'notes', value: isCustomer ? 'Uses synthetic oil only' : 'N/A', type: 'textarea' },
-            ],
-        },
+    // ── Customer: Personal Information save ──────────────────────────────────
+    const handlePersonalSave = async (values: Record<string, string>) => {
+        if (!customer) return;
+        await customerService.updatePersonalInfo(customer.id, {
+            phone_number: values.phone || undefined,
+            address: values.address || undefined,
+        });
+        await refetch();
     };
 
-    const editBtn = (section: SectionKey) => (
-        <button onClick={() => setActiveModal(section)} aria-label={`Edit ${modalConfig[section].title}`}>
-            <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
-        </button>
-    );
+    // ── Customer: Vehicle edit save ──────────────────────────────────────────
+    const handleVehicleSave = async (values: Record<string, string>) => {
+        if (!vehicleEditTarget) return;
+        await customerService.updateVehicle(vehicleEditTarget.id, {
+            make: values.make || undefined,
+            model: values.model || undefined,
+            year: values.year ? parseInt(values.year, 10) : undefined,
+            plate_number: values.plate_number || undefined,
+            color: values.color || undefined,
+        });
+        await refetch();
+    };
 
-    const active = activeModal ? modalConfig[activeModal] : null;
+    const vehicleEditFields = (v: Vehicle): EditField[] => [
+        { label: 'Brand / Make', key: 'make', value: v.make, type: 'text' },
+        { label: 'Model', key: 'model', value: v.model, type: 'text' },
+        { label: 'Year', key: 'year', value: String(v.year), type: 'text' },
+        { label: 'Plate Number', key: 'plate_number', value: v.plate_number, type: 'text' },
+        { label: 'Color', key: 'color', value: v.color ?? '', type: 'text' },
+    ];
+
+    // ── Hero stats ───────────────────────────────────────────────────────────
+    const vehicleCount = customer?.vehicles.length ?? 0;
 
     return (
         <div className="flex h-full flex-1 flex-col gap-4 p-6">
@@ -91,15 +86,11 @@ export function UserProfileContent() {
                             <span className="h-2 w-2 rounded-full bg-green-500" />
                             Active {roleLabel}
                         </span>
-                        {isCustomer && (
-                            <>
-                                <span className="flex items-center gap-1.5 text-xs font-medium">
-                                    <span className="h-2 w-2 rounded-full bg-blue-400" />2 Vehicles
-                                </span>
-                                <span className="flex items-center gap-1.5 text-xs font-medium">
-                                    <span className="h-2 w-2 rounded-full bg-yellow-400" />4 Visits
-                                </span>
-                            </>
+                        {isCustomer && !loading && (
+                            <span className="flex items-center gap-1.5 text-xs font-medium">
+                                <span className="h-2 w-2 rounded-full bg-blue-400" />
+                                {vehicleCount} {vehicleCount === 1 ? 'Vehicle' : 'Vehicles'}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -113,13 +104,25 @@ export function UserProfileContent() {
                     <div className="profile-card rounded-xl p-5">
                         <div className="mb-4 flex items-center justify-between">
                             <h3 className="font-semibold">Personal Information</h3>
-                            {editBtn('personal')}
+                            {isCustomer ? (
+                                <button
+                                    onClick={() => setPersonalEditOpen(true)}
+                                    aria-label="Edit Personal Information"
+                                    disabled={loading || !customer}
+                                >
+                                    <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70 disabled:opacity-30" />
+                                </button>
+                            ) : (
+                                <button onClick={() => setNonCustomerSection('personal')} aria-label="Edit Personal Information">
+                                    <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
+                                </button>
+                            )}
                         </div>
                         <div className="space-y-3 text-sm">
                             <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="text-muted-foreground">Phone:</span>
-                                <span className="font-medium">0912 345 6789</span>
+                                <span className="font-medium">{isCustomer ? (loading ? '…' : (customer?.phone_number ?? '—')) : '—'}</span>
                             </div>
                             <div className="flex min-w-0 items-center gap-2">
                                 <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -129,7 +132,7 @@ export function UserProfileContent() {
                             <div className="flex items-center gap-2">
                                 <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="text-muted-foreground">Address:</span>
-                                <span className="font-medium">Davao Street, Mindanao</span>
+                                <span className="font-medium">{isCustomer ? (loading ? '…' : (customer?.address ?? '—')) : '—'}</span>
                             </div>
                         </div>
                     </div>
@@ -139,38 +142,42 @@ export function UserProfileContent() {
                         <div className="profile-card rounded-xl p-5">
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="font-semibold">My Vehicles</h3>
-                                {editBtn('vehicles')}
                             </div>
                             <div className="space-y-1">
-                                <div className="flex items-center justify-between rounded-lg py-2">
-                                    <div className="flex items-center gap-3">
-                                        <Car className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <div>
-                                            <p className="text-sm font-medium">Toyota Innova</p>
-                                            <p className="text-xs text-muted-foreground">CAV 1234</p>
+                                {loading && <p className="text-sm text-muted-foreground">Loading vehicles…</p>}
+                                {!loading && customer?.vehicles.length === 0 && (
+                                    <p className="text-sm text-muted-foreground">No vehicles registered yet.</p>
+                                )}
+                                {!loading &&
+                                    customer?.vehicles.map((vehicle) => (
+                                        <div key={vehicle.id} className="flex items-center justify-between rounded-lg py-2">
+                                            <div className="flex items-center gap-3">
+                                                <Car className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                <div>
+                                                    <p className="text-sm font-medium">
+                                                        {vehicle.make} {vehicle.model}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">{vehicle.plate_number}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setVehicleEditTarget(vehicle)}
+                                                    aria-label={`Edit ${vehicle.make} ${vehicle.model}`}
+                                                >
+                                                    <SquarePen className="h-3.5 w-3.5 text-[#d4af37] transition-opacity hover:opacity-70" />
+                                                </button>
+                                                <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                                                    <History className="h-3 w-3" />
+                                                    <span>Service History</span>
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                                        <History className="h-3 w-3" />
-                                        <span>Service History</span>
-                                    </button>
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg py-2">
-                                    <div className="flex items-center gap-3">
-                                        <Car className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <div>
-                                            <p className="text-sm font-medium">Honda Civic</p>
-                                            <p className="text-xs text-muted-foreground">XYZ 4567</p>
-                                        </div>
-                                    </div>
-                                    <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                                        <History className="h-3 w-3" />
-                                        <span>Service History</span>
-                                    </button>
-                                </div>
+                                    ))}
                                 <button
                                     onClick={() => setAddVehicleOpen(true)}
-                                    className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]"
+                                    disabled={!customer}
+                                    className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e] disabled:opacity-50"
                                 >
                                     Add Vehicle
                                 </button>
@@ -185,20 +192,23 @@ export function UserProfileContent() {
                     <div className="profile-card rounded-xl p-5">
                         <div className="mb-4 flex items-center justify-between">
                             <h3 className="font-semibold">Account Details</h3>
-                            {editBtn('account')}
+                            {!isCustomer && (
+                                <button onClick={() => setNonCustomerSection('account')} aria-label="Edit Account Details">
+                                    <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
+                                </button>
+                            )}
                         </div>
                         <div className="space-y-3 text-sm">
                             {isCustomer && (
                                 <>
                                     <div className="flex items-center gap-2">
                                         <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Last Service:</span>
-                                        <span className="font-medium">Sep 1, 2025</span>
+                                        <span className="text-muted-foreground">Member Since:</span>
+                                        <span className="font-medium">{memberSince}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="w-4 shrink-0 text-center text-muted-foreground">₱</span>
-                                        <span className="text-muted-foreground">Outstanding Balance:</span>
-                                        <span className="font-medium">₱ 0.00</span>
+                                        <span className="text-muted-foreground">Account Status:</span>
+                                        <span className="font-medium capitalize">{loading ? '…' : (customer?.account_status ?? '—')}</span>
                                     </div>
                                 </>
                             )}
@@ -243,7 +253,11 @@ export function UserProfileContent() {
                     <div className="profile-card rounded-xl p-5">
                         <div className="mb-4 flex items-center justify-between">
                             <h3 className="font-semibold">Special Information</h3>
-                            {editBtn('special')}
+                            {!isCustomer && (
+                                <button onClick={() => setNonCustomerSection('special')} aria-label="Edit Special Information">
+                                    <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
+                                </button>
+                            )}
                         </div>
                         <div className="space-y-3 text-sm">
                             <div className="flex items-center gap-2">
@@ -254,20 +268,81 @@ export function UserProfileContent() {
                             <div className="flex items-start gap-2">
                                 <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="text-muted-foreground">Notes:</span>
-                                <span className="italic">{isCustomer ? 'Uses synthetic oil only' : 'N/A'}</span>
+                                <span className="italic">{isCustomer ? '—' : 'N/A'}</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Shared edit modal */}
-            {active && (
-                <ProfileEditModal open={activeModal !== null} onClose={() => setActiveModal(null)} title={active.title} fields={active.fields} />
+            {/* Customer: Personal Information modal */}
+            {isCustomer && customer && (
+                <ProfileEditModal
+                    open={personalEditOpen}
+                    onClose={() => setPersonalEditOpen(false)}
+                    title="Edit Personal Information"
+                    fields={[
+                        { label: 'Phone Number', key: 'phone', value: customer.phone_number ?? '', type: 'tel' },
+                        { label: 'Address', key: 'address', value: customer.address ?? '', type: 'text' },
+                    ]}
+                    onSave={handlePersonalSave}
+                />
             )}
 
-            {/* Add Vehicle modal */}
-            <AddVehicleModal open={addVehicleOpen} onClose={() => setAddVehicleOpen(false)} />
+            {/* Customer: Vehicle edit modal */}
+            {vehicleEditTarget && (
+                <ProfileEditModal
+                    open={vehicleEditTarget !== null}
+                    onClose={() => setVehicleEditTarget(null)}
+                    title={`Edit ${vehicleEditTarget.make} ${vehicleEditTarget.model}`}
+                    fields={vehicleEditFields(vehicleEditTarget)}
+                    onSave={handleVehicleSave}
+                />
+            )}
+
+            {/* Customer: Add Vehicle modal */}
+            {isCustomer && customer && (
+                <AddVehicleModal open={addVehicleOpen} onClose={() => setAddVehicleOpen(false)} customerId={customer.id} onSuccess={refetch} />
+            )}
+
+            {/* Non-customer: placeholder modals (edit icon opens modal, save is no-op) */}
+            {!isCustomer && nonCustomerSection === 'personal' && (
+                <ProfileEditModal
+                    open={true}
+                    onClose={() => setNonCustomerSection(null)}
+                    title="Edit Personal Information"
+                    fields={[
+                        { label: 'Phone Number', key: 'phone', value: '', type: 'tel' },
+                        { label: 'Address', key: 'address', value: '', type: 'text' },
+                    ]}
+                    onSave={async () => {}}
+                />
+            )}
+            {!isCustomer && nonCustomerSection === 'account' && (
+                <ProfileEditModal
+                    open={true}
+                    onClose={() => setNonCustomerSection(null)}
+                    title="Edit Account Details"
+                    fields={
+                        isFrontdesk
+                            ? [{ label: 'Department', key: 'department', value: 'Operations', type: 'text' }]
+                            : [{ label: 'System Access', key: 'access', value: 'Full Access', type: 'text' }]
+                    }
+                    onSave={async () => {}}
+                />
+            )}
+            {!isCustomer && nonCustomerSection === 'special' && (
+                <ProfileEditModal
+                    open={true}
+                    onClose={() => setNonCustomerSection(null)}
+                    title="Edit Special Information"
+                    fields={[
+                        { label: 'Preferred Contact', key: 'contact', value: 'SMS', type: 'text' },
+                        { label: 'Notes', key: 'notes', value: 'N/A', type: 'textarea' },
+                    ]}
+                    onSave={async () => {}}
+                />
+            )}
         </div>
     );
 }

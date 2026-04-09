@@ -18,6 +18,7 @@ class CustomerResource extends JsonResource
             'full_name' => $this->full_name,
             'email' => $this->email,
             'phone_number' => $this->phone_number,
+            'address' => $this->address,
             'license_number' => $this->license_number,
             'account_status' => $this->account_status,
             'approved_by' => $this->when($this->relationLoaded('approvedBy') && $this->approvedBy, [

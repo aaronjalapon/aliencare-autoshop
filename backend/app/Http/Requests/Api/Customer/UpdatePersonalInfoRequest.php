@@ -22,6 +22,7 @@ class UpdatePersonalInfoRequest extends FormRequest
             'last_name' => ['sometimes', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255', "unique:customers,email,{$customerId}"],
             'phone_number' => ['sometimes', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:255'],
             'license_number' => ['nullable', 'string', 'max:50'],
         ];
     }

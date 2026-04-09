@@ -188,6 +188,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     });
 
     Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/me', [CustomerController::class, 'me'])->name('me');
         Route::get('/', [CustomerController::class, 'index'])->name('index');
         Route::post('/', [CustomerController::class, 'store'])->name('store');
         Route::get('/{id}', [CustomerController::class, 'show'])->name('show');

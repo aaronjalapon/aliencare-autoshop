@@ -20,6 +20,7 @@ class Customer extends Model
         'last_name',
         'email',
         'phone_number',
+        'address',
         'license_number',
         'account_status',
         'approved_by',

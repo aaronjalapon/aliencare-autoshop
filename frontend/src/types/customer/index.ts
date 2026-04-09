@@ -1,5 +1,20 @@
 // Types for customer-facing pages — maps to backend API resources
 
+export interface CustomerProfile {
+    id: number;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    email: string;
+    phone_number: string | null;
+    address: string | null;
+    license_number: string | null;
+    account_status: string;
+    vehicles: Vehicle[];
+    created_at: string;
+    updated_at: string;
+}
+
 export interface CustomerTransaction {
     id: number;
     customer_id: number;

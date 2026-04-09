@@ -1,10 +1,13 @@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { customerService } from '@/services/customerService';
 import { useState } from 'react';
 
 interface AddVehicleModalProps {
     open: boolean;
     onClose: () => void;
+    customerId: number;
+    onSuccess?: () => void;
 }
 
 interface VehicleForm {
@@ -13,7 +16,6 @@ interface VehicleForm {
     year: string;
     plateNumber: string;
     color: string;
-    type: string;
 }
 
 const INITIAL_FORM: VehicleForm = {
@@ -22,14 +24,13 @@ const INITIAL_FORM: VehicleForm = {
     year: '',
     plateNumber: '',
     color: '',
-    type: '',
 };
 
-const VEHICLE_TYPES = ['Sedan', 'SUV', 'Pickup Truck', 'Van', 'Hatchback', 'Motorcycle', 'Other'];
-
-export function AddVehicleModal({ open, onClose }: AddVehicleModalProps) {
+export function AddVehicleModal({ open, onClose, customerId, onSuccess }: AddVehicleModalProps) {
     const [form, setForm] = useState<VehicleForm>(INITIAL_FORM);
     const [errors, setErrors] = useState<Partial<VehicleForm>>({});
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const set = (key: keyof VehicleForm, value: string) => {
         setForm((prev) => ({ ...prev, [key]: value }));
@@ -50,17 +51,35 @@ export function AddVehicleModal({ open, onClose }: AddVehicleModalProps) {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!validate()) return;
-        // TODO: connect to API when backend vehicle endpoints are ready
-        setForm(INITIAL_FORM);
-        setErrors({});
-        onClose();
+        setSubmitting(true);
+        setSubmitError(null);
+        try {
+            await customerService.addVehicle(customerId, {
+                make: form.make.trim(),
+                model: form.model.trim(),
+                year: parseInt(form.year, 10),
+                plate_number: form.plateNumber.trim(),
+                color: form.color.trim() || undefined,
+            });
+            setForm(INITIAL_FORM);
+            setErrors({});
+            onSuccess?.();
+            onClose();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to add vehicle.';
+            setSubmitError(message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleClose = () => {
+        if (submitting) return;
         setForm(INITIAL_FORM);
         setErrors({});
+        setSubmitError(null);
         onClose();
     };
 
@@ -102,36 +121,19 @@ export function AddVehicleModal({ open, onClose }: AddVehicleModalProps) {
                         {errors.model && <p className="text-xs text-red-500">{errors.model}</p>}
                     </div>
 
-                    {/* Year + Type side by side */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">
-                                Year <span className="text-red-500">*</span>
-                            </label>
-                            <Input
-                                placeholder="e.g. 2022"
-                                maxLength={4}
-                                value={form.year}
-                                onChange={(e) => set('year', e.target.value)}
-                                className={fieldClass}
-                            />
-                            {errors.year && <p className="text-xs text-red-500">{errors.year}</p>}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">Vehicle Type</label>
-                            <select
-                                value={form.type}
-                                onChange={(e) => set('type', e.target.value)}
-                                className="h-9 w-full rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-1 text-sm text-foreground transition outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/40"
-                            >
-                                <option value="">Select type</option>
-                                {VEHICLE_TYPES.map((t) => (
-                                    <option key={t} value={t}>
-                                        {t}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                    {/* Year */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">
+                            Year <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            placeholder="e.g. 2022"
+                            maxLength={4}
+                            value={form.year}
+                            onChange={(e) => set('year', e.target.value)}
+                            className={fieldClass}
+                        />
+                        {errors.year && <p className="text-xs text-red-500">{errors.year}</p>}
                     </div>
 
                     {/* Plate Number */}
@@ -158,22 +160,26 @@ export function AddVehicleModal({ open, onClose }: AddVehicleModalProps) {
                             className={fieldClass}
                         />
                     </div>
+
+                    {submitError && <p className="text-xs text-red-500">{submitError}</p>}
                 </div>
 
                 <DialogFooter className="gap-2">
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm font-medium transition-colors hover:bg-[#1e1e22]"
+                        disabled={submitting}
+                        className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm font-medium transition-colors hover:bg-[#1e1e22] disabled:opacity-50"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={handleSubmit}
-                        className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]"
+                        disabled={submitting}
+                        className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e] disabled:opacity-60"
                     >
-                        Add Vehicle
+                        {submitting ? 'Adding…' : 'Add Vehicle'}
                     </button>
                 </DialogFooter>
             </DialogContent>

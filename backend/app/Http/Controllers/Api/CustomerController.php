@@ -17,6 +17,7 @@ use App\Http\Resources\CustomerAuditLogResource;
 use App\Http\Resources\CustomerResource;
 use App\Http\Resources\CustomerTransactionResource;
 use App\Http\Resources\VehicleResource;
+use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,6 +27,23 @@ class CustomerController extends Controller
         private CustomerRepositoryInterface $customerRepository,
         private CustomerServiceInterface $customerService,
     ) {}
+
+    public function me(Request $request): JsonResponse
+    {
+        $customer = Customer::where('email', $request->user()->email)->with('vehicles')->first();
+
+        if (! $customer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No customer record linked to this account.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new CustomerResource($customer),
+        ]);
+    }
 
     public function index(Request $request): JsonResponse
     {
