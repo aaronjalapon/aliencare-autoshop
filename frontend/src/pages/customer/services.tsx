@@ -1,10 +1,24 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+<<<<<<< HEAD
+import { useServiceCatalog } from '@/hooks/useServiceCatalog';
+import { ServiceCatalogItem } from '@/types/customer';
+import { ArrowRight, Check, ChevronDown, Clock, Loader2, Star, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
+=======
 import { AlertTriangle, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Star, Users, X } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+>>>>>>> refs/remotes/origin/main
 
 // ── types ─────────────────────────────────────────────────────────────────────
 type Category = 'Maintenance' | 'Cleaning' | 'Repair';
 
+<<<<<<< HEAD
+const categoryMap: Record<string, Category> = {
+    maintenance: 'Maintenance',
+    cleaning: 'Cleaning',
+    repair: 'Repair',
+};
+=======
 interface Service {
     id: number;
     name: string;
@@ -226,7 +240,9 @@ const ALL_SERVICES: Service[] = [
         includes: ['Battery test', 'New battery install', 'Terminal cleaning'],
     },
 ];
+>>>>>>> refs/remotes/origin/main
 
+// ── static data (time slots remain hardcoded) ─────────────────────────────────
 const TIME_SLOTS = [
     { time: '10:00 AM', status: 'available' as const, slotsLeft: 1 },
     { time: '11:00 AM', status: 'full' as const, slotsLeft: 0 },
@@ -237,6 +253,10 @@ const TIME_SLOTS = [
 const CATEGORIES: Category[] = ['Maintenance', 'Cleaning', 'Repair'];
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+function getCategory(s: ServiceCatalogItem): Category {
+    return categoryMap[s.category] ?? 'Maintenance';
+}
+
 function Stars({ rating, count }: { rating: number; count?: number }) {
     return (
         <div className="flex items-center gap-1">
@@ -425,6 +445,12 @@ type PayMethod = 'gcash' | 'maya' | 'card' | 'bank';
 
 export default function CustomerServices() {
     const [activeCategory, setActiveCategory] = useState<Category>('Maintenance');
+<<<<<<< HEAD
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [selectedDateIdx, setSelectedDateIdx] = useState(0);
+    const [selectedTimeIdx, setSelectedTimeIdx] = useState(0);
+    const { services, recommended, loading, error } = useServiceCatalog({ per_page: 50 });
+=======
     const [selectedId, setSelectedId] = useState(2);
     const [modalStep, setModalStep] = useState<ModalStep>(null);
     const [secureOption, setSecureOption] = useState<SecureOption>('reservation');
@@ -469,10 +495,13 @@ export default function CustomerServices() {
     }
 
     const fmtCountdown = `00:${String(otpCountdown).padStart(2, '0')}`;
+>>>>>>> refs/remotes/origin/main
 
-    const recommended = ALL_SERVICES.find((s) => s.recommended);
-    const popularServices = ALL_SERVICES.filter((s) => s.category === activeCategory);
-    const selectedService = ALL_SERVICES.find((s) => s.id === selectedId) ?? ALL_SERVICES[0];
+    // Auto-select the recommended service or first service when data loads
+    const effectiveSelectedId = selectedId ?? recommended?.id ?? services[0]?.id ?? 0;
+
+    const popularServices = services.filter((s) => getCategory(s) === activeCategory);
+    const selectedService = services.find((s) => s.id === effectiveSelectedId) ?? services[0];
 
     // Build next-6-day chips from today
     const dateChips = useMemo(() => {
@@ -497,10 +526,40 @@ export default function CustomerServices() {
     const { h, m } = parseTime(slot.time);
     const estStart = new Date();
     estStart.setHours(h, m + 15, 0, 0);
-    const durNums = selectedService.estimatedDuration.match(/\d+/g) ?? ['30'];
+    const durNums = (selectedService?.estimated_duration ?? '30').match(/\d+/g) ?? ['30'];
     const durMaxMin = parseInt(durNums[durNums.length - 1], 10);
     const estEnd = new Date(estStart);
     estEnd.setMinutes(estEnd.getMinutes() + durMaxMin);
+
+    if (loading) {
+        return (
+            <CustomerLayout>
+                <div className="flex items-center justify-center py-24">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
+                </div>
+            </CustomerLayout>
+        );
+    }
+
+    if (error) {
+        return (
+            <CustomerLayout>
+                <div className="p-5">
+                    <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-500">{error}</div>
+                </div>
+            </CustomerLayout>
+        );
+    }
+
+    if (!selectedService) {
+        return (
+            <CustomerLayout>
+                <div className="flex items-center justify-center py-24 text-muted-foreground">
+                    <p>No services available.</p>
+                </div>
+            </CustomerLayout>
+        );
+    }
 
     return (
         <CustomerLayout>
@@ -512,7 +571,7 @@ export default function CustomerServices() {
                         <div className="profile-card relative flex items-center justify-between overflow-hidden rounded-xl p-5">
                             <div className="z-10 flex flex-col gap-2">
                                 <p className="text-sm font-bold text-foreground">Recommended for You</p>
-                                <p className="text-xs text-muted-foreground">{recommended.recommendedNote}</p>
+                                <p className="text-xs text-muted-foreground">{recommended.recommended_note}</p>
                                 <p className="text-sm font-semibold">
                                     <span className="text-[#d4af37]">Recommended: </span>
                                     <span>{recommended.name}</span>
@@ -524,6 +583,21 @@ export default function CustomerServices() {
                                     Book Now <ArrowRight className="h-4 w-4" />
                                 </button>
                             </div>
+<<<<<<< HEAD
+                            {/* Decorative car silhouette */}
+                            <div className="pointer-events-none absolute top-0 right-0 h-full w-52">
+                                <div className="h-full w-full bg-linear-to-l from-[#d4af37]/8 to-transparent" />
+                                <div className="absolute top-1/2 right-4 -translate-y-1/2 opacity-20">
+                                    <svg viewBox="0 0 120 60" className="h-28 w-48 fill-[#d4af37]">
+                                        <path d="M10 40 L20 20 Q30 10 50 10 L70 10 Q90 10 100 20 L110 40 L115 42 Q118 44 118 47 L118 50 Q118 52 116 52 L104 52 Q102 52 101 50 Q100 46 96 46 Q92 46 91 50 Q90 52 88 52 L32 52 Q30 52 29 50 Q28 46 24 46 Q20 46 19 50 Q18 52 16 52 L4 52 Q2 52 2 50 L2 47 Q2 44 5 42 Z" />
+                                        <ellipse cx="24" cy="52" rx="8" ry="4" />
+                                        <ellipse cx="96" cy="52" rx="8" ry="4" />
+                                        {/* headlights */}
+                                        <rect x="106" y="28" width="8" height="5" rx="2" fill="white" opacity="0.6" />
+                                        <rect x="6" y="28" width="8" height="5" rx="2" fill="white" opacity="0.3" />
+                                    </svg>
+                                </div>
+=======
                             {/* Recommended image */}
                             <div className="pointer-events-none absolute top-0 right-0 h-full w-56 overflow-hidden rounded-r-xl">
                                 <div className="absolute inset-0 z-10 bg-linear-to-r from-[#1e1e22] via-[#1e1e22]/60 to-transparent" />
@@ -532,6 +606,7 @@ export default function CustomerServices() {
                                     alt="Recommended service"
                                     className="h-full w-full object-cover object-center opacity-85"
                                 />
+>>>>>>> refs/remotes/origin/main
                             </div>
                         </div>
                     )}
@@ -571,19 +646,23 @@ export default function CustomerServices() {
                                     key={service.id}
                                     onClick={() => setSelectedId(service.id)}
                                     className={`profile-card cursor-pointer rounded-xl p-4 transition-all ${
-                                        selectedId === service.id
+                                        effectiveSelectedId === service.id
                                             ? 'shadow-[0_0_0_1px_#d4af37,0_0_16px_rgba(212,175,55,0.15)]'
                                             : 'hover:shadow-[0_0_0_1px_rgba(212,175,55,0.3)]'
                                     }`}
                                 >
                                     <div className="flex flex-col gap-2">
                                         <p className="text-sm leading-snug font-bold">{service.name}</p>
+<<<<<<< HEAD
+                                        <p className="text-xs font-semibold text-muted-foreground">{service.price_label}</p>
+=======
                                         <p className="text-xs font-semibold text-muted-foreground">{service.priceLabel}</p>
+>>>>>>> refs/remotes/origin/main
                                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                             <Clock className="h-3 w-3 shrink-0" />
                                             <span>{service.duration}</span>
                                         </div>
-                                        <Stars rating={service.rating} count={service.ratingCount} />
+                                        <Stars rating={service.rating} count={service.rating_count} />
                                         {service.features.map((f) => (
                                             <div key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                 <Check className="h-3 w-3 shrink-0 text-[#d4af37]" />
@@ -593,13 +672,16 @@ export default function CustomerServices() {
                                         <div className="mt-1 flex items-center justify-between">
                                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                 <Users className="h-3 w-3 shrink-0" />
-                                                <span>{service.queueLabel}</span>
+                                                <span>{service.queue_label}</span>
                                             </div>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSelectedId(service.id);
+<<<<<<< HEAD
+=======
                                                     setModalStep('confirm');
+>>>>>>> refs/remotes/origin/main
                                                 }}
                                                 className="rounded-lg bg-[#d4af37] px-3 py-1.5 text-xs font-bold text-black shadow-[0_2px_8px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-80"
                                             >
@@ -627,13 +709,13 @@ export default function CustomerServices() {
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-col gap-1">
                             <p className="text-base font-bold">{selectedService.name}</p>
-                            <Stars rating={selectedService.rating} count={selectedService.ratingCount} />
+                            <Stars rating={selectedService.rating} count={selectedService.rating_count} />
                             <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="h-3 w-3 shrink-0" />
-                                <span>Estimated duration: {selectedService.estimatedDuration}</span>
+                                <span>Estimated duration: {selectedService.estimated_duration}</span>
                             </div>
                         </div>
-                        <p className="shrink-0 text-base font-bold">P {selectedService.priceFixed.toLocaleString()}</p>
+                        <p className="shrink-0 text-base font-bold">P {selectedService.price_fixed.toLocaleString()}</p>
                     </div>
 
                     {/* Includes */}

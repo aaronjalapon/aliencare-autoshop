@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\MechanicController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReservationController;
+use App\Http\Controllers\Api\ServiceCatalogController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -96,6 +97,19 @@ Route::middleware('auth:sanctum')->prefix('settings')->name('settings.')->group(
 | API v1 Routes (Authentication Required)
 |--------------------------------------------------------------------------
 */
+
+/*
+|--------------------------------------------------------------------------
+| Public API v1 Routes (No Auth Required)
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('v1')->name('api.v1.public.')->group(function () {
+    Route::prefix('services')->name('services.')->group(function () {
+        Route::get('/', [ServiceCatalogController::class, 'index'])->name('index');
+        Route::get('/{id}', [ServiceCatalogController::class, 'show'])->name('show');
+    });
+});
 
 Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::prefix('inventory')->name('inventory.')->group(function () {

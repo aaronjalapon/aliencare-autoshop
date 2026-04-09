@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             DemoAccountSeeder::class,
             InventorySeeder::class,
             JobOrderSeeder::class,
+            ServiceCatalogSeeder::class,
         ]);
     }
 }

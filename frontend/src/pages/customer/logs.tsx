@@ -1,6 +1,12 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+import { useCustomerLogs } from '@/hooks/useCustomerLogs';
 import { type BreadcrumbItem } from '@/types';
+<<<<<<< HEAD
+import { CustomerTransaction } from '@/types/customer';
+import { ArrowDownRight, ArrowUpRight, Calendar, Filter, Loader2, Search } from 'lucide-react';
+=======
 import { ArrowDownRight, ArrowUpRight, Banknote, Calendar, CheckCircle2, Search, TrendingUp, Wrench } from 'lucide-react';
+>>>>>>> refs/remotes/origin/main
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -8,6 +14,32 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Logs', href: '/customer/logs' },
 ];
 
+<<<<<<< HEAD
+type LogType = 'all' | 'invoice' | 'payment' | 'refund';
+
+const typeLabels: Record<string, string> = {
+    all: 'All',
+    invoice: 'Invoices',
+    payment: 'Payments',
+    refund: 'Refunds',
+};
+
+const mapDisplayType = (type: string): string => {
+    switch (type) {
+        case 'invoice':
+            return 'Service';
+        case 'payment':
+            return 'Payment';
+        case 'refund':
+            return 'Refund';
+        default:
+            return type;
+    }
+};
+
+const getDescription = (item: CustomerTransaction): string => {
+    return item.notes || `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} #${item.id}`;
+=======
 type LogType = 'all' | 'service' | 'purchase' | 'payment';
 
 interface LogEntry {
@@ -113,20 +145,28 @@ const STATUS_STYLES: Record<string, string> = {
     Pending: 'bg-yellow-500/10 text-yellow-400',
     Delivered: 'bg-blue-500/10 text-blue-400',
     Processing: 'bg-purple-500/10 text-purple-400',
+>>>>>>> refs/remotes/origin/main
 };
 
 export default function CustomerLogs() {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<LogType>('all');
+    const { logs, loading, error } = useCustomerLogs();
 
-    const filtered = sampleLogs
+    const filtered = logs
         .filter((log) => {
+<<<<<<< HEAD
+            const desc = getDescription(log);
+            const ref = log.reference_number || '';
+            const matchesSearch = desc.toLowerCase().includes(search.toLowerCase()) || ref.toLowerCase().includes(search.toLowerCase());
+=======
             const matchesSearch =
                 log.description.toLowerCase().includes(search.toLowerCase()) || log.reference.toLowerCase().includes(search.toLowerCase());
+>>>>>>> refs/remotes/origin/main
             const matchesFilter = filter === 'all' || log.type === filter;
             return matchesSearch && matchesFilter;
         })
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     const totalPaidOut = sampleLogs.filter((l) => l.amount < 0).reduce((s, l) => s + Math.abs(l.amount), 0);
     const totalServices = sampleLogs.filter((l) => l.type === 'service').length;
@@ -208,6 +248,96 @@ export default function CustomerLogs() {
                     </div>
                 </div>
 
+<<<<<<< HEAD
+                {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-500">{error}</div>}
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
+                    </div>
+                ) : (
+                    <>
+                        {/* Logs Table */}
+                        <div className="rounded-xl border bg-card shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b text-left text-sm text-muted-foreground">
+                                            <th className="px-4 py-3 font-medium">Type</th>
+                                            <th className="px-4 py-3 font-medium">Description</th>
+                                            <th className="px-4 py-3 font-medium">Reference</th>
+                                            <th className="px-4 py-3 font-medium">Date</th>
+                                            <th className="px-4 py-3 font-medium">Status</th>
+                                            <th className="px-4 py-3 text-right font-medium">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map((log) => (
+                                            <tr key={log.id} className="border-b last:border-0 hover:bg-muted/50">
+                                                <td className="px-4 py-3">
+                                                    <div
+                                                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
+                                                            log.type === 'payment'
+                                                                ? 'bg-green-500/10 text-green-500'
+                                                                : log.type === 'invoice'
+                                                                  ? 'bg-blue-500/10 text-blue-500'
+                                                                  : 'bg-[#d4af37]/10 text-[#d4af37]'
+                                                        }`}
+                                                    >
+                                                        {log.type === 'payment' ? (
+                                                            <ArrowUpRight className="h-3 w-3" />
+                                                        ) : (
+                                                            <ArrowDownRight className="h-3 w-3" />
+                                                        )}
+                                                        {mapDisplayType(log.type)}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm font-medium">{getDescription(log)}</td>
+                                                <td className="px-4 py-3 text-sm text-muted-foreground">{log.reference_number || '—'}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                                        <Calendar className="h-3.5 w-3.5" />
+                                                        {new Date(log.created_at).toLocaleDateString('en-US', {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            year: 'numeric',
+                                                        })}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span
+                                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                                            log.type === 'payment'
+                                                                ? 'bg-green-500/10 text-green-500'
+                                                                : log.type === 'refund'
+                                                                  ? 'bg-yellow-500/10 text-yellow-500'
+                                                                  : 'bg-blue-500/10 text-blue-500'
+                                                        }`}
+                                                    >
+                                                        {log.type === 'payment' ? 'Completed' : log.type === 'invoice' ? 'Pending' : 'Refunded'}
+                                                    </span>
+                                                </td>
+                                                <td
+                                                    className={`px-4 py-3 text-right text-sm font-semibold ${log.type === 'payment' ? 'text-green-500' : ''}`}
+                                                >
+                                                    {log.type === 'payment' ? '-' : ''}₱
+                                                    {Math.abs(log.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {filtered.length === 0 && (
+                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                <p>No transactions found.</p>
+                            </div>
+                        )}
+                    </>
+                )}
+=======
                 {/* ── Log Entries ──────────────────────────────────────────── */}
                 <div className="flex flex-col gap-3">
                     {filtered.map((log) => {
@@ -269,6 +399,7 @@ export default function CustomerLogs() {
                         </div>
                     )}
                 </div>
+>>>>>>> refs/remotes/origin/main
             </div>
         </CustomerLayout>
     );
