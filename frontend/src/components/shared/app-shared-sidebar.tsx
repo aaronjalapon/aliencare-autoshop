@@ -21,9 +21,11 @@ interface AppSharedSidebarProps {
     role: string;
     profileHref: string;
     homeHref: string;
+    settingsHref: string;
+    notificationsHref: string;
 }
 
-export function AppSharedSidebar({ navItems, role, profileHref, homeHref }: AppSharedSidebarProps) {
+export function AppSharedSidebar({ navItems, role, profileHref, homeHref, settingsHref, notificationsHref }: AppSharedSidebarProps) {
     const { logout } = useAuth();
     const navigate = useNavigate();
     const { toggleSidebar, state } = useSidebar();
@@ -51,19 +53,27 @@ export function AppSharedSidebar({ navItems, role, profileHref, homeHref }: AppS
             </SidebarHeader>
 
             <SidebarContent>
-                <SidebarGroup className="-mt-2 px-2 py-0">
+                <SidebarGroup className="-mt-2 px-2 py-0 group-data-[collapsible=icon]:mt-2">
                     <SidebarGroupLabel className="mb-0 justify-center text-center text-base text-sidebar-primary group-data-[collapsible=icon]:hidden">
                         {role}
                     </SidebarGroupLabel>
 
                     {/* Icons Row */}
-                    <div className="flex items-center justify-center gap-4 px-2 pt-1 pb-6 group-data-[collapsible=icon]:pt-0 group-data-[collapsible=icon]:pb-2">
+                    <div className="flex items-center justify-center gap-4 px-2 pt-1 pb-6 group-data-[collapsible=icon]:hidden">
                         <UserCircle2
                             className="h-5 w-5 cursor-pointer text-white transition-colors hover:text-sidebar-primary"
                             onClick={() => navigate(profileHref)}
                         />
-                        <Settings className="h-5 w-5 cursor-pointer text-white transition-colors hover:text-sidebar-primary" />
-                        <LucideBell className="h-5 w-5 cursor-pointer text-white transition-colors hover:text-sidebar-primary" />
+                        <span className="gear-icon">
+                            <Settings
+                                className="h-5 w-5 cursor-pointer text-white hover:text-sidebar-primary"
+                                onClick={() => navigate(settingsHref)}
+                            />
+                        </span>
+                        <LucideBell
+                            className="h-5 w-5 cursor-pointer text-white transition-colors hover:text-sidebar-primary"
+                            onClick={() => navigate(notificationsHref)}
+                        />
                     </div>
 
                     <SidebarMenu>

@@ -46,5 +46,14 @@ const mainNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
-    return <AppSharedSidebar navItems={mainNavItems} role="Front Desk" profileHref="/profile" homeHref="/dashboard" />;
+    return (
+        <AppSharedSidebar
+            navItems={mainNavItems}
+            role="Front Desk"
+            profileHref="/profile"
+            settingsHref="/settings"
+            notificationsHref="/notifications"
+            homeHref="/dashboard"
+        />
+    );
 }

@@ -144,9 +144,9 @@ export default function Welcome() {
             >
                 {/* Spotlight Effect */}
                 <div className="pointer-events-none absolute top-0 left-1/2 z-0 h-full w-full max-w-full -translate-x-1/2 overflow-hidden">
-                    <div className="bg-gradient-radial absolute top-0 left-1/2 h-64 w-[1603px] max-w-[200vw] -translate-x-1/2 rounded-full from-yellow-200/25 via-yellow-100/15 to-transparent blur-3xl"></div>
+                    <div className="bg-gradient-radial absolute top-0 left-1/2 h-64 w-[1603px] max-w-[200vw] -translate-x-1/2 rounded-full from-[#DFB400]/25 via-[#DFB400]/15 to-transparent blur-3xl"></div>
                     <div
-                        className="absolute top-0 left-1/2 h-[600px] w-[1283px] max-w-[200vw] -translate-x-1/2 bg-gradient-to-b from-yellow-300/35 via-yellow-100/8 via-yellow-200/15 to-transparent blur-2xl"
+                        className="absolute top-0 left-1/2 h-[600px] w-[1283px] max-w-[200vw] -translate-x-1/2 bg-gradient-to-b from-[#DFB400]/35 via-[#DFB400]/8 via-[#DFB400]/15 to-transparent blur-2xl"
                         style={{ clipPath: 'polygon(32% 0%, 68% 0%, 80% 100%, 20% 100%)' }}
                     ></div>
                 </div>

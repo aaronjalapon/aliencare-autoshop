@@ -7,7 +7,7 @@ import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { ArrowLeft, LoaderCircle, LockKeyhole, Mail, User } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 function GoogleIcon() {
     return (
@@ -42,7 +42,6 @@ function FacebookIcon() {
 
 export default function Register() {
     const { register } = useAuth();
-    const navigate = useNavigate();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

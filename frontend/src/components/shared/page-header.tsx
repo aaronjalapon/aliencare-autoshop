@@ -6,6 +6,7 @@ const ROUTE_LABELS: Record<string, string> = {
     '/customer': 'Dashboard',
     '/customer/services': 'Services',
     '/customer/my-services': 'My Services',
+    '/customer/shop': 'Shop',
     '/customer/billing': 'Billing & Payment',
     '/customer/profile': 'Profile',
     '/customer/logs': 'Logs',

@@ -1,5 +1,6 @@
 import { Breadcrumbs } from '@/components/shared/breadcrumbs';
 import { Icon } from '@/components/shared/icon';
+import { RoleAvatar } from '@/components/shared/role-avatar';
 import { UserMenuContent } from '@/components/shared/user-menu-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import { NavigationMenu, NavigationMenuItem, NavigationMenuList, navigationMenuT
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
-import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type NavItem } from '@/types';
 import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
@@ -46,7 +46,6 @@ interface AppHeaderProps {
 export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
     const { user } = useAuth();
     const { pathname } = useLocation();
-    const getInitials = useInitials();
 
     if (!user) return null;
 
@@ -161,8 +160,8 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                                 <Button variant="ghost" className="size-10 rounded-full p-1">
                                     <Avatar className="size-8 overflow-hidden rounded-full">
                                         <AvatarImage src={user.avatar} alt={user.name} />
-                                        <AvatarFallback className="rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                            {getInitials(user.name)}
+                                        <AvatarFallback className="p-0">
+                                            <RoleAvatar role={user.role} className="h-full w-full" />
                                         </AvatarFallback>
                                     </Avatar>
                                 </Button>

@@ -143,4 +143,14 @@
         background: linear-gradient(145deg, #1e1e22 0%, #0d0d10 100%);
         border: 1px solid #2a2a2e;
     }
+
+    .gear-icon {
+        display: inline-flex;
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        transform: rotate(0deg);
+    }
+
+    .gear-icon:hover {
+        transform: rotate(90deg);
+    }
 }

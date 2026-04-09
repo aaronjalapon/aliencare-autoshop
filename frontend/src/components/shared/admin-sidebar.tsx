@@ -16,5 +16,14 @@ const mainNavItems: NavItem[] = [
 ];
 
 export function AdminSidebar() {
-    return <AppSharedSidebar navItems={mainNavItems} role="Admin" profileHref="/admin/profile" homeHref="/admin" />;
+    return (
+        <AppSharedSidebar
+            navItems={mainNavItems}
+            role="Admin"
+            profileHref="/admin/profile"
+            settingsHref="/admin/settings"
+            notificationsHref="/admin/notifications"
+            homeHref="/admin"
+        />
+    );
 }

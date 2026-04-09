@@ -1,15 +1,16 @@
+import { RoleAvatar } from '@/components/shared/role-avatar';
 import { useAuth } from '@/context/AuthContext';
-import { useInitials } from '@/hooks/use-initials';
 import { CalendarDays, Car, FileText, History, Mail, MapPin, Phone, SquarePen } from 'lucide-react';
 import { useState } from 'react';
+import { AddVehicleModal } from './add-vehicle-modal';
 import { type EditField, ProfileEditModal } from './profile-edit-modal';
 
 type SectionKey = 'personal' | 'vehicles' | 'account' | 'special';
 
 export function UserProfileContent() {
     const { user } = useAuth();
-    const getInitials = useInitials();
     const [activeModal, setActiveModal] = useState<SectionKey | null>(null);
+    const [addVehicleOpen, setAddVehicleOpen] = useState(false);
 
     const isCustomer = user?.role === 'customer';
     const isFrontdesk = user?.role === 'frontdesk';
@@ -73,8 +74,14 @@ export function UserProfileContent() {
 
             {/* Hero */}
             <div className="profile-card flex items-center gap-5 rounded-xl p-5">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#2a2a2e] text-2xl font-bold text-white">
-                    {user ? getInitials(user.name) : '?'}
+                <div className="h-20 w-20 shrink-0">
+                    {user ? (
+                        <RoleAvatar role={user.role} className="h-full w-full" />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center rounded-full bg-[#2a2a2e] text-2xl font-bold text-white">
+                            ?
+                        </div>
+                    )}
                 </div>
                 <div>
                     <h2 className="text-xl font-bold">{user?.name ?? '—'}</h2>
@@ -161,7 +168,10 @@ export function UserProfileContent() {
                                         <span>Service History</span>
                                     </button>
                                 </div>
-                                <button className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]">
+                                <button
+                                    onClick={() => setAddVehicleOpen(true)}
+                                    className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]"
+                                >
                                     Add Vehicle
                                 </button>
                             </div>
@@ -255,6 +265,9 @@ export function UserProfileContent() {
             {active && (
                 <ProfileEditModal open={activeModal !== null} onClose={() => setActiveModal(null)} title={active.title} fields={active.fields} />
             )}
+
+            {/* Add Vehicle modal */}
+            <AddVehicleModal open={addVehicleOpen} onClose={() => setAddVehicleOpen(false)} />
         </div>
     );
 }

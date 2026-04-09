@@ -44,8 +44,14 @@ import BillingPayment from '@/pages/customer/billing-payment';
 import CustomerDashboard from '@/pages/customer/dashboard';
 import CustomerLogs from '@/pages/customer/logs';
 import MyServices from '@/pages/customer/my-services';
+import CustomerNotifications from '@/pages/customer/notifications';
 import CustomerProfile from '@/pages/customer/profile';
 import CustomerServices from '@/pages/customer/services';
+import CustomerSettings from '@/pages/customer/settings';
+import CustomerShop from '@/pages/customer/shop';
+
+// Front Desk extra pages
+import FrontdeskNotifications from '@/pages/dashboard/notifications';
 
 export default function App() {
     return (
@@ -100,6 +106,7 @@ export default function App() {
                 <Route path="/billing" element={<Billing />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/notifications" element={<FrontdeskNotifications />} />
                 <Route path="/confirm-password" element={<ConfirmPassword />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
 
@@ -155,9 +162,12 @@ export default function App() {
                 <Route path="/customer" element={<CustomerDashboard />} />
                 <Route path="/customer/services" element={<CustomerServices />} />
                 <Route path="/customer/my-services" element={<MyServices />} />
+                <Route path="/customer/shop" element={<CustomerShop />} />
                 <Route path="/customer/billing" element={<BillingPayment />} />
                 <Route path="/customer/profile" element={<CustomerProfile />} />
                 <Route path="/customer/logs" element={<CustomerLogs />} />
+                <Route path="/customer/settings" element={<CustomerSettings />} />
+                <Route path="/customer/notifications" element={<CustomerNotifications />} />
             </Route>
         </Routes>
     );
