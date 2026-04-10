@@ -23,6 +23,12 @@ export interface CustomerTransaction {
     amount: number;
     reference_number: string | null;
     notes: string | null;
+    external_id: string | null;
+    xendit_invoice_id: string | null;
+    payment_url: string | null;
+    payment_method: string | null;
+    xendit_status: 'PENDING' | 'PAID' | 'EXPIRED' | null;
+    paid_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -78,4 +84,25 @@ export interface ProductItem {
 export interface CartItem {
     product: ProductItem;
     quantity: number;
+}
+
+export type JobOrderStatus = 'created' | 'pending_approval' | 'approved' | 'in_progress' | 'completed' | 'settled' | 'cancelled';
+
+export interface JobOrder {
+    id: number;
+    jo_number: string;
+    status: JobOrderStatus;
+    status_label: string;
+    status_color: string;
+    service_fee: number;
+    total_cost: number | null;
+    settled_flag: boolean;
+    invoice_id: number | null;
+    approved_at: string | null;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+    vehicle: Vehicle | null;
+    mechanic: { id: number; name: string | null; specialization: string | null; availability_status: string } | null;
+    bay: { id: number; name: string; status: string } | null;
 }

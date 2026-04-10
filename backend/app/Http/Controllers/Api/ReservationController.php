@@ -17,6 +17,7 @@ use App\Http\Requests\Api\Reservation\RejectReservationRequest;
 use App\Http\Requests\Api\Reservation\ReserveMultiplePartsRequest;
 use App\Http\Requests\Api\Reservation\ReservePartsRequest;
 use App\Http\Resources\ReservationResource;
+use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -78,13 +79,15 @@ class ReservationController extends Controller
     {
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
+            $customer = Customer::where('email', $request->user()?->email)->first();
 
             $result = $this->reservationService->reservePartsForJob(
                 (string) $request->input('item_id'),
                 (int) $request->input('quantity'),
                 $request->input('job_order_number'),
                 $request->input('notes'),
-                $actorName
+                $actorName,
+                $customer?->id
             );
 
             return response()->json([
@@ -284,6 +287,46 @@ class ReservationController extends Controller
                 'success' => false,
                 'message' => 'Failed to create multiple reservations: '.$e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Initiate a Xendit payment for the reservation fee.
+     * Returns a Xendit hosted-payment URL the customer should be redirected to.
+     */
+    public function initiateFeePay(Request $request, int $id): JsonResponse
+    {
+        $customer = Customer::where('email', $request->user()?->email)->first();
+
+        if (! $customer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No customer profile found for this account.',
+            ], 403);
+        }
+
+        try {
+            $paymentUrl = $this->reservationService->initiateFeePay($id, $customer);
+
+            return response()->json([
+                'success' => true,
+                'data' => ['payment_url' => $paymentUrl],
+            ]);
+        } catch (ReservationNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 404);
+        } catch (ReservationStateException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment initiation failed: '.$e->getMessage(),
+            ], 502);
         }
     }
 }

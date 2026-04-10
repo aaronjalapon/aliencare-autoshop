@@ -6,6 +6,9 @@ namespace App\Contracts\Services;
 
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InventoryNotFoundException;
+use App\Exceptions\ReservationNotFoundException;
+use App\Exceptions\ReservationStateException;
+use App\Models\Customer;
 use App\Models\Reservation;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -50,6 +53,7 @@ interface ReservationServiceInterface
      * @param  string  $jobOrderNumber  Job order reference number
      * @param  string|null  $notes  Optional notes
      * @param  string  $reservedBy  Identity of who created the reservation
+     * @param  int|null  $customerId  The customer making the reservation (used for fee payment)
      * @return array{
      *     success: bool,
      *     reservation: Reservation,
@@ -64,7 +68,8 @@ interface ReservationServiceInterface
         int $quantity,
         string $jobOrderNumber,
         ?string $notes = null,
-        string $reservedBy = 'System'
+        string $reservedBy = 'System',
+        ?int $customerId = null
     ): array;
 
     /**
@@ -146,4 +151,16 @@ interface ReservationServiceInterface
      * }
      */
     public function getActiveReservationsSummary(): array;
+
+    /**
+     * Initiate a Xendit payment for the reservation fee.
+     * Returns an existing pending payment URL if one already exists.
+     *
+     * @param  int  $id  Reservation ID
+     * @param  Customer  $customer  The customer paying the fee
+     *
+     * @throws ReservationNotFoundException
+     * @throws ReservationStateException
+     */
+    public function initiateFeePay(int $id, Customer $customer): string;
 }

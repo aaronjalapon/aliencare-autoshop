@@ -1,5 +1,8 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+import { useCustomerBilling } from '@/hooks/useCustomerBilling';
+import { paymentService } from '@/services/paymentService';
 import { type BreadcrumbItem } from '@/types';
+import { CustomerTransaction } from '@/types/customer';
 import { AlertCircle, ArrowLeft, Banknote, Calendar, CheckCircle2, CreditCard, Download, Printer, Receipt, TrendingUp } from 'lucide-react';
 import { useRef, useState } from 'react';
 
@@ -9,32 +12,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type TabType = 'pending' | 'paid' | 'receipts';
-
-interface BillingItem {
-    id: number;
-    description: string;
-    type: 'service' | 'product';
-    amount: number;
-    date: string;
-    status: 'pending' | 'paid';
-    reference?: string;
-}
-
-const sampleBillings: BillingItem[] = [
-    { id: 1, description: 'Oil Change Service', type: 'service', amount: 1500, date: '2026-01-15', status: 'pending' },
-    { id: 2, description: 'Brake Pad Set (Front)', type: 'product', amount: 1800, date: '2026-01-14', status: 'pending' },
-    { id: 3, description: 'Full Detail Wash', type: 'service', amount: 2500, date: '2026-01-10', status: 'paid', reference: 'PAY-2026-001' },
-    {
-        id: 4,
-        description: 'Synthetic Engine Oil 5W-30 x2',
-        type: 'product',
-        amount: 1300,
-        date: '2026-01-08',
-        status: 'paid',
-        reference: 'PAY-2026-002',
-    },
-    { id: 5, description: 'Engine Tune-Up', type: 'service', amount: 3500, date: '2025-12-20', status: 'paid', reference: 'PAY-2025-045' },
-];
 
 // ── Receipt types ──────────────────────────────────────────────────────────────
 interface ReceiptLineItem {
@@ -351,20 +328,44 @@ function ReceiptDetail({ receipt, onBack }: { receipt: ReceiptRecord; onBack: ()
 export default function BillingPayment() {
     const [activeTab, setActiveTab] = useState<TabType>('pending');
     const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
+    const [payingId, setPayingId] = useState<number | null>(null);
+    const [payError, setPayError] = useState<string | null>(null);
 
-    const pendingItems = sampleBillings.filter((b) => b.status === 'pending');
-    const paidItems = sampleBillings.filter((b) => b.status === 'paid');
-    const outstandingBalance = pendingItems.reduce((sum, b) => sum + b.amount, 0);
+    const { pendingItems, paidItems, outstandingBalance, loading, error: billingError, refresh } = useCustomerBilling();
 
-    const displayItems = activeTab === 'pending' ? pendingItems : paidItems;
-    const totalPaid = paidItems.reduce((sum, b) => sum + b.amount, 0);
-    const pendingServicesTotal = pendingItems.filter((b) => b.type === 'service').reduce((sum, b) => sum + b.amount, 0);
-    const pendingProductsTotal = pendingItems.filter((b) => b.type === 'product').reduce((sum, b) => sum + b.amount, 0);
-    const lastPayment = paidItems.length > 0 ? [...paidItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] : null;
+    const displayItems: CustomerTransaction[] = activeTab === 'pending' ? pendingItems : paidItems;
+    const totalPaid = paidItems.reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+    const pendingServicesTotal = outstandingBalance;
+    const lastPayment =
+        paidItems.length > 0 ? [...paidItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] : null;
     const daysSince = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
 
+    const handlePayNow = async (transaction: CustomerTransaction) => {
+        // Re-use existing pending invoice URL if available
+        if (transaction.payment_url && transaction.xendit_status === 'PENDING') {
+            window.location.href = transaction.payment_url;
+            return;
+        }
+        setPayingId(transaction.id);
+        setPayError(null);
+        try {
+            const response = await paymentService.createInvoice(transaction.id);
+            window.location.href = response.data.payment_url;
+        } catch (err) {
+            setPayError(err instanceof Error ? err.message : 'Failed to initiate payment. Please try again.');
+            setPayingId(null);
+        }
+    };
+
+    const handlePayAll = async () => {
+        if (pendingItems.length === 0) return;
+        // Pay the first unpaid invoice; customer can continue from there
+        await handlePayNow(pendingItems[0]);
+    };
+
     if (viewingReceiptId !== null) {
-        const rc = SAMPLE_RECEIPTS.find((r) => r.id === viewingReceiptId)!;
+        const rc = SAMPLE_RECEIPTS.find((r) => r.id === viewingReceiptId);
+        if (!rc) return null;
         return (
             <CustomerLayout breadcrumbs={breadcrumbs}>
                 <ReceiptDetail
@@ -386,6 +387,14 @@ export default function BillingPayment() {
                     <p className="text-muted-foreground">Manage your payments and billing history.</p>
                 </div>
 
+                {/* Loading / Error state */}
+                {billingError && (
+                    <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        {billingError}
+                    </div>
+                )}
+
                 {/* Outstanding Balance */}
                 <div className="profile-card rounded-xl p-6">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -393,36 +402,33 @@ export default function BillingPayment() {
                             <p className="text-sm font-medium text-muted-foreground">Outstanding Balance</p>
                             <div className="mt-1 flex items-center gap-3">
                                 <p className="text-3xl font-bold text-[#d4af37]">
-                                    ₱{outstandingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                    {loading ? '—' : `₱${outstandingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
                                 </p>
                                 <span
                                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${pendingItems.length > 0 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}`}
                                 >
-                                    {pendingItems.length > 0 ? `${pendingItems.length} pending` : 'All paid'}
+                                    {loading ? '…' : pendingItems.length > 0 ? `${pendingItems.length} pending` : 'All paid'}
                                 </span>
                             </div>
                         </div>
                         {pendingItems.length > 0 && (
-                            <button className="rounded-lg bg-[#d4af37] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]">
-                                Pay All
+                            <button
+                                onClick={handlePayAll}
+                                disabled={payingId !== null}
+                                className="rounded-lg bg-[#d4af37] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e] disabled:opacity-60"
+                            >
+                                {payingId !== null ? 'Redirecting…' : 'Pay Now'}
                             </button>
                         )}
                     </div>
+                    {payError && <p className="mt-3 text-xs text-red-400">{payError}</p>}
                     {pendingItems.length > 0 && (
                         <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-[#2a2a2e] pt-4">
                             <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-blue-400" />
-                                <span className="text-xs text-muted-foreground">Services</span>
-                                <span className="text-sm font-semibold text-blue-400">
-                                    ₱{pendingServicesTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                </span>
-                            </div>
-                            <div className="h-4 w-px bg-[#2a2a2e]" />
-                            <div className="flex items-center gap-2">
                                 <div className="h-2 w-2 rounded-full bg-[#d4af37]" />
-                                <span className="text-xs text-muted-foreground">Products</span>
+                                <span className="text-xs text-muted-foreground">Outstanding</span>
                                 <span className="text-sm font-semibold text-[#d4af37]">
-                                    ₱{pendingProductsTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                    ₱{pendingServicesTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
                         </div>
@@ -446,7 +452,7 @@ export default function BillingPayment() {
                             <p className="text-sm text-muted-foreground">Total Transactions</p>
                             <TrendingUp className="h-4 w-4 text-[#d4af37]" />
                         </div>
-                        <p className="mt-2 text-2xl font-bold">{sampleBillings.length}</p>
+                        <p className="mt-2 text-2xl font-bold">{pendingItems.length + paidItems.length}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                             {pendingItems.length} pending · {paidItems.length} paid
                         </p>
@@ -459,9 +465,15 @@ export default function BillingPayment() {
                         {lastPayment ? (
                             <>
                                 <p className="mt-2 text-lg font-bold">
-                                    {new Date(lastPayment.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {new Date(lastPayment.created_at).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                    })}
                                 </p>
-                                <p className="mt-0.5 truncate text-xs text-muted-foreground">{lastPayment.description}</p>
+                                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                    {lastPayment.notes ?? `Transaction #${lastPayment.id}`}
+                                </p>
                             </>
                         ) : (
                             <p className="mt-2 text-sm text-muted-foreground">No payments yet</p>
@@ -504,39 +516,45 @@ export default function BillingPayment() {
                             {displayItems.map((item) => (
                                 <div key={item.id} className="profile-card rounded-xl p-4 transition-shadow hover:shadow-md">
                                     <div className="flex items-center gap-4">
-                                        <div className={`rounded-lg p-2.5 ${item.type === 'service' ? 'bg-blue-500/10' : 'bg-[#d4af37]/10'}`}>
-                                            {item.type === 'service' ? (
-                                                <Receipt className={`h-5 w-5 ${item.type === 'service' ? 'text-blue-500' : 'text-[#d4af37]'}`} />
+                                        <div className={`rounded-lg p-2.5 ${item.type === 'invoice' ? 'bg-blue-500/10' : 'bg-[#d4af37]/10'}`}>
+                                            {item.type === 'invoice' ? (
+                                                <Receipt className="h-5 w-5 text-blue-500" />
                                             ) : (
                                                 <CreditCard className="h-5 w-5 text-[#d4af37]" />
                                             )}
                                         </div>
                                         <div className="flex-1">
-                                            <p className="font-medium">{item.description}</p>
+                                            <p className="font-medium">{item.notes ?? `Invoice #${item.id}`}</p>
                                             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                                                 <span className="flex items-center gap-1">
                                                     <Calendar className="h-3.5 w-3.5" />
-                                                    {new Date(item.date).toLocaleDateString('en-US', {
+                                                    {new Date(item.created_at).toLocaleDateString('en-US', {
                                                         month: 'short',
                                                         day: 'numeric',
                                                         year: 'numeric',
                                                     })}
                                                 </span>
                                                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs capitalize">{item.type}</span>
-                                                {item.reference && <span className="font-mono text-xs">Ref: {item.reference}</span>}
-                                                {item.status === 'pending' && daysSince(item.date) > 7 && (
+                                                {item.reference_number && <span className="font-mono text-xs">Ref: {item.reference_number}</span>}
+                                                {activeTab === 'pending' && daysSince(item.created_at) > 7 && (
                                                     <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400">
                                                         <AlertCircle className="h-3 w-3" />
-                                                        {daysSince(item.date)} days overdue
+                                                        {daysSince(item.created_at)} days overdue
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-lg font-bold">₱{item.amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
-                                            {item.status === 'pending' ? (
-                                                <button className="mt-1 rounded-lg bg-[#d4af37] px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-[#e6c24e]">
-                                                    Pay Now
+                                            <p className="text-lg font-bold">
+                                                ₱{Math.abs(Number(item.amount)).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                            </p>
+                                            {activeTab === 'pending' ? (
+                                                <button
+                                                    onClick={() => handlePayNow(item)}
+                                                    disabled={payingId === item.id}
+                                                    className="mt-1 rounded-lg bg-[#d4af37] px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-[#e6c24e] disabled:opacity-60"
+                                                >
+                                                    {payingId === item.id ? '…' : 'Pay Now'}
                                                 </button>
                                             ) : (
                                                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-500">

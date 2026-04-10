@@ -22,6 +22,9 @@ class Reservation extends Model
         'is_urgent',
         'job_order_number',
         'job_order_id',
+        'customer_id',
+        'reservation_fee',
+        'fee_transaction_id',
         'requested_by',
         'approved_by',
         'requested_date',
@@ -35,6 +38,7 @@ class Reservation extends Model
         'quantity' => 'integer',
         'priority_level' => 'integer',
         'is_urgent' => 'boolean',
+        'reservation_fee' => 'decimal:2',
         'requested_date' => 'datetime',
         'approved_date' => 'datetime',
         'expires_at' => 'datetime',
@@ -55,6 +59,22 @@ class Reservation extends Model
     public function jobOrder(): BelongsTo
     {
         return $this->belongsTo(JobOrder::class);
+    }
+
+    /**
+     * Get the customer who made this reservation.
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Get the Xendit transaction for the reservation fee payment.
+     */
+    public function feeTransaction(): BelongsTo
+    {
+        return $this->belongsTo(CustomerTransaction::class, 'fee_transaction_id');
     }
 
     /**

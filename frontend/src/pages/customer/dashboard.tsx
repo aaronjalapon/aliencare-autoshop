@@ -1,11 +1,23 @@
 import CustomerLayout from '@/components/layout/customer-layout';
 import { useAuth } from '@/context/AuthContext';
+import { useCustomerBilling } from '@/hooks/useCustomerBilling';
+import { useCustomerJobOrders } from '@/hooks/useCustomerJobOrders';
+import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { type BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/customer' }];
 
 export default function CustomerDashboard() {
     const { user } = useAuth();
+    const { customer, loading: profileLoading } = useCustomerProfile();
+    const { pendingItems, outstandingBalance, loading: billingLoading } = useCustomerBilling();
+    const { activeJobOrders, loading: jobOrdersLoading } = useCustomerJobOrders();
+
+    const vehicleCount = customer?.vehicles?.length ?? 0;
+    const pendingPaymentsCount = pendingItems.length;
+    const activeServicesCount = activeJobOrders.length;
+
+    const loading = profileLoading || billingLoading || jobOrdersLoading;
 
     return (
         <CustomerLayout breadcrumbs={breadcrumbs}>
@@ -30,8 +42,10 @@ export default function CustomerDashboard() {
                             </div>
                             <h3 className="text-sm font-medium text-muted-foreground">Active Services</h3>
                         </div>
-                        <p className="mt-3 text-3xl font-bold">0</p>
-                        <p className="mt-1 text-xs text-muted-foreground">No active services</p>
+                        <p className="mt-3 text-3xl font-bold">{jobOrdersLoading ? '—' : activeServicesCount}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {jobOrdersLoading ? 'Loading…' : activeServicesCount === 0 ? 'No active services' : `${activeServicesCount} in progress`}
+                        </p>
                     </div>
 
                     {/* Pending Payments Card */}
@@ -48,8 +62,16 @@ export default function CustomerDashboard() {
                             </div>
                             <h3 className="text-sm font-medium text-muted-foreground">Pending Payments</h3>
                         </div>
-                        <p className="mt-3 text-3xl font-bold">₱0.00</p>
-                        <p className="mt-1 text-xs text-muted-foreground">No pending payments</p>
+                        <p className="mt-3 text-3xl font-bold">
+                            {billingLoading ? '—' : `₱${outstandingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {billingLoading
+                                ? 'Loading…'
+                                : pendingPaymentsCount === 0
+                                  ? 'No pending payments'
+                                  : `${pendingPaymentsCount} unpaid invoice${pendingPaymentsCount > 1 ? 's' : ''}`}
+                        </p>
                     </div>
 
                     {/* Vehicles Card */}
@@ -66,16 +88,60 @@ export default function CustomerDashboard() {
                             </div>
                             <h3 className="text-sm font-medium text-muted-foreground">My Vehicles</h3>
                         </div>
-                        <p className="mt-3 text-3xl font-bold">1</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Registered vehicles</p>
+                        <p className="mt-3 text-3xl font-bold">{profileLoading ? '—' : vehicleCount}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {profileLoading
+                                ? 'Loading…'
+                                : vehicleCount === 0
+                                  ? 'No vehicles registered'
+                                  : `${vehicleCount} registered vehicle${vehicleCount > 1 ? 's' : ''}`}
+                        </p>
                     </div>
                 </div>
 
                 {/* Recent Activity */}
                 <div className="profile-card rounded-xl p-6">
                     <h2 className="text-lg font-semibold">Recent Activity</h2>
-                    <div className="mt-4 flex items-center justify-center py-8 text-muted-foreground">
-                        <p>No recent activity</p>
+                    <div className="mt-4">
+                        {loading ? (
+                            <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                <p>Loading activity…</p>
+                            </div>
+                        ) : activeJobOrders.length === 0 && pendingItems.length === 0 ? (
+                            <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                <p>No recent activity</p>
+                            </div>
+                        ) : (
+                            <ul className="divide-y divide-border">
+                                {activeJobOrders.slice(0, 3).map((jo) => (
+                                    <li key={jo.id} className="flex items-center justify-between py-3">
+                                        <div>
+                                            <p className="text-sm font-medium">{jo.jo_number}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {jo.vehicle ? `${jo.vehicle.make} ${jo.vehicle.model}` : 'Vehicle'} — {jo.status_label}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className="rounded-full px-2 py-0.5 text-xs font-medium"
+                                            style={{ backgroundColor: `${jo.status_color}20`, color: jo.status_color }}
+                                        >
+                                            {jo.status_label}
+                                        </span>
+                                    </li>
+                                ))}
+                                {pendingItems.slice(0, 2).map((tx) => (
+                                    <li key={tx.id} className="flex items-center justify-between py-3">
+                                        <div>
+                                            <p className="text-sm font-medium">{tx.notes ?? `Invoice #${tx.id}`}</p>
+                                            <p className="text-xs text-muted-foreground">Pending payment</p>
+                                        </div>
+                                        <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-500">
+                                            ₱{Number(tx.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 </div>
             </div>

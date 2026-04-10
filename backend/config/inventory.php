@@ -43,6 +43,9 @@ return [
     // Default reservation expiry in days
     'default_reservation_expiry_days' => env('INVENTORY_RESERVATION_EXPIRY', 7),
 
+    // Reservation fee as a percentage of the reserved parts' total value (quantity × unit_price)
+    'reservation_fee_percentage' => (int) env('RESERVATION_FEE_PERCENTAGE', 20),
+
     /*
     |--------------------------------------------------------------------------
     | Pagination Settings

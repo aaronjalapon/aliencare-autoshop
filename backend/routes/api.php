@@ -11,9 +11,11 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\MechanicController;
+use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\ServiceCatalogController;
+use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -131,6 +133,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::get('/{id}', [ReservationController::class, 'show'])->name('show');
         Route::post('/reserve', [ReservationController::class, 'reservePartsForJob'])->name('reserve');
         Route::post('/reserve-multiple', [ReservationController::class, 'reserveMultiplePartsForJob'])->name('reserve-multiple');
+        Route::post('/{id}/pay-fee', [ReservationController::class, 'initiateFeePay'])->name('pay-fee');
         Route::put('/{id}/approve', [ReservationController::class, 'approveReservation'])->name('approve');
         Route::put('/{id}/reject', [ReservationController::class, 'rejectReservation'])->name('reject');
         Route::put('/{id}/complete', [ReservationController::class, 'completeReservation'])->name('complete');
@@ -228,4 +231,32 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::post('/', [FrontDeskAccountController::class, 'store'])->name('store');
         Route::delete('/{id}', [FrontDeskAccountController::class, 'destroy'])->name('destroy');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payment Routes
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('payments')->name('payments.')->group(function () {
+        Route::post('/{transactionId}/invoice', [PaymentController::class, 'createInvoice'])->name('invoice.create');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shop Routes (customer-facing)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('shop')->name('shop.')->group(function () {
+        Route::post('/checkout', [ShopController::class, 'checkout'])->name('checkout');
+    });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Xendit Webhook (public — validated by X-CALLBACK-TOKEN header)
+|--------------------------------------------------------------------------
+*/
+
+Route::post('/v1/payments/webhook', [PaymentController::class, 'handleWebhook'])->name('api.v1.payments.webhook');

@@ -19,6 +19,12 @@ class CustomerTransactionResource extends JsonResource
             'amount' => $this->amount,
             'reference_number' => $this->reference_number,
             'notes' => $this->notes,
+            'external_id' => $this->external_id,
+            'xendit_invoice_id' => $this->xendit_invoice_id,
+            'payment_url' => $this->payment_url,
+            'payment_method' => $this->payment_method,
+            'xendit_status' => $this->xendit_status,
+            'paid_at' => $this->paid_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

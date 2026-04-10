@@ -13,6 +13,7 @@ use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InventoryNotFoundException;
 use App\Exceptions\ReservationNotFoundException;
 use App\Exceptions\ReservationStateException;
+use App\Models\Customer;
 use App\Models\Reservation;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,8 @@ class ReservationService implements ReservationServiceInterface
     public function __construct(
         private ReservationRepositoryInterface $reservationRepository,
         private InventoryRepositoryInterface $inventoryRepository,
-        private StockTransactionRepositoryInterface $transactionRepository
+        private StockTransactionRepositoryInterface $transactionRepository,
+        private XenditService $xenditService
     ) {}
 
     /**
@@ -61,9 +63,10 @@ class ReservationService implements ReservationServiceInterface
         int $quantity,
         string $jobOrderNumber,
         ?string $notes = null,
-        string $reservedBy = 'System'
+        string $reservedBy = 'System',
+        ?int $customerId = null
     ): array {
-        return DB::transaction(function () use ($itemId, $quantity, $jobOrderNumber, $notes, $reservedBy) {
+        return DB::transaction(function () use ($itemId, $quantity, $jobOrderNumber, $notes, $reservedBy, $customerId) {
             $inventory = $this->inventoryRepository->findByIdWithLock((int) $itemId);
 
             if (! $inventory) {
@@ -81,6 +84,9 @@ class ReservationService implements ReservationServiceInterface
                 );
             }
 
+            $feePercentage = (int) config('inventory.reservation_fee_percentage', 20);
+            $reservationFee = round($quantity * ((float) ($inventory->unit_price ?? 0)) * ($feePercentage / 100), 2);
+
             $reservation = $this->reservationRepository->create([
                 'item_id' => $inventory->item_id,
                 'quantity' => $quantity,
@@ -90,6 +96,8 @@ class ReservationService implements ReservationServiceInterface
                 'requested_date' => now(),
                 'notes' => $notes,
                 'expires_at' => now()->addDays(7),
+                'customer_id' => $customerId,
+                'reservation_fee' => $reservationFee > 0 ? $reservationFee : null,
             ]);
 
             event(new ReservationUpdated($reservation, 'created'));
@@ -171,6 +179,19 @@ class ReservationService implements ReservationServiceInterface
                     $reservation->quantity,
                     'Insufficient stock to approve reservation'
                 );
+            }
+
+            // Block approval if reservation fee has not been paid
+            if ($reservation->reservation_fee > 0) {
+                $feeTransaction = $reservation->feeTransaction;
+                if (! $feeTransaction || $feeTransaction->xendit_status !== 'PAID') {
+                    throw new ReservationStateException(
+                        $id,
+                        $reservation->status,
+                        'approved',
+                        'The reservation fee must be paid before this reservation can be approved'
+                    );
+                }
             }
 
             // Deduct stock
@@ -330,5 +351,58 @@ class ReservationService implements ReservationServiceInterface
             'total_reserved_value' => $totalReservedValue,
             'by_category' => $byCategory,
         ];
+    }
+
+    /**
+     * Initiate a Xendit payment for the reservation fee.
+     * Returns an existing pending payment URL if one already exists.
+     *
+     * @throws ReservationNotFoundException
+     * @throws ReservationStateException
+     */
+    public function initiateFeePay(int $id, Customer $customer): string
+    {
+        $reservation = $this->reservationRepository->findById($id);
+
+        if (! $reservation) {
+            throw new ReservationNotFoundException($id);
+        }
+
+        if ($reservation->customer_id !== $customer->id) {
+            throw new ReservationStateException(
+                $id,
+                $reservation->status,
+                'pay_fee',
+                'You are not authorised to pay the fee for this reservation'
+            );
+        }
+
+        if ($reservation->status !== 'pending') {
+            throw new ReservationStateException(
+                $id,
+                $reservation->status,
+                'pay_fee',
+                'Only pending reservations require a fee payment'
+            );
+        }
+
+        if (! $reservation->reservation_fee || $reservation->reservation_fee <= 0) {
+            throw new ReservationStateException(
+                $id,
+                $reservation->status,
+                'pay_fee',
+                'This reservation does not require a fee payment'
+            );
+        }
+
+        // Return the existing URL if a pending invoice already exists
+        if ($reservation->fee_transaction_id) {
+            $existing = $reservation->feeTransaction;
+            if ($existing && $existing->xendit_status === 'PENDING' && $existing->payment_url) {
+                return $existing->payment_url;
+            }
+        }
+
+        return $this->xenditService->createReservationFeeInvoice($reservation, $customer);
     }
 }

@@ -1,5 +1,8 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+import { useCustomerJobOrders } from '@/hooks/useCustomerJobOrders';
+import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { type BreadcrumbItem } from '@/types';
+import { JobOrder } from '@/types/customer';
 import {
     ArrowLeft,
     ArrowUpDown,
@@ -62,194 +65,78 @@ interface Booking {
     stepTimestamps: { created?: string; confirmed?: string; waitingInQueue?: string; inService?: string; completed?: string };
 }
 
-// ── sample data ───────────────────────────────────────────────────────────────
-const BOOKINGS: Booking[] = [
-    {
-        id: 1,
-        jobOrder: 'JO-10237',
-        serviceName: 'Change Oil',
-        serviceCategory: 'Maintenance',
-        dateTime: 'Mon, Apr 5, 1:00 PM',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        vehicleModel: 'Toyota Innova 2.0 E',
-        vehicleYear: '2019',
-        status: 'Waiting in Queue',
-        payment: 'Pay at shop',
-        tab: 'Upcoming',
-        arrival: 'Mon, Apr 5, 10:00 AM',
-        scheduledTime: '1:00 PM',
-        estimatedStart: '1:15 PM',
-        estimatedEnd: '2:00 PM',
-        estimatedDuration: '45–60 mins',
-        reservationFeePaid: false,
-        bookedOn: 'Apr 2, 2026 - 3:10 PM',
-        bookingDate: 'Apr 2, 2026',
-        includes: ['Synthetic oil refill', 'Oil filter replacement', '21-point inspection'],
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        customerAddress: 'Davao City',
-        amountPaid: 0,
-        remainingBalance: 1200,
-        stepTimestamps: { created: 'Apr 2, 3:10 PM', confirmed: 'Apr 2, 3:12 PM', waitingInQueue: 'Apr 5, 12:55 PM' },
-    },
-    {
-        id: 2,
-        jobOrder: 'JO-10235',
-        serviceName: 'Air-Con Repair',
-        serviceCategory: 'Repair',
-        dateTime: 'Mon, Apr 5, 1:00 PM',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        vehicleModel: 'Toyota Innova 2.0 E',
-        vehicleYear: '2019',
-        status: 'Booking Confirmed',
-        payment: 'Reservation fee paid',
-        tab: 'Upcoming',
-        arrival: 'Mon, Apr 5, 10:00 AM',
-        scheduledTime: '1:00 PM',
-        estimatedStart: '1:15 PM',
-        estimatedEnd: '2:45 PM',
-        estimatedDuration: '60–90 mins',
-        reservationFeePaid: true,
-        bookedOn: 'Apr 1, 2026 - 11:30 AM',
-        bookingDate: 'Apr 1, 2026',
-        includes: ['AC diagnostics', 'Refrigerant top-up', 'Filter cleaning'],
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        customerAddress: 'Davao City',
-        amountPaid: 200,
-        remainingBalance: 2300,
-        stepTimestamps: { created: 'Apr 1, 11:30 AM', confirmed: 'Apr 1, 11:35 AM' },
-    },
-    {
-        id: 3,
-        jobOrder: 'JO-10234',
-        serviceName: 'Wheel Alignment',
-        serviceCategory: 'Maintenance',
-        dateTime: 'Mon, Apr 5, 1:00 PM',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        vehicleModel: 'Toyota Innova 2.0 E',
-        vehicleYear: '2019',
-        status: 'Awaiting Confirmation',
-        payment: 'Pay at shop',
-        tab: 'Upcoming',
-        arrival: 'Mon, Apr 5, 10:00 AM',
-        scheduledTime: '1:00 PM',
-        estimatedStart: '1:15 PM',
-        estimatedEnd: '2:00 PM',
-        estimatedDuration: '40–50 mins',
-        reservationFeePaid: false,
-        bookedOn: 'Mar 31, 2026 - 9:00 AM',
-        bookingDate: 'Mar 31, 2026',
-        includes: ['Camber / toe adjustment', 'Steering check', 'Post-alignment test drive'],
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        customerAddress: 'Davao City',
-        amountPaid: 0,
-        remainingBalance: 700,
-        stepTimestamps: { created: 'Mar 31, 9:00 AM' },
-    },
-    {
-        id: 4,
-        jobOrder: 'JO-10230',
-        serviceName: 'Premium Car Wash',
-        serviceCategory: 'Cleaning',
-        dateTime: 'Mon, Mar 24, 10:00 AM',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        vehicleModel: 'Toyota Innova 2.0 E',
-        vehicleYear: '2019',
-        status: 'In Service',
-        payment: 'Reservation fee paid',
-        tab: 'Active',
-        arrival: 'Mon, Mar 24, 10:00 AM',
-        scheduledTime: '10:00 AM',
-        estimatedStart: '10:15 AM',
-        estimatedEnd: '10:45 AM',
-        estimatedDuration: '30–40 mins',
-        reservationFeePaid: true,
-        bookedOn: 'Mar 20, 2026 - 4:25 PM',
-        bookingDate: 'Mar 20, 2026',
-        includes: ['Exterior wash', 'Interior vacuum', 'Tire black'],
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        customerAddress: 'Davao City',
-        amountPaid: 200,
-        remainingBalance: 350,
+// ── status + tab mappings ─────────────────────────────────────────────────────
+function mapStatus(joStatus: JobOrder['status']): BookingStatus {
+    switch (joStatus) {
+        case 'created':
+        case 'pending_approval':
+            return 'Awaiting Confirmation';
+        case 'approved':
+            return 'Booking Confirmed';
+        case 'in_progress':
+            return 'In Service';
+        case 'completed':
+        case 'settled':
+            return 'Completed';
+        case 'cancelled':
+            return 'Canceled';
+        default:
+            return 'Awaiting Confirmation';
+    }
+}
+
+function mapTab(status: BookingStatus): TabKey {
+    if (status === 'In Service') return 'Active';
+    if (status === 'Completed') return 'Completed';
+    if (status === 'Canceled') return 'Canceled';
+    return 'Upcoming';
+}
+
+function formatDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function jobOrderToBooking(jo: JobOrder, customerName: string, customerPhone: string, customerAddress: string): Booking {
+    const status = mapStatus(jo.status);
+    const tab = mapTab(status);
+    const vehicleLabel = jo.vehicle ? `${jo.vehicle.make} ${jo.vehicle.model}` : 'Vehicle';
+    const plate = jo.vehicle?.plate_number ?? '—';
+    const totalCost = jo.total_cost ?? jo.service_fee;
+    const bookedOn = formatDate(jo.created_at);
+
+    return {
+        id: jo.id,
+        jobOrder: jo.jo_number,
+        serviceName: jo.notes ?? jo.jo_number,
+        serviceCategory: 'Service',
+        dateTime: bookedOn,
+        vehicle: vehicleLabel,
+        vehiclePlate: plate,
+        vehicleModel: jo.vehicle ? `${jo.vehicle.make} ${jo.vehicle.model}` : '—',
+        vehicleYear: jo.vehicle ? String(jo.vehicle.year) : '—',
+        status,
+        payment: jo.settled_flag ? 'Paid' : 'Pay at shop',
+        tab,
+        arrival: '—',
+        scheduledTime: '—',
+        estimatedStart: '—',
+        estimatedEnd: '—',
+        estimatedDuration: '—',
+        reservationFeePaid: jo.settled_flag,
+        bookedOn,
+        bookingDate: bookedOn,
+        includes: [],
+        customerName,
+        customerPhone,
+        customerAddress,
+        amountPaid: jo.settled_flag ? totalCost : 0,
+        remainingBalance: jo.settled_flag ? null : totalCost,
         stepTimestamps: {
-            created: 'Mar 20, 4:25 PM',
-            confirmed: 'Mar 20, 4:25 PM',
-            waitingInQueue: 'Mar 24, 9:58 AM',
-            inService: 'Mar 24, 10:17 AM',
+            created: formatDate(jo.created_at),
+            confirmed: jo.approved_at ? formatDate(jo.approved_at) : undefined,
         },
-    },
-    {
-        id: 5,
-        jobOrder: 'JO-10215',
-        serviceName: 'Full Detail',
-        serviceCategory: 'Cleaning',
-        dateTime: 'Wed, Mar 10, 9:00 AM',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        vehicleModel: 'Toyota Innova 2.0 E',
-        vehicleYear: '2019',
-        status: 'Completed',
-        payment: 'Paid',
-        tab: 'Completed',
-        arrival: 'Wed, Mar 10, 9:00 AM',
-        scheduledTime: '9:00 AM',
-        estimatedStart: '9:15 AM',
-        estimatedEnd: '12:15 PM',
-        estimatedDuration: '2.5–3 hrs',
-        reservationFeePaid: true,
-        bookedOn: 'Mar 7, 2026 - 2:00 PM',
-        bookingDate: 'Mar 7, 2026',
-        includes: ['Exterior wash', 'Interior deep clean', 'Engine bay clean'],
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        customerAddress: 'Davao City',
-        amountPaid: 2000,
-        remainingBalance: null,
-        stepTimestamps: {
-            created: 'Mar 7, 2:00 PM',
-            confirmed: 'Mar 7, 2:05 PM',
-            waitingInQueue: 'Mar 10, 8:55 AM',
-            inService: 'Mar 10, 9:20 AM',
-            completed: 'Mar 10, 12:10 PM',
-        },
-    },
-    {
-        id: 6,
-        jobOrder: 'JO-10201',
-        serviceName: 'Brake Repair',
-        serviceCategory: 'Repair',
-        dateTime: 'Fri, Feb 20, 2:00 PM',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        vehicleModel: 'Toyota Innova 2.0 E',
-        vehicleYear: '2019',
-        status: 'Canceled',
-        payment: 'Pay at shop',
-        tab: 'Canceled',
-        arrival: 'Fri, Feb 20, 2:00 PM',
-        scheduledTime: '2:00 PM',
-        estimatedStart: '2:15 PM',
-        estimatedEnd: '3:15 PM',
-        estimatedDuration: '50–70 mins',
-        reservationFeePaid: false,
-        bookedOn: 'Feb 18, 2026 - 10:00 AM',
-        bookingDate: 'Feb 18, 2026',
-        includes: ['Brake pad replacement', 'Rotor resurfacing / replacement', 'Brake fluid flush'],
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        customerAddress: 'Davao City',
-        amountPaid: 0,
-        remainingBalance: null,
-        stepTimestamps: { created: 'Feb 18, 10:00 AM' },
-    },
-];
+    };
+}
 
 const TABS: TabKey[] = ['Upcoming', 'Active', 'Completed', 'Canceled'];
 
@@ -685,17 +572,24 @@ function BookingDetailView({ booking, onBack }: { booking: Booking; onBack: () =
 export default function MyServices() {
     const [activeTab, setActiveTab] = useState<TabKey>('Upcoming');
     const [search, setSearch] = useState('');
-    const [selectedId, setSelectedId] = useState<number>(2);
+    const [selectedId, setSelectedId] = useState<number | null>(null);
     const [viewingDetailId, setViewingDetailId] = useState<number | null>(null);
 
-    const visibleBookings = BOOKINGS.filter(
+    const { jobOrders, loading, error } = useCustomerJobOrders();
+    const { customer } = useCustomerProfile();
+
+    const bookings: Booking[] = jobOrders.map((jo) =>
+        jobOrderToBooking(jo, customer?.full_name ?? '—', customer?.phone_number ?? '—', customer?.address ?? '—'),
+    );
+
+    const visibleBookings = bookings.filter(
         (b) =>
             b.tab === activeTab &&
             (search === '' || b.serviceName.toLowerCase().includes(search.toLowerCase()) || b.jobOrder.toLowerCase().includes(search.toLowerCase())),
     );
 
-    const selected = BOOKINGS.find((b) => b.id === selectedId) ?? visibleBookings[0] ?? BOOKINGS[0];
-    const detailBooking = BOOKINGS.find((b) => b.id === viewingDetailId);
+    const selected = bookings.find((b) => b.id === selectedId) ?? visibleBookings[0] ?? bookings[0];
+    const detailBooking = bookings.find((b) => b.id === viewingDetailId);
 
     // ── Full detail page view ─────────────────────────────────────────────────
     if (detailBooking) {
@@ -755,7 +649,15 @@ export default function MyServices() {
 
                     {/* Booking cards */}
                     <div className="flex flex-col gap-3">
-                        {visibleBookings.length === 0 ? (
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                                <p className="text-sm">Loading job orders…</p>
+                            </div>
+                        ) : error ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-red-400">
+                                <p className="text-sm">{error}</p>
+                            </div>
+                        ) : visibleBookings.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                                 <Wrench className="mb-3 h-8 w-8 opacity-30" />
                                 <p className="text-sm">No {activeTab.toLowerCase()} bookings found.</p>

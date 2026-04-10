@@ -9,6 +9,7 @@ enum CustomerTransactionType: string
     case Invoice = 'invoice';
     case Payment = 'payment';
     case Refund = 'refund';
+    case ReservationFee = 'reservation_fee';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum CustomerTransactionType: string
             self::Invoice => 'Invoice',
             self::Payment => 'Payment',
             self::Refund => 'Refund',
+            self::ReservationFee => 'Reservation Fee',
         };
     }
 }
