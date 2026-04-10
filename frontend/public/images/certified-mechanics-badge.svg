@@ -1,0 +1,39 @@
+<svg width="208" height="208" viewBox="0 0 208 208" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Certified Mechanics Badge</title>
+  <desc id="desc">Gold certification seal for AlienCare Autoshop mechanics</desc>
+  <defs>
+    <radialGradient id="outerGrad" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(104 104) rotate(90) scale(96)">
+      <stop stop-color="#F6D859"/>
+      <stop offset="1" stop-color="#B2840B"/>
+    </radialGradient>
+    <radialGradient id="innerGrad" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(104 104) rotate(90) scale(65)">
+      <stop stop-color="#1B1B1B"/>
+      <stop offset="1" stop-color="#0A0A0A"/>
+    </radialGradient>
+    <filter id="shadow" x="0" y="0" width="208" height="208" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.28"/>
+    </filter>
+    <path id="ringTextTop" d="M 30 104 A 74 74 0 0 1 178 104"/>
+    <path id="ringTextBottom" d="M 178 104 A 74 74 0 0 1 30 104"/>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <circle cx="104" cy="104" r="96" fill="url(#outerGrad)"/>
+    <circle cx="104" cy="104" r="84" fill="#0A0A0A"/>
+    <circle cx="104" cy="104" r="80" stroke="#E4C04C" stroke-width="2" stroke-dasharray="4 6"/>
+    <circle cx="104" cy="104" r="68" fill="url(#innerGrad)" stroke="#D9AF01" stroke-width="2"/>
+
+    <text font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" letter-spacing="2.2" fill="#E4C04C">
+      <textPath href="#ringTextTop" startOffset="50%" text-anchor="middle">ALIENCARE AUTOSHOP</textPath>
+    </text>
+    <text font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" letter-spacing="2" fill="#E4C04C">
+      <textPath href="#ringTextBottom" startOffset="50%" text-anchor="middle">CERTIFIED MECHANICS</textPath>
+    </text>
+
+    <circle cx="30" cy="104" r="3" fill="#D9AF01"/>
+    <circle cx="178" cy="104" r="3" fill="#D9AF01"/>
+
+    <path d="M104 63L114 89H142L119 104L128 130L104 115L80 130L89 104L66 89H94L104 63Z" fill="#D9AF01"/>
+    <text x="104" y="156" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="0.8" fill="#F9DF74">CERTIFIED</text>
+  </g>
+</svg>

@@ -138,6 +138,45 @@
     }
 }
 
+@keyframes hero-scroll-float {
+    0%,
+    100% {
+        transform: translate(-50%, 0);
+    }
+    50% {
+        transform: translate(-50%, -8px);
+    }
+}
+
+@keyframes hero-scroll-dot {
+    0% {
+        opacity: 0;
+        transform: translateY(0);
+    }
+    20% {
+        opacity: 1;
+    }
+    80% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+}
+
+@keyframes hero-scroll-chevron {
+    0%,
+    100% {
+        opacity: 0.55;
+        transform: translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(4px);
+    }
+}
+
 @layer utilities {
     .profile-card {
         background: linear-gradient(145deg, #1e1e22 0%, #0d0d10 100%);
@@ -152,5 +191,17 @@
 
     .gear-icon:hover {
         transform: rotate(90deg);
+    }
+
+    .hero-scroll-indicator {
+        animation: hero-scroll-float 2.6s ease-in-out infinite;
+    }
+
+    .hero-scroll-dot {
+        animation: hero-scroll-dot 1.8s ease-in-out infinite;
+    }
+
+    .hero-scroll-chevron {
+        animation: hero-scroll-chevron 1.6s ease-in-out infinite;
     }
 }
