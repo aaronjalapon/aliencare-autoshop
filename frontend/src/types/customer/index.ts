@@ -86,6 +86,20 @@ export interface CartItem {
     quantity: number;
 }
 
+export interface BookingTimeSlot {
+    time: string; // HH:MM
+    label: string; // e.g. 10:00 AM
+    status: 'available' | 'full';
+    slots_left: number;
+    capacity: number;
+    booked: number;
+}
+
+export interface BookingAvailability {
+    arrival_date: string;
+    slots: BookingTimeSlot[];
+}
+
 export type JobOrderStatus = 'created' | 'pending_approval' | 'approved' | 'in_progress' | 'completed' | 'settled' | 'cancelled';
 
 export interface JobOrder {

@@ -46,6 +46,9 @@ return [
     // Reservation fee as a percentage of the reserved parts' total value (quantity × unit_price)
     'reservation_fee_percentage' => (int) env('RESERVATION_FEE_PERCENTAGE', 20),
 
+    // Fixed reservation fee (PHP) for customer service bookings paid online.
+    'booking_reservation_fee_amount' => (float) env('BOOKING_RESERVATION_FEE_AMOUNT', 200),
+
     /*
     |--------------------------------------------------------------------------
     | Pagination Settings

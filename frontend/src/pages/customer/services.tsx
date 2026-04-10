@@ -2,9 +2,9 @@ import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { useServiceCatalog } from '@/hooks/useServiceCatalog';
 import { customerService } from '@/services/customerService';
-import { JobOrder, ServiceCatalogItem, Vehicle } from '@/types/customer';
+import { BookingTimeSlot, JobOrder, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { AlertTriangle, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Loader2, Star, Users, X } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 type Category = 'Maintenance' | 'Cleaning' | 'Repair';
@@ -15,12 +15,11 @@ const categoryMap: Record<string, Category> = {
     repair: 'Repair',
 };
 
-// ── static data (time slots remain hardcoded) ─────────────────────────────────
-const TIME_SLOTS = [
-    { time: '10:00 AM', status: 'available' as const, slotsLeft: 1 },
-    { time: '11:00 AM', status: 'full' as const, slotsLeft: 0 },
-    { time: '12:00 PM', status: 'available' as const, slotsLeft: 2 },
-    { time: '12:30 PM', status: 'available' as const, slotsLeft: 4 },
+const FALLBACK_TIME_SLOTS: BookingTimeSlot[] = [
+    { time: '10:00', label: '10:00 AM', status: 'available', slots_left: 1, capacity: 1, booked: 0 },
+    { time: '11:00', label: '11:00 AM', status: 'full', slots_left: 0, capacity: 1, booked: 1 },
+    { time: '12:00', label: '12:00 PM', status: 'available', slots_left: 2, capacity: 2, booked: 0 },
+    { time: '12:30', label: '12:30 PM', status: 'available', slots_left: 4, capacity: 4, booked: 0 },
 ];
 
 const CATEGORIES: Category[] = ['Maintenance', 'Cleaning', 'Repair'];
@@ -44,14 +43,18 @@ function Stars({ rating, count }: { rating: number; count?: number }) {
     );
 }
 
-function parseTime(timeStr: string): { h: number; m: number } {
-    const [timePart, meridiem] = timeStr.split(' ');
-    const parts = timePart.split(':').map(Number);
-    let h = parts[0];
-    const m = parts[1];
-    if (meridiem === 'PM' && h !== 12) h += 12;
-    if (meridiem === 'AM' && h === 12) h = 0;
+function parseTime24h(timeStr: string): { h: number; m: number } {
+    const [hRaw, mRaw] = timeStr.split(':');
+    const h = Number(hRaw);
+    const m = Number(mRaw);
     return { h, m };
+}
+
+function formatDateYmd(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 function fmtTime(d: Date) {
@@ -214,14 +217,14 @@ function CalendarDropdown({
 // ── Modals ───────────────────────────────────────────────────────────────────
 type ModalStep = 'confirm' | 'secure' | 'payment' | 'verify-phone' | 'verify-otp' | 'success' | 'reserved' | null;
 type SecureOption = 'reservation' | 'no-payment';
-type PayMethod = 'gcash' | 'maya' | 'card' | 'bank';
+
+const DEFAULT_PAYMENT_METHOD = 'gcash' as const;
 
 export default function CustomerServices() {
     const [activeCategory, setActiveCategory] = useState<Category>('Maintenance');
     const [selectedId, setSelectedId] = useState(2);
     const [modalStep, setModalStep] = useState<ModalStep>(null);
     const [secureOption, setSecureOption] = useState<SecureOption>('reservation');
-    const [payMethod, setPayMethod] = useState<PayMethod>('gcash');
     const [phone, setPhone] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [otpCountdown, setOtpCountdown] = useState(0);
@@ -231,7 +234,10 @@ export default function CustomerServices() {
         d.setHours(0, 0, 0, 0);
         return d;
     });
+    const [timeSlots, setTimeSlots] = useState<BookingTimeSlot[]>(FALLBACK_TIME_SLOTS);
     const [selectedTimeIdx, setSelectedTimeIdx] = useState(0);
+    const [slotsLoading, setSlotsLoading] = useState(false);
+    const [slotsError, setSlotsError] = useState<string | null>(null);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [bookingError, setBookingError] = useState<string | null>(null);
@@ -244,6 +250,48 @@ export default function CustomerServices() {
 
     const vehicles: Vehicle[] = customer?.vehicles ?? [];
     const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) ?? vehicles[0] ?? null;
+    const arrivalDateYmd = useMemo(() => formatDateYmd(selectedDate), [selectedDate]);
+
+    // Fetch arrival slot availability from backend whenever the selected date changes.
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchAvailability = async () => {
+            setSlotsLoading(true);
+            setSlotsError(null);
+
+            try {
+                const response = await customerService.getBookingAvailability(arrivalDateYmd);
+                const fetchedSlots = response.data?.slots ?? [];
+                const nextSlots = fetchedSlots.length > 0 ? fetchedSlots : FALLBACK_TIME_SLOTS;
+
+                if (cancelled) return;
+
+                setTimeSlots(nextSlots);
+                setSelectedTimeIdx((prev) => {
+                    if (nextSlots.length === 0) return 0;
+                    if (prev < nextSlots.length && nextSlots[prev].status !== 'full') return prev;
+
+                    const firstAvailableIdx = nextSlots.findIndex((s) => s.status !== 'full');
+                    return firstAvailableIdx >= 0 ? firstAvailableIdx : 0;
+                });
+            } catch (err) {
+                if (cancelled) return;
+
+                setSlotsError(err instanceof Error ? err.message : 'Failed to load arrival times.');
+                setTimeSlots(FALLBACK_TIME_SLOTS);
+                setSelectedTimeIdx((prev) => Math.min(prev, FALLBACK_TIME_SLOTS.length - 1));
+            } finally {
+                if (!cancelled) setSlotsLoading(false);
+            }
+        };
+
+        fetchAvailability();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [arrivalDateYmd]);
 
     // Auto-select first vehicle when profile loads
     useEffect(() => {
@@ -281,14 +329,18 @@ export default function CustomerServices() {
     const fmtCountdown = `00:${String(otpCountdown).padStart(2, '0')}`;
 
     async function submitBooking() {
-        if (!selectedService || !selectedVehicle) return;
+        if (!selectedService || !selectedVehicle || !slot) return;
+
+        if (slot.status === 'full') {
+            setBookingError('Selected arrival slot is full. Please choose another time.');
+            return;
+        }
+
         setIsSubmitting(true);
         setBookingError(null);
 
-        // Format arrival time as HH:MM (24h)
-        const { h, m: slotMin } = parseTime(slot.time);
-        const arrivalTime = `${String(h).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
-        const arrivalDate = selectedDate.toISOString().split('T')[0]; // Y-m-d
+        const arrivalTime = slot.time;
+        const arrivalDate = arrivalDateYmd;
 
         try {
             const response = await customerService.createBooking({
@@ -298,13 +350,48 @@ export default function CustomerServices() {
                 arrival_time: arrivalTime,
             });
             setConfirmedJO(response.data);
-            if (secureOption === 'no-payment') {
-                setModalStep('reserved');
-            } else {
-                setModalStep('success');
-            }
+            setModalStep('reserved');
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Booking failed. Please try again.';
+            setBookingError(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function submitBookingWithPayment() {
+        if (!selectedService || !selectedVehicle || !slot) return;
+
+        if (slot.status === 'full') {
+            setBookingError('Selected arrival slot is full. Please choose another time.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setBookingError(null);
+
+        const arrivalTime = slot.time;
+        const arrivalDate = arrivalDateYmd;
+
+        try {
+            const response = await customerService.createBookingWithPayment({
+                vehicle_id: selectedVehicle.id,
+                service_id: selectedService.id,
+                arrival_date: arrivalDate,
+                arrival_time: arrivalTime,
+                payment_method: DEFAULT_PAYMENT_METHOD,
+            });
+
+            setConfirmedJO(response.data.job_order);
+
+            if (!response.data.payment_url) {
+                setBookingError('Payment link unavailable. Please try again.');
+                return;
+            }
+
+            window.location.href = response.data.payment_url;
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Failed to initialize payment. Please try again.';
             setBookingError(msg);
         } finally {
             setIsSubmitting(false);
@@ -334,10 +421,12 @@ export default function CustomerServices() {
     }, []);
 
     // Booking summary times
-    const slot = TIME_SLOTS[selectedTimeIdx];
-    const arrivalStr = `${selectedDate.toLocaleDateString('en-US', { weekday: 'short' })} ${selectedDate.toLocaleDateString('en-US', { month: 'short' })} ${selectedDate.getDate()}, ${slot.time}`;
+    const slot = timeSlots[selectedTimeIdx] ?? timeSlots[0] ?? null;
+    const slotLabel = slot?.label ?? 'N/A';
+    const slotTime = slot?.time ?? FALLBACK_TIME_SLOTS[0].time;
+    const arrivalStr = `${selectedDate.toLocaleDateString('en-US', { weekday: 'short' })} ${selectedDate.toLocaleDateString('en-US', { month: 'short' })} ${selectedDate.getDate()}, ${slotLabel}`;
 
-    const { h, m } = parseTime(slot.time);
+    const { h, m } = parseTime24h(slotTime);
     const estStart = new Date();
     estStart.setHours(h, m + 15, 0, 0);
     const durNums = (selectedService?.estimated_duration ?? '30').match(/\d+/g) ?? ['30'];
@@ -570,14 +659,21 @@ export default function CustomerServices() {
                     {/* Select arrival time */}
                     <div>
                         <p className="mb-2 text-xs font-semibold text-foreground">Select arrival time</p>
+                        {slotsLoading && (
+                            <div className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <span>Loading available time slots...</span>
+                            </div>
+                        )}
+                        {slotsError && !slotsLoading && <p className="mb-1 text-[11px] text-amber-400">{slotsError}</p>}
                         <div className="flex flex-col gap-1.5">
-                            {TIME_SLOTS.map((s, idx) => {
+                            {timeSlots.map((s, idx) => {
                                 const isSelected = selectedTimeIdx === idx && s.status !== 'full';
                                 const isFull = s.status === 'full';
                                 return (
                                     <button
                                         key={s.time}
-                                        disabled={isFull}
+                                        disabled={isFull || slotsLoading}
                                         onClick={() => !isFull && setSelectedTimeIdx(idx)}
                                         className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
                                             isSelected
@@ -587,17 +683,22 @@ export default function CustomerServices() {
                                                   : 'border border-[#2a2a2e] text-foreground hover:border-[#d4af37]/50'
                                         }`}
                                     >
-                                        <span>{s.time}</span>
+                                        <span>{s.label}</span>
                                         <span className={isSelected ? 'text-black/70' : 'text-muted-foreground'}>
                                             {isFull
                                                 ? 'Full'
                                                 : isSelected
-                                                  ? `${s.slotsLeft} slot${s.slotsLeft !== 1 ? 's' : ''} left`
-                                                  : `${s.slotsLeft} Slot${s.slotsLeft !== 1 ? 's' : ''} Left`}
+                                                  ? `${s.slots_left} slot${s.slots_left !== 1 ? 's' : ''} left`
+                                                  : `${s.slots_left} Slot${s.slots_left !== 1 ? 's' : ''} Left`}
                                         </span>
                                     </button>
                                 );
                             })}
+                            {!slotsLoading && timeSlots.length === 0 && (
+                                <p className="rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-muted-foreground">
+                                    No arrival slots available for this date.
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -939,66 +1040,7 @@ export default function CustomerServices() {
                                 <p className="mt-0.5 text-xs text-muted-foreground">This amount will be deducted from your total bill</p>
                             </div>
 
-                            <div className="h-px bg-[#2a2a2e]" />
-
-                            {/* Payment methods */}
-                            <div className="flex flex-col gap-2">
-                                {(
-                                    [
-                                        {
-                                            key: 'gcash' as PayMethod,
-                                            label: 'GCash',
-                                            icon: <img src="/images/gcash.png" alt="GCash" className="h-4 w-auto max-w-5 object-contain" />,
-                                        },
-                                        {
-                                            key: 'maya' as PayMethod,
-                                            label: 'Maya',
-                                            icon: <img src="/images/Maya.png" alt="Maya" className="h-3 w-auto max-w-11 object-contain" />,
-                                        },
-                                        {
-                                            key: 'card' as PayMethod,
-                                            label: 'Credit/Debit Card',
-                                            icon: (
-                                                <img src="/images/debit.png" alt="Credit/Debit Card" className="h-6 w-auto max-w-10 object-contain" />
-                                            ),
-                                        },
-                                        {
-                                            key: 'bank' as PayMethod,
-                                            label: 'Bank Transfer',
-                                            icon: (
-                                                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5">
-                                                    <path d="M16 4L3 11h26L16 4z" fill="#9ca3af" />
-                                                    <rect x="5" y="14" width="3.5" height="9" rx="0.5" fill="#9ca3af" />
-                                                    <rect x="14.25" y="14" width="3.5" height="9" rx="0.5" fill="#9ca3af" />
-                                                    <rect x="23.5" y="14" width="3.5" height="9" rx="0.5" fill="#9ca3af" />
-                                                    <rect x="3" y="24" width="26" height="2.5" rx="1" fill="#9ca3af" />
-                                                    <rect x="3" y="11" width="26" height="2.5" fill="#6b7280" />
-                                                </svg>
-                                            ),
-                                        },
-                                    ] as { key: PayMethod; label: string; icon: ReactNode }[]
-                                ).map((m) => (
-                                    <button
-                                        key={m.key}
-                                        onClick={() => setPayMethod(m.key)}
-                                        className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-                                            payMethod === m.key ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
-                                        }`}
-                                    >
-                                        {/* Radio */}
-                                        <div
-                                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                                                payMethod === m.key ? 'border-[#d4af37]' : 'border-[#3a3a3e]'
-                                            }`}
-                                        >
-                                            {payMethod === m.key && <div className="h-2.5 w-2.5 rounded-full bg-[#d4af37]" />}
-                                        </div>
-                                        {/* Icon */}
-                                        <div className="flex w-10 shrink-0 items-center justify-center">{m.icon}</div>
-                                        <span className="text-sm font-medium">{m.label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                            <p className="text-xs text-muted-foreground">You can choose your preferred payment channel on the next secure payment page.</p>
                         </div>
 
                         {/* Footer */}
@@ -1014,8 +1056,8 @@ export default function CustomerServices() {
                                     Back
                                 </button>
                                 <button
-                                    onClick={submitBooking}
-                                    disabled={isSubmitting || !payMethod}
+                                    onClick={submitBookingWithPayment}
+                                    disabled={isSubmitting}
                                     className="flex items-center gap-2 rounded-lg bg-[#d4af37] px-5 py-2 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -1065,7 +1107,7 @@ export default function CustomerServices() {
                                     </span>
                                 </div>
                                 <p className="mb-4 text-sm font-semibold">
-                                    {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {slot.time}
+                                    {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {slotLabel}
                                 </p>
                                 <div className="grid grid-cols-2 gap-3 border-t border-[#2a2a2e] pt-3">
                                     <div>
@@ -1279,7 +1321,7 @@ export default function CustomerServices() {
                                     </span>
                                 </div>
                                 <p className="mb-4 text-sm font-semibold">
-                                    {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {slot.time}
+                                    {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {slotLabel}
                                 </p>
                                 <div className="grid grid-cols-2 gap-3 border-t border-[#2a2a2e] pt-3">
                                     <div>

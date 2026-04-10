@@ -19,8 +19,10 @@ class XenditService
 
     public function __construct()
     {
-        Configuration::setXenditKey((string) config('xendit.secret_key'));
-        $this->invoiceApi = new InvoiceApi;
+        $this->withoutDeprecationWarnings(function (): void {
+            Configuration::setXenditKey((string) config('xendit.secret_key'));
+            $this->invoiceApi = new InvoiceApi;
+        });
     }
 
     /**
@@ -47,8 +49,11 @@ class XenditService
         ];
 
         try {
-            $createRequest = new CreateInvoiceRequest($requestData);
-            $response = $this->invoiceApi->createInvoice($createRequest);
+            $response = $this->withoutDeprecationWarnings(function () use ($requestData) {
+                $createRequest = new CreateInvoiceRequest($requestData);
+
+                return $this->invoiceApi->createInvoice($createRequest);
+            });
         } catch (\Throwable $e) {
             throw new RuntimeException('Xendit invoice creation failed: '.$e->getMessage(), 0, $e);
         }
@@ -114,8 +119,11 @@ class XenditService
         ];
 
         try {
-            $createRequest = new CreateInvoiceRequest($requestData);
-            $response = $this->invoiceApi->createInvoice($createRequest);
+            $response = $this->withoutDeprecationWarnings(function () use ($requestData) {
+                $createRequest = new CreateInvoiceRequest($requestData);
+
+                return $this->invoiceApi->createInvoice($createRequest);
+            });
         } catch (\Throwable $e) {
             $transaction->delete();
             throw new RuntimeException('Xendit invoice creation failed: '.$e->getMessage(), 0, $e);
@@ -134,5 +142,26 @@ class XenditService
         $reservation->update(['fee_transaction_id' => $transaction->id]);
 
         return $paymentUrl;
+    }
+
+    /**
+     * Wrap vendor calls so PHP 8.4 deprecation notices in third-party SDKs
+     * do not pollute API responses while preserving normal warnings elsewhere.
+     *
+     * @template T
+     *
+     * @param  callable():T  $callback
+     * @return T
+     */
+    private function withoutDeprecationWarnings(callable $callback): mixed
+    {
+        $previous = error_reporting();
+        error_reporting($previous & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
+        try {
+            return $callback();
+        } finally {
+            error_reporting($previous);
+        }
     }
 }

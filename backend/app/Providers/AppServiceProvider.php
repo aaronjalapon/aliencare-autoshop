@@ -20,6 +20,7 @@ use App\Contracts\Services\JobOrderServiceInterface;
 use App\Contracts\Services\ReportServiceInterface;
 use App\Contracts\Services\ReservationServiceInterface;
 use App\Contracts\Services\VehicleServiceInterface;
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Repositories\Eloquent\AlertRepository;
 use App\Repositories\Eloquent\ArchiveRepository;
@@ -110,6 +111,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('approve-vehicles', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('view-audit-logs', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('link-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('manage-booking-slots', fn (User $user): bool => $this->canManageBookingSlots($user));
+    }
+
+    private function canManageBookingSlots(User $user): bool
+    {
+        return $this->canAccessSensitiveEndpoints($user) && $user->role === UserRole::Admin;
     }
 
     private function canAccessSensitiveEndpoints(User $user): bool

@@ -3,7 +3,7 @@
  * Handles customer-facing API calls (billing, logs, vehicles, job orders)
  */
 
-import { CustomerProfile, CustomerTransaction, JobOrder, Vehicle } from '@/types/customer';
+import { BookingAvailability, CustomerProfile, CustomerTransaction, JobOrder, Vehicle } from '@/types/customer';
 import { api, ApiResponse, PaginatedResponse } from './api';
 
 export interface CustomerTransactionFilters {
@@ -40,6 +40,20 @@ export interface CreateBookingData {
     arrival_date: string; // Y-m-d
     arrival_time: string; // HH:MM
     notes?: string;
+}
+
+export type BookingPayMethod = 'gcash' | 'maya' | 'card' | 'bank';
+
+export interface CreateBookingWithPaymentData extends CreateBookingData {
+    payment_method: BookingPayMethod;
+}
+
+export interface CreateBookingWithPaymentResponse {
+    job_order: JobOrder;
+    transaction_id: number;
+    reservation_fee_amount: number;
+    payment_url: string;
+    payment_method: BookingPayMethod;
 }
 
 class CustomerService {
@@ -86,6 +100,16 @@ class CustomerService {
 
     async createBooking(data: CreateBookingData): Promise<ApiResponse<JobOrder>> {
         return api.post<ApiResponse<JobOrder>>('/v1/customer/book', data);
+    }
+
+    async createBookingWithPayment(data: CreateBookingWithPaymentData): Promise<ApiResponse<CreateBookingWithPaymentResponse>> {
+        return api.post<ApiResponse<CreateBookingWithPaymentResponse>>('/v1/customer/book-with-payment', data);
+    }
+
+    async getBookingAvailability(arrivalDate: string): Promise<ApiResponse<BookingAvailability>> {
+        return api.get<ApiResponse<BookingAvailability>>('/v1/customer/availability', {
+            arrival_date: arrivalDate,
+        });
     }
 }
 

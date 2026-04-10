@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Api\CustomerBookingController;
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\BayController;
+use App\Http\Controllers\Api\BookingSlotSettingsController;
+use App\Http\Controllers\Api\CustomerBookingController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\FrontDeskAccountController;
 use App\Http\Controllers\Api\HealthController;
@@ -233,6 +234,11 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::delete('/{id}', [FrontDeskAccountController::class, 'destroy'])->name('destroy');
     });
 
+    Route::prefix('admin/booking-slots')->name('admin.booking-slots.')->group(function () {
+        Route::get('/', [BookingSlotSettingsController::class, 'index'])->name('index');
+        Route::put('/', [BookingSlotSettingsController::class, 'update'])->name('update');
+    });
+
     /*
     |--------------------------------------------------------------------------
     | Payment Routes
@@ -260,7 +266,9 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     */
 
     Route::prefix('customer')->name('customer.')->group(function () {
+        Route::get('/availability', [CustomerBookingController::class, 'availability'])->name('availability');
         Route::post('/book', [CustomerBookingController::class, 'store'])->name('book');
+        Route::post('/book-with-payment', [CustomerBookingController::class, 'storeWithPayment'])->name('book-with-payment');
     });
 });
 
