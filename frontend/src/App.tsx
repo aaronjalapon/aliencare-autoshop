@@ -1,4 +1,4 @@
-import { GuestRoute, ProtectedRoute } from '@/router';
+import { CustomerOnboardingOnlyRoute, CustomerOnboardingRequiredRoute, GuestRoute, ProtectedRoute } from '@/router';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 // Layouts
@@ -46,6 +46,7 @@ import CustomerDashboard from '@/pages/customer/dashboard';
 import CustomerLogs from '@/pages/customer/logs';
 import MyServices from '@/pages/customer/my-services';
 import CustomerNotifications from '@/pages/customer/notifications';
+import CustomerOnboarding from '@/pages/customer/onboarding';
 import CustomerProfile from '@/pages/customer/profile';
 import CustomerReservations from '@/pages/customer/reservations';
 import CustomerServices from '@/pages/customer/services';
@@ -162,16 +163,33 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-                <Route path="/customer" element={<CustomerDashboard />} />
-                <Route path="/customer/services" element={<CustomerServices />} />
-                <Route path="/customer/my-services" element={<MyServices />} />
-                <Route path="/customer/reservations" element={<CustomerReservations />} />
-                <Route path="/customer/shop" element={<CustomerShop />} />
-                <Route path="/customer/billing" element={<BillingPayment />} />
-                <Route path="/customer/profile" element={<CustomerProfile />} />
-                <Route path="/customer/logs" element={<CustomerLogs />} />
-                <Route path="/customer/settings" element={<CustomerSettings />} />
-                <Route path="/customer/notifications" element={<CustomerNotifications />} />
+                <Route
+                    path="/customer/onboarding"
+                    element={
+                        <CustomerOnboardingOnlyRoute>
+                            <CustomerOnboarding />
+                        </CustomerOnboardingOnlyRoute>
+                    }
+                />
+
+                <Route
+                    element={
+                        <CustomerOnboardingRequiredRoute>
+                            <Outlet />
+                        </CustomerOnboardingRequiredRoute>
+                    }
+                >
+                    <Route path="/customer" element={<CustomerDashboard />} />
+                    <Route path="/customer/services" element={<CustomerServices />} />
+                    <Route path="/customer/my-services" element={<MyServices />} />
+                    <Route path="/customer/reservations" element={<CustomerReservations />} />
+                    <Route path="/customer/shop" element={<CustomerShop />} />
+                    <Route path="/customer/billing" element={<BillingPayment />} />
+                    <Route path="/customer/profile" element={<CustomerProfile />} />
+                    <Route path="/customer/logs" element={<CustomerLogs />} />
+                    <Route path="/customer/settings" element={<CustomerSettings />} />
+                    <Route path="/customer/notifications" element={<CustomerNotifications />} />
+                </Route>
             </Route>
         </Routes>
     );

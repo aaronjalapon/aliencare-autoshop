@@ -12,6 +12,8 @@ interface CustomerRepositoryInterface
 {
     public function findById(int|string $id): ?Customer;
 
+    public function findByEmail(string $email): ?Customer;
+
     public function findByIdOrFail(int|string $id): Customer;
 
     /**

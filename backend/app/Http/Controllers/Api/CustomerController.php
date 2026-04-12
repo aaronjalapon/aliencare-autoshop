@@ -8,20 +8,24 @@ use App\Enums\UserRole;
 use App\Contracts\Repositories\CustomerRepositoryInterface;
 use App\Contracts\Services\CustomerServiceInterface;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\Customer\CompleteOnboardingRequest;
 use App\Http\Requests\Api\Customer\LinkTransactionRequest;
 use App\Http\Requests\Api\Customer\RegisterCustomerRequest;
 use App\Http\Requests\Api\Customer\RejectCustomerRequest;
 use App\Http\Requests\Api\Customer\StoreCustomerRequest;
 use App\Http\Requests\Api\Customer\UpdateCustomerRequest;
 use App\Http\Requests\Api\Customer\UpdatePersonalInfoRequest;
+use App\Http\Requests\Api\Customer\UpdateSpecialInfoRequest;
 use App\Http\Resources\CustomerAuditLogResource;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\CustomerResource;
 use App\Http\Resources\CustomerTransactionResource;
 use App\Http\Resources\VehicleResource;
 use App\Models\Customer;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class CustomerController extends Controller
 {
@@ -105,6 +109,10 @@ class CustomerController extends Controller
     public function update(UpdateCustomerRequest $request, int $id): JsonResponse
     {
         try {
+            if ($response = $this->ensureCustomerOwnsId($request, $id)) {
+                return $response;
+            }
+
             $customer = $this->customerService->updatePersonalInfo(
                 $id,
                 $request->validated(),
@@ -139,6 +147,80 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Registration failed: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function onboardingStatus(Request $request): JsonResponse
+    {
+        if (! $this->isCustomerRole($request->user()?->role)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only customers can access onboarding.',
+            ], 403);
+        }
+
+        $customer = $this->resolveAuthenticatedCustomer($request);
+
+        if (! $customer) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'has_customer_profile' => false,
+                    'onboarding_completed' => false,
+                    'customer' => null,
+                ],
+            ]);
+        }
+
+        $customer->load('vehicles');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'has_customer_profile' => true,
+                'onboarding_completed' => $customer->onboarding_completed_at !== null,
+                'customer' => new CustomerResource($customer),
+            ],
+        ]);
+    }
+
+    public function completeOnboarding(CompleteOnboardingRequest $request): JsonResponse
+    {
+        if (! $this->hasOnboardingColumns()) {
+            return $this->missingOnboardingColumnsResponse();
+        }
+
+        try {
+            $customer = $this->customerService->completeOnboarding(
+                $request->user(),
+                $request->validated(),
+                $request->ip(),
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => new CustomerResource($customer),
+                'message' => 'Onboarding completed successfully.',
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (QueryException $e) {
+            if ($this->isMissingOnboardingColumnException($e)) {
+                return $this->missingOnboardingColumnsResponse();
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to complete onboarding.',
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to complete onboarding.',
             ], 500);
         }
     }
@@ -241,6 +323,10 @@ class CustomerController extends Controller
     public function updatePersonalInfo(UpdatePersonalInfoRequest $request, int $id): JsonResponse
     {
         try {
+            if ($response = $this->ensureCustomerOwnsId($request, $id)) {
+                return $response;
+            }
+
             $customer = $this->customerService->updatePersonalInfo(
                 $id,
                 $request->validated(),
@@ -257,6 +343,51 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update personal info: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function updateSpecialInfo(UpdateSpecialInfoRequest $request, int $id): JsonResponse
+    {
+        if (! $this->hasOnboardingColumns()) {
+            return $this->missingOnboardingColumnsResponse();
+        }
+
+        try {
+            if ($response = $this->ensureCustomerOwnsId($request, $id)) {
+                return $response;
+            }
+
+            $customer = $this->customerService->updateSpecialInfo(
+                $id,
+                $request->validated(),
+                $request->user()->id,
+                $request->ip(),
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => new CustomerResource($customer),
+                'message' => 'Special information updated.',
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (QueryException $e) {
+            if ($this->isMissingOnboardingColumnException($e)) {
+                return $this->missingOnboardingColumnsResponse();
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update special information.',
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update special information.',
             ], 500);
         }
     }
@@ -456,10 +587,7 @@ class CustomerController extends Controller
 
     private function ensureCustomerOwnsId(Request $request, int $customerId): ?JsonResponse
     {
-        $role = $request->user()?->role;
-        $isCustomerRole = $role === UserRole::Customer || $role === UserRole::Customer->value;
-
-        if (! $isCustomerRole) {
+        if (! $this->isCustomerRole($request->user()?->role)) {
             return null;
         }
 
@@ -480,5 +608,37 @@ class CustomerController extends Controller
         }
 
         return null;
+    }
+
+    private function isCustomerRole(mixed $role): bool
+    {
+        return $role === UserRole::Customer || $role === UserRole::Customer->value;
+    }
+
+    private function hasOnboardingColumns(): bool
+    {
+        return Schema::hasColumn('customers', 'preferred_contact_method')
+            && Schema::hasColumn('customers', 'special_notes')
+            && Schema::hasColumn('customers', 'onboarding_completed_at');
+    }
+
+    private function missingOnboardingColumnsResponse(): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Onboarding is temporarily unavailable because required database updates are missing. Please run php artisan migrate and try again.',
+        ], 503);
+    }
+
+    private function isMissingOnboardingColumnException(QueryException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'no column named preferred_contact_method')
+            || str_contains($message, 'no column named special_notes')
+            || str_contains($message, 'no column named onboarding_completed_at')
+            || str_contains($message, "unknown column 'preferred_contact_method'")
+            || str_contains($message, "unknown column 'special_notes'")
+            || str_contains($message, "unknown column 'onboarding_completed_at'");
     }
 }

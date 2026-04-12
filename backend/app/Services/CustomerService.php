@@ -15,7 +15,9 @@ use App\Events\CustomerAccountRejected;
 use App\Models\Customer;
 use App\Models\CustomerAuditLog;
 use App\Models\CustomerTransaction;
+use App\Models\User;
 use App\Models\Vehicle;
+use App\Enums\VehicleApprovalStatus;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -129,6 +131,130 @@ class CustomerService implements CustomerServiceInterface
         });
     }
 
+    public function completeOnboarding(User $user, array $data, ?string $ip = null): Customer
+    {
+        return DB::transaction(function () use ($user, $data, $ip) {
+            $vehicles = $data['vehicles'] ?? [];
+            unset($data['vehicles']);
+
+            $profileData = [
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $user->email,
+                'phone_number' => $data['phone_number'],
+                'address' => $this->optionalStringOrNull($data['address'] ?? null),
+                'license_number' => $this->optionalStringOrNull($data['license_number'] ?? null),
+                'preferred_contact_method' => strtolower((string) $data['preferred_contact_method']),
+                'special_notes' => $this->optionalStringOrNull($data['special_notes'] ?? null),
+                'onboarding_completed_at' => now(),
+            ];
+
+            $customer = $this->customerRepository->findByEmail($user->email);
+            $oldData = null;
+
+            if ($customer) {
+                $oldData = $customer->only(array_keys($profileData));
+                $customer = $this->customerRepository->update($customer->id, $profileData);
+            } else {
+                $customer = $this->customerRepository->registerCustomer($profileData);
+            }
+
+            foreach ($vehicles as $vehicleData) {
+                $existingVehicle = Vehicle::where('plate_number', $vehicleData['plate_number'])->first();
+
+                if ($existingVehicle && (int) $existingVehicle->customer_id !== (int) $customer->id) {
+                    throw new \InvalidArgumentException('One of the provided plate numbers is already linked to another customer.');
+                }
+
+                if ($existingVehicle) {
+                    $oldVehicleData = $existingVehicle->only(['plate_number', 'make', 'model', 'year', 'color', 'vin', 'approval_status']);
+                    $existingVehicle->update([
+                        'make' => $vehicleData['make'],
+                        'model' => $vehicleData['model'],
+                        'year' => $vehicleData['year'],
+                        'color' => $this->optionalStringOrNull($vehicleData['color'] ?? null),
+                        'vin' => $this->optionalStringOrNull($vehicleData['vin'] ?? null),
+                        'approval_status' => VehicleApprovalStatus::Pending->value,
+                        'approved_at' => null,
+                        'approved_by' => null,
+                    ]);
+
+                    $this->logAudit(
+                        $customer->id,
+                        $user->id,
+                        'update',
+                        'vehicle',
+                        $oldVehicleData,
+                        $existingVehicle->only(['plate_number', 'make', 'model', 'year', 'color', 'vin', 'approval_status']),
+                        $ip,
+                    );
+
+                    continue;
+                }
+
+                $vehicle = Vehicle::create([
+                    'customer_id' => $customer->id,
+                    'plate_number' => $vehicleData['plate_number'],
+                    'make' => $vehicleData['make'],
+                    'model' => $vehicleData['model'],
+                    'year' => $vehicleData['year'],
+                    'color' => $this->optionalStringOrNull($vehicleData['color'] ?? null),
+                    'vin' => $this->optionalStringOrNull($vehicleData['vin'] ?? null),
+                    'approval_status' => VehicleApprovalStatus::Pending->value,
+                ]);
+
+                $this->logAudit($customer->id, $user->id, 'create', 'vehicle', null, $vehicle->toArray(), $ip);
+            }
+
+            $this->logAudit(
+                $customer->id,
+                $user->id,
+                'onboarding_complete',
+                'customer',
+                $oldData,
+                $customer->only(array_keys($profileData)),
+                $ip,
+            );
+
+            return $customer->load('vehicles');
+        });
+    }
+
+    public function updateSpecialInfo(int $customerId, array $data, int $userId, ?string $ip = null): Customer
+    {
+        return DB::transaction(function () use ($customerId, $data, $userId, $ip) {
+            if ($data === []) {
+                throw new \InvalidArgumentException('No special information provided.');
+            }
+
+            $customer = $this->customerRepository->findByIdOrFail($customerId);
+            $oldData = $customer->only(['preferred_contact_method', 'special_notes']);
+
+            $payload = [
+                'preferred_contact_method' => array_key_exists('preferred_contact_method', $data)
+                    ? strtolower((string) $data['preferred_contact_method'])
+                    : $customer->preferred_contact_method,
+                'special_notes' => array_key_exists('special_notes', $data)
+                    ? $this->optionalStringOrNull($data['special_notes'])
+                    : $customer->special_notes,
+            ];
+
+            $customer = $this->customerRepository->update($customerId, $payload);
+
+            $this->logAudit(
+                $customerId,
+                $userId,
+                'update',
+                'customer_special_info',
+                $oldData,
+                $customer->only(['preferred_contact_method', 'special_notes']),
+                $ip,
+            );
+
+            return $customer;
+        });
+    }
+
     public function getAuditLog(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $this->customerRepository->findByIdOrFail($customerId);
@@ -191,5 +317,20 @@ class CustomerService implements CustomerServiceInterface
             'new_data' => $newData,
             'ip_address' => $ip,
         ]);
+    }
+
+    private function optionalStringOrNull(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            return (string) $value;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

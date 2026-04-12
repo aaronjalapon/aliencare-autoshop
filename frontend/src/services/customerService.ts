@@ -34,6 +34,37 @@ export interface UpdateVehicleData {
     color?: string;
 }
 
+export interface UpdateSpecialInfoData {
+    preferred_contact_method?: 'sms' | 'call' | 'email';
+    special_notes?: string | null;
+}
+
+export interface OnboardingVehicleData {
+    make: string;
+    model: string;
+    year: number;
+    plate_number: string;
+    color?: string;
+    vin?: string;
+}
+
+export interface CompleteOnboardingData {
+    first_name: string;
+    last_name: string;
+    phone_number: string;
+    address?: string;
+    license_number?: string;
+    preferred_contact_method: 'sms' | 'call' | 'email';
+    special_notes?: string;
+    vehicles: OnboardingVehicleData[];
+}
+
+export interface CustomerOnboardingStatus {
+    has_customer_profile: boolean;
+    onboarding_completed: boolean;
+    customer: CustomerProfile | null;
+}
+
 export interface CreateBookingData {
     vehicle_id: number;
     service_id: number;
@@ -57,12 +88,24 @@ export interface CreateBookingWithPaymentResponse {
 }
 
 class CustomerService {
+    async getOnboardingStatus(): Promise<ApiResponse<CustomerOnboardingStatus>> {
+        return api.get<ApiResponse<CustomerOnboardingStatus>>('/v1/customer/onboarding-status');
+    }
+
+    async completeOnboarding(data: CompleteOnboardingData): Promise<ApiResponse<CustomerProfile>> {
+        return api.post<ApiResponse<CustomerProfile>>('/v1/customer/onboarding', data);
+    }
+
     async getMe(): Promise<ApiResponse<CustomerProfile>> {
         return api.get<ApiResponse<CustomerProfile>>('/v1/customers/me');
     }
 
     async updatePersonalInfo(customerId: number, data: UpdatePersonalInfoData): Promise<ApiResponse<CustomerProfile>> {
         return api.put<ApiResponse<CustomerProfile>>(`/v1/customers/${customerId}/personal-info`, data);
+    }
+
+    async updateSpecialInfo(customerId: number, data: UpdateSpecialInfoData): Promise<ApiResponse<CustomerProfile>> {
+        return api.put<ApiResponse<CustomerProfile>>(`/v1/customers/${customerId}/special-info`, data);
     }
 
     async addVehicle(customerId: number, data: AddVehicleData): Promise<ApiResponse<Vehicle>> {

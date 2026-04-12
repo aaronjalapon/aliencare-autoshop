@@ -6,6 +6,7 @@ namespace App\Contracts\Services;
 
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface CustomerServiceInterface
@@ -27,6 +28,16 @@ interface CustomerServiceInterface
      * @param  array<string, mixed>  $data
      */
     public function updatePersonalInfo(int $customerId, array $data, int $userId, ?string $ip = null): Customer;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function completeOnboarding(User $user, array $data, ?string $ip = null): Customer;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updateSpecialInfo(int $customerId, array $data, int $userId, ?string $ip = null): Customer;
 
     /**
      * @param  array<string, mixed>  $filters

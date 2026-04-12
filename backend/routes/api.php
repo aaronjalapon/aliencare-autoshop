@@ -203,6 +203,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::put('/{id}/request-delete', [CustomerController::class, 'requestDelete'])->name('request-delete');
         Route::delete('/{id}', [CustomerController::class, 'destroy'])->name('destroy');
         Route::put('/{id}/personal-info', [CustomerController::class, 'updatePersonalInfo'])->name('personal-info');
+        Route::put('/{id}/special-info', [CustomerController::class, 'updateSpecialInfo'])->name('special-info');
         Route::get('/{id}/audit-log', [CustomerController::class, 'auditLog'])->name('audit-log');
         Route::get('/{id}/transactions', [CustomerController::class, 'transactions'])->name('transactions');
         Route::post('/{id}/transactions', [CustomerController::class, 'linkTransaction'])->name('link-transaction');
@@ -266,6 +267,8 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     */
 
     Route::prefix('customer')->name('customer.')->group(function () {
+        Route::get('/onboarding-status', [CustomerController::class, 'onboardingStatus'])->name('onboarding-status');
+        Route::post('/onboarding', [CustomerController::class, 'completeOnboarding'])->name('onboarding.complete');
         Route::get('/availability', [CustomerBookingController::class, 'availability'])->name('availability');
         Route::get('/transactions', [CustomerController::class, 'myTransactions'])->name('transactions');
         Route::get('/job-orders', [CustomerController::class, 'myJobOrders'])->name('job-orders');
