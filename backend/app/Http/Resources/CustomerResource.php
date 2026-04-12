@@ -20,6 +20,9 @@ class CustomerResource extends JsonResource
             'phone_number' => $this->phone_number,
             'address' => $this->address,
             'license_number' => $this->license_number,
+            'preferred_contact_method' => $this->preferred_contact_method,
+            'special_notes' => $this->special_notes,
+            'onboarding_completed_at' => $this->onboarding_completed_at?->toISOString(),
             'account_status' => $this->account_status,
             'approved_by' => $this->when($this->relationLoaded('approvedBy') && $this->approvedBy, [
                 'id' => $this->approvedBy?->id,

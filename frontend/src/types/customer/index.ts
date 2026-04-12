@@ -9,6 +9,9 @@ export interface CustomerProfile {
     phone_number: string | null;
     address: string | null;
     license_number: string | null;
+    preferred_contact_method: 'sms' | 'call' | 'email' | null;
+    special_notes: string | null;
+    onboarding_completed_at: string | null;
     account_status: string;
     vehicles: Vehicle[];
     created_at: string;

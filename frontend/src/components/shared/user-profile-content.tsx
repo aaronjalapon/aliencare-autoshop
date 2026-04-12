@@ -13,6 +13,7 @@ export function UserProfileContent() {
     const { customer, loading, refetch } = useCustomerProfile();
 
     const [personalEditOpen, setPersonalEditOpen] = useState(false);
+    const [specialEditOpen, setSpecialEditOpen] = useState(false);
     const [vehicleEditTarget, setVehicleEditTarget] = useState<Vehicle | null>(null);
     const [addVehicleOpen, setAddVehicleOpen] = useState(false);
 
@@ -48,6 +49,22 @@ export function UserProfileContent() {
             year: values.year ? parseInt(values.year, 10) : undefined,
             plate_number: values.plate_number || undefined,
             color: values.color || undefined,
+        });
+        await refetch();
+    };
+
+    // ── Customer: Special Information save ─────────────────────────────────
+    const handleSpecialSave = async (values: Record<string, string>) => {
+        if (!customer) return;
+
+        const preferredContact = values.preferred_contact_method?.trim().toLowerCase();
+        if (!preferredContact || !['sms', 'call', 'email'].includes(preferredContact)) {
+            throw new Error('Preferred contact must be one of: sms, call, or email.');
+        }
+
+        await customerService.updateSpecialInfo(customer.id, {
+            preferred_contact_method: preferredContact as 'sms' | 'call' | 'email',
+            special_notes: values.special_notes?.trim() || null,
         });
         await refetch();
     };
@@ -253,7 +270,15 @@ export function UserProfileContent() {
                     <div className="profile-card rounded-xl p-5">
                         <div className="mb-4 flex items-center justify-between">
                             <h3 className="font-semibold">Special Information</h3>
-                            {!isCustomer && (
+                            {isCustomer ? (
+                                <button
+                                    onClick={() => setSpecialEditOpen(true)}
+                                    aria-label="Edit Special Information"
+                                    disabled={loading || !customer}
+                                >
+                                    <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70 disabled:opacity-30" />
+                                </button>
+                            ) : (
                                 <button onClick={() => setNonCustomerSection('special')} aria-label="Edit Special Information">
                                     <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
                                 </button>
@@ -263,12 +288,18 @@ export function UserProfileContent() {
                             <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="text-muted-foreground">Preferred Contact:</span>
-                                <span className="font-medium">SMS</span>
+                                <span className="font-medium">
+                                    {isCustomer
+                                        ? loading
+                                            ? '…'
+                                            : (customer?.preferred_contact_method?.toUpperCase() ?? '—')
+                                        : 'SMS'}
+                                </span>
                             </div>
                             <div className="flex items-start gap-2">
                                 <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="text-muted-foreground">Notes:</span>
-                                <span className="italic">{isCustomer ? '—' : 'N/A'}</span>
+                                <span className="italic">{isCustomer ? (loading ? '…' : (customer?.special_notes ?? '—')) : 'N/A'}</span>
                             </div>
                         </div>
                     </div>
@@ -286,6 +317,30 @@ export function UserProfileContent() {
                         { label: 'Address', key: 'address', value: customer.address ?? '', type: 'text' },
                     ]}
                     onSave={handlePersonalSave}
+                />
+            )}
+
+            {/* Customer: Special Information modal */}
+            {isCustomer && customer && (
+                <ProfileEditModal
+                    open={specialEditOpen}
+                    onClose={() => setSpecialEditOpen(false)}
+                    title="Edit Special Information"
+                    fields={[
+                        {
+                            label: 'Preferred Contact (sms, call, email)',
+                            key: 'preferred_contact_method',
+                            value: customer.preferred_contact_method ?? 'sms',
+                            type: 'text',
+                        },
+                        {
+                            label: 'Notes',
+                            key: 'special_notes',
+                            value: customer.special_notes ?? '',
+                            type: 'textarea',
+                        },
+                    ]}
+                    onSave={handleSpecialSave}
                 />
             )}
 

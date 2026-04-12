@@ -22,6 +22,9 @@ class Customer extends Model
         'phone_number',
         'address',
         'license_number',
+        'preferred_contact_method',
+        'special_notes',
+        'onboarding_completed_at',
         'account_status',
         'approved_by',
         'approved_at',
@@ -33,6 +36,7 @@ class Customer extends Model
         return [
             'account_status' => AccountStatus::class,
             'approved_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 
