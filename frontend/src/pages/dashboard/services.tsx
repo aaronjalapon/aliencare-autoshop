@@ -210,8 +210,8 @@ export default function Services() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="min-h-full p-5">
-                <div className="flex w-full flex-col gap-5">
+            <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
+                <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-5 overflow-hidden">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
@@ -243,8 +243,8 @@ export default function Services() {
                         </div>
                     </div>
 
-                    <div className="grid gap-5 xl:grid-cols-[1.45fr_1fr]">
-                        <div className="profile-card rounded-xl p-5">
+                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[1.45fr_1fr]">
+                        <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                             <div className="mb-4 flex flex-col gap-3">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -283,7 +283,7 @@ export default function Services() {
                                     No services matched your filters.
                                 </div>
                             ) : (
-                                <div className="overflow-hidden rounded-xl border border-[#2a2a2e]">
+                                <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[#2a2a2e]">
                                     <table className="w-full text-left text-sm">
                                         <thead className="bg-[#0d0d10] text-xs text-muted-foreground uppercase">
                                             <tr>
@@ -356,7 +356,7 @@ export default function Services() {
                             )}
                         </div>
 
-                        <div className="profile-card rounded-xl p-5">
+                        <div className="profile-card min-h-0 overflow-y-auto rounded-xl p-5">
                             <h2 className="text-base font-semibold">Service Details</h2>
                             {selectedService ? (
                                 <div className="mt-4 space-y-4 text-sm">

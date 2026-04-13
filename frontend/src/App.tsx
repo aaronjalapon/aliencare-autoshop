@@ -38,7 +38,9 @@ import Profile from '@/pages/settings/profile';
 import AdminBookingSlots from '@/pages/admin/booking-slots';
 import AdminDashboard from '@/pages/admin/dashboard';
 import FrontDeskAccounts from '@/pages/admin/frontdesk-accounts';
+import AdminNotifications from '@/pages/admin/notifications';
 import AdminProfile from '@/pages/admin/profile';
+import AdminSettings from '@/pages/admin/settings';
 
 // Customer pages
 import BillingPayment from '@/pages/customer/billing-payment';
@@ -153,6 +155,8 @@ export default function App() {
                 <Route path="/admin/profile" element={<AdminProfile />} />
                 <Route path="/admin/frontdesk-accounts" element={<FrontDeskAccounts />} />
                 <Route path="/admin/booking-slots" element={<AdminBookingSlots />} />
+                <Route path="/admin/settings" element={<AdminSettings />} />
+                <Route path="/admin/notifications" element={<AdminNotifications />} />
             </Route>
 
             {/* Customer protected routes */}

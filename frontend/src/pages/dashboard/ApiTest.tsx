@@ -154,8 +154,8 @@ export default function ApiTest() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="min-h-full p-5">
-                <div className="space-y-6">
+            <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-5">
+                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-bold text-foreground">API Integration Test</h1>

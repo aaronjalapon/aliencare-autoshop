@@ -8,7 +8,12 @@ import { useState } from 'react';
 import { AddVehicleModal } from './add-vehicle-modal';
 import { type EditField, ProfileEditModal } from './profile-edit-modal';
 
-export function UserProfileContent() {
+interface UserProfileContentProps {
+    showTitle?: boolean;
+    subtitle?: string;
+}
+
+export function UserProfileContent({ showTitle = true, subtitle }: UserProfileContentProps) {
     const { user } = useAuth();
     const { customer, loading, refetch } = useCustomerProfile();
 
@@ -82,7 +87,12 @@ export function UserProfileContent() {
 
     return (
         <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-6">
-            <h1 className="text-xl font-bold tracking-tight">User Profile</h1>
+            {(showTitle || subtitle) && (
+                <div className="space-y-1">
+                    {showTitle && <h1 className="text-xl font-bold tracking-tight">User Profile</h1>}
+                    {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+                </div>
+            )}
 
             {/* Hero */}
             <div className="profile-card flex items-center gap-5 rounded-xl p-5">

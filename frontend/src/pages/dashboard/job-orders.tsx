@@ -256,13 +256,12 @@ export default function JobOrders() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="min-h-full p-5">
-                <div className="flex w-full flex-col gap-5">
+            <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
+                <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-5 overflow-hidden">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
-                            <h1 className="mt-2 text-2xl font-bold tracking-tight">Job Orders and Bookings</h1>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                            <p className="mt-2 text-sm text-muted-foreground">
                                 Handle online customer bookings and instant walk-in job orders in one queue.
                             </p>
                         </div>
@@ -293,7 +292,7 @@ export default function JobOrders() {
                         </div>
                     </div>
 
-                    <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
+                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[1.55fr_1fr]">
                         <div className="profile-card rounded-xl p-5">
                             <div className="mb-4 flex flex-col gap-3">
                                 <div className="relative">
@@ -395,7 +394,7 @@ export default function JobOrders() {
                             </div>
                         </div>
 
-                        <aside className="profile-card rounded-xl p-5">
+                        <aside className="profile-card min-h-0 overflow-y-auto rounded-xl p-5">
                             {selectedOrder ? (
                                 <div className="flex h-full flex-col gap-4">
                                     <div>

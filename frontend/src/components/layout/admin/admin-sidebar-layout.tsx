@@ -9,9 +9,9 @@ export default function AdminSidebarLayout({ children }: PropsWithChildren<{ bre
     return (
         <AppShell variant="sidebar">
             <AdminSidebar />
-            <AppContent variant="sidebar" className="overflow-x-hidden">
+            <AppContent variant="sidebar" className="overflow-hidden">
                 <PageHeader />
-                {children}
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             </AppContent>
         </AppShell>
     );

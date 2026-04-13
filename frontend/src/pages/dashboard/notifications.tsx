@@ -85,7 +85,7 @@ export default function FrontdeskNotifications() {
 
     return (
         <AppLayout>
-            <div className="min-h-full p-5">
+            <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-5">
                 {/* Page header */}
                 <div className="mb-6 flex items-center justify-between">
                     <div>
@@ -117,48 +117,50 @@ export default function FrontdeskNotifications() {
                     ))}
                 </div>
 
-                {/* Notification list */}
-                {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-                        <Bell className="h-10 w-10 text-muted-foreground/30" />
-                        <p className="text-sm text-muted-foreground">No notifications here yet.</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-2">
-                        {filtered.map((notif) => {
-                            const Icon = CATEGORY_ICON[notif.category] ?? Bell;
-                            return (
-                                <div
-                                    key={notif.id}
-                                    className={`relative flex items-start gap-4 rounded-xl border p-4 transition-colors ${
-                                        notif.read ? 'border-[#2a2a2e] bg-[#0d0d10]' : 'border-[#d4af37]/30 bg-[#d4af37]/5'
-                                    }`}
-                                >
-                                    {/* Unread dot */}
-                                    {!notif.read && <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-[#d4af37]" />}
-
-                                    {/* Icon */}
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    {/* Notification list */}
+                    {filtered.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+                            <Bell className="h-10 w-10 text-muted-foreground/30" />
+                            <p className="text-sm text-muted-foreground">No notifications here yet.</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {filtered.map((notif) => {
+                                const Icon = CATEGORY_ICON[notif.category] ?? Bell;
+                                return (
                                     <div
-                                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                                            notif.read ? 'bg-[#1e1e22]' : 'bg-[#d4af37]/10'
+                                        key={notif.id}
+                                        className={`relative flex items-start gap-4 rounded-xl border p-4 transition-colors ${
+                                            notif.read ? 'border-[#2a2a2e] bg-[#0d0d10]' : 'border-[#d4af37]/30 bg-[#d4af37]/5'
                                         }`}
                                     >
-                                        <Icon className={`h-4 w-4 ${notif.read ? 'text-muted-foreground' : 'text-[#d4af37]'}`} />
-                                    </div>
+                                        {/* Unread dot */}
+                                        {!notif.read && <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-[#d4af37]" />}
 
-                                    {/* Content */}
-                                    <div className="min-w-0 flex-1 pr-4">
-                                        <p className={`text-sm leading-snug font-semibold ${notif.read ? 'text-foreground/70' : 'text-foreground'}`}>
-                                            {notif.title}
-                                        </p>
-                                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{notif.message}</p>
-                                        <p className="mt-1.5 text-xs text-muted-foreground/60">{notif.time}</p>
+                                        {/* Icon */}
+                                        <div
+                                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                                                notif.read ? 'bg-[#1e1e22]' : 'bg-[#d4af37]/10'
+                                            }`}
+                                        >
+                                            <Icon className={`h-4 w-4 ${notif.read ? 'text-muted-foreground' : 'text-[#d4af37]'}`} />
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="min-w-0 flex-1 pr-4">
+                                            <p className={`text-sm leading-snug font-semibold ${notif.read ? 'text-foreground/70' : 'text-foreground'}`}>
+                                                {notif.title}
+                                            </p>
+                                            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{notif.message}</p>
+                                            <p className="mt-1.5 text-xs text-muted-foreground/60">{notif.time}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             </div>
         </AppLayout>
     );

@@ -52,12 +52,9 @@ export default function FrontDeskAccounts() {
 
     return (
         <AdminLayout breadcrumbs={breadcrumbs}>
-            <div className="flex h-full flex-1 flex-col gap-6 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Front Desk Accounts</h1>
-                        <p className="text-muted-foreground">Create and manage front desk staff accounts.</p>
-                    </div>
+            <div className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">Create and manage front desk staff accounts.</p>
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e]"
@@ -68,25 +65,26 @@ export default function FrontDeskAccounts() {
                 </div>
 
                 {/* Accounts Table */}
-                <div className="rounded-xl border bg-card shadow-sm">
-                    {loading ? (
-                        <div className="flex items-center justify-center p-12">
-                            <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : accounts.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-3 p-12 text-muted-foreground">
-                            <Users className="h-10 w-10" />
-                            <p>No front desk accounts yet.</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
+                <div className="min-h-0 flex-1">
+                    <div className="profile-card max-h-full overflow-hidden rounded-xl">
+                        {loading ? (
+                            <div className="flex items-center justify-center p-12">
+                                <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : accounts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-3 p-12 text-muted-foreground">
+                                <Users className="h-10 w-10" />
+                                <p>No front desk accounts yet.</p>
+                            </div>
+                        ) : (
+                            <div className="max-h-full overflow-auto">
+                                <table className="w-full">
                                 <thead>
                                     <tr className="border-b text-left text-sm text-muted-foreground">
                                         <th className="px-4 py-3 font-medium">Name</th>
                                         <th className="px-4 py-3 font-medium">Email</th>
                                         <th className="px-4 py-3 font-medium">Created</th>
-                                        <th className="px-4 py-3 text-right font-medium">Actions</th>
+                                        <th className="px-4 py-3 font-medium">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -101,11 +99,11 @@ export default function FrontDeskAccounts() {
                                                     year: 'numeric',
                                                 })}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-4 py-3">
                                                 <button
                                                     onClick={() => handleDelete(account.id)}
                                                     disabled={deleting === account.id}
-                                                    className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                                                    className="inline-flex items-center gap-1 rounded-lg py-1.5 pr-3 pl-0 text-sm text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
                                                 >
                                                     {deleting === account.id ? (
                                                         <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -118,9 +116,10 @@ export default function FrontDeskAccounts() {
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table>
-                        </div>
-                    )}
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -169,7 +168,7 @@ function CreateAccountModal({ onClose, onCreated }: { onClose: () => void; onCre
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-            <div className="w-full max-w-md rounded-xl border bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="profile-card w-full max-w-md rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">Create Front Desk Account</h2>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground">

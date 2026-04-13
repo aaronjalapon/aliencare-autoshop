@@ -299,14 +299,13 @@ export default function Customers() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="min-h-full p-5">
-                <div className="flex w-full flex-col gap-4">
+            <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
+                <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Manage customer profiles, service activity, and quick frontdesk actions.
-                            </p>
+                            <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
+                            <h1 className="mt-2 text-3xl font-bold tracking-tight">Customers</h1>
+                            <p className="mt-1 text-sm text-muted-foreground">Manage customer profiles, service activity, and quick frontdesk actions.</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -321,7 +320,7 @@ export default function Customers() {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 xl:grid-cols-[1.9fr_0.72fr]">
+                    <div className="grid min-h-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[1.9fr_0.72fr]">
                         <div className="flex min-w-0 flex-col gap-3">
                             <div className="flex flex-col gap-3 rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/80 p-3">
                                 <div className="relative">
@@ -451,7 +450,7 @@ export default function Customers() {
                             </div>
                         </div>
 
-                        <aside className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
+                        <aside className="min-h-0 overflow-y-auto rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
                             {selectedCustomer ? (
                                 <div className="flex h-full flex-col gap-4">
                                     <div className="flex items-start justify-between">

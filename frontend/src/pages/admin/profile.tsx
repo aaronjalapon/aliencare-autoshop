@@ -10,7 +10,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function AdminProfile() {
     return (
         <AdminLayout breadcrumbs={breadcrumbs}>
-            <UserProfileContent />
+            <UserProfileContent showTitle={false} subtitle="Manage your administrator account details and access preferences." />
         </AdminLayout>
     );
 }

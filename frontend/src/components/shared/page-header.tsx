@@ -27,6 +27,9 @@ const ROUTE_LABELS: Record<string, string> = {
     '/admin': 'Dashboard',
     '/admin/profile': 'Profile',
     '/admin/frontdesk-accounts': 'Front Desk Accounts',
+    '/admin/booking-slots': 'Booking Slots',
+    '/admin/settings': 'Settings',
+    '/admin/notifications': 'Notifications',
 };
 
 const ROLE_LABELS: Record<string, string> = {
