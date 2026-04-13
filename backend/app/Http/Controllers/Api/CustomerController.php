@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\UserRole;
 use App\Contracts\Repositories\CustomerRepositoryInterface;
 use App\Contracts\Services\CustomerServiceInterface;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Customer\CompleteOnboardingRequest;
 use App\Http\Requests\Api\Customer\LinkTransactionRequest;
@@ -17,9 +17,9 @@ use App\Http\Requests\Api\Customer\UpdateCustomerRequest;
 use App\Http\Requests\Api\Customer\UpdatePersonalInfoRequest;
 use App\Http\Requests\Api\Customer\UpdateSpecialInfoRequest;
 use App\Http\Resources\CustomerAuditLogResource;
-use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\CustomerResource;
 use App\Http\Resources\CustomerTransactionResource;
+use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\VehicleResource;
 use App\Models\Customer;
 use Illuminate\Database\QueryException;

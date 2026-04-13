@@ -19,7 +19,15 @@ const services = [
         title: 'Brake Service',
         description: 'Brake pad replacement, rotor resurfacing, and complete brake system inspections for your safety.',
         icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-7 w-7"
+            >
                 <circle cx="12" cy="12" r="10" />
                 <circle cx="12" cy="12" r="4" />
                 <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
@@ -30,7 +38,15 @@ const services = [
         title: 'Diagnostics',
         description: 'Advanced computer diagnostics to identify issues accurately and save you time and money.',
         icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-7 w-7"
+            >
                 <rect x="2" y="3" width="20" height="14" rx="2" />
                 <path d="M8 21h8M12 17v4M7 10l2 2 4-4" />
             </svg>
@@ -40,8 +56,18 @@ const services = [
         title: 'Tire Services',
         description: 'Tire rotation, balancing, alignment, and replacement to ensure a smooth and safe ride.',
         icon: (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
-                <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-7 w-7"
+            >
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" />
             </svg>
         ),
     },
@@ -269,11 +295,7 @@ export default function Welcome() {
             </section>
 
             {/* ── About Section ─────────────────────────────────────────── */}
-            <section
-                data-section
-                id="about"
-                className="flex min-h-screen w-full flex-col items-center justify-center bg-black px-6 py-24 lg:px-8"
-            >
+            <section data-section id="about" className="flex min-h-screen w-full flex-col items-center justify-center bg-black px-6 py-24 lg:px-8">
                 <div className="mx-auto w-full max-w-5xl">
                     {/* Section label */}
                     <div className="mb-3 flex items-center justify-center gap-3">
@@ -293,8 +315,8 @@ export default function Welcome() {
                             </span>
                         </h2>
                         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-400">
-                            Founded in 2015, AlienCare Autoshop was built on a simple belief: every vehicle deserves out-of-this-world care.
-                            We blend cutting-edge technology with old-fashioned dedication to consistently exceed expectations.
+                            Founded in 2015, AlienCare Autoshop was built on a simple belief: every vehicle deserves out-of-this-world care. We blend
+                            cutting-edge technology with old-fashioned dedication to consistently exceed expectations.
                         </p>
                     </div>
 
@@ -309,8 +331,8 @@ export default function Welcome() {
                             </div>
                             <h3 className="mb-3 text-xl font-bold text-[#EDEDEC]">Our Mission</h3>
                             <p className="text-sm leading-relaxed text-gray-400">
-                                To provide exceptional automotive care through expert craftsmanship, honest service, and innovative solutions that keep
-                                our customers safe and confident on every journey.
+                                To provide exceptional automotive care through expert craftsmanship, honest service, and innovative solutions that
+                                keep our customers safe and confident on every journey.
                             </p>
                         </div>
                         <div className="relative overflow-hidden rounded-xl border border-white/5 bg-[#0f0f0f] p-8">
@@ -340,10 +362,7 @@ export default function Welcome() {
             </section>
 
             {/* ── Why AlienCare + CTA Section ───────────────────────────── */}
-            <section
-                data-section
-                className="flex min-h-screen w-full flex-col items-center justify-center bg-[#050505] px-6 py-24 lg:px-8"
-            >
+            <section data-section className="flex min-h-screen w-full flex-col items-center justify-center bg-[#050505] px-6 py-24 lg:px-8">
                 <div className="mx-auto w-full max-w-5xl">
                     {/* Section label */}
                     <div className="mb-3 flex items-center justify-center gap-3">
@@ -389,12 +408,13 @@ export default function Welcome() {
                     >
                         {/* Decorative glows */}
                         <div className="pointer-events-none absolute -top-10 left-1/4 h-32 w-32 rounded-full bg-[#D9AF01]/15 blur-2xl" />
-                        <div className="pointer-events-none absolute -bottom-10 right-1/4 h-32 w-32 rounded-full bg-[#D9AF01]/10 blur-2xl" />
+                        <div className="pointer-events-none absolute right-1/4 -bottom-10 h-32 w-32 rounded-full bg-[#D9AF01]/10 blur-2xl" />
 
                         <div className="relative z-10">
                             <p className="mb-2 text-xs font-semibold tracking-[0.2em] text-[#D9AF01] uppercase">Get Started Today</p>
                             <h3 className="mb-3 text-3xl font-black text-[#EDEDEC] lg:text-4xl">
-                                Ready for Cosmic-Level<br className="hidden sm:block" /> Car Care?
+                                Ready for Cosmic-Level
+                                <br className="hidden sm:block" /> Car Care?
                             </h3>
                             <p className="mx-auto mb-8 max-w-md text-sm text-gray-400">
                                 Create a free account and book your first service in minutes. Your car will thank you.

@@ -50,30 +50,33 @@ export default function AdminBookingSlots() {
     const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-    const fetchSlots = useCallback(async (showLoader = true) => {
-        if (showLoader) setLoading(true);
+    const fetchSlots = useCallback(
+        async (showLoader = true) => {
+            if (showLoader) setLoading(true);
 
-        try {
-            const response = await api.get<BookingSlotsResponse>('/v1/admin/booking-slots');
-            const nextSlots = response.data.slots.map((slot) => ({
-                time: slot.time,
-                capacity: slot.capacity,
-                is_active: slot.is_active,
-                sort_order: slot.sort_order,
-            }));
+            try {
+                const response = await api.get<BookingSlotsResponse>('/v1/admin/booking-slots');
+                const nextSlots = response.data.slots.map((slot) => ({
+                    time: slot.time,
+                    capacity: slot.capacity,
+                    is_active: slot.is_active,
+                    sort_order: slot.sort_order,
+                }));
 
-            if (!hasUnsavedChanges) {
-                setSlots(nextSlots);
+                if (!hasUnsavedChanges) {
+                    setSlots(nextSlots);
+                }
+
+                setLastSyncedAt(new Date());
+                setError(null);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load booking slots.');
+            } finally {
+                if (showLoader) setLoading(false);
             }
-
-            setLastSyncedAt(new Date());
-            setError(null);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load booking slots.');
-        } finally {
-            if (showLoader) setLoading(false);
-        }
-    }, [hasUnsavedChanges]);
+        },
+        [hasUnsavedChanges],
+    );
 
     useEffect(() => {
         void fetchSlots(true);
@@ -141,7 +144,7 @@ export default function AdminBookingSlots() {
                     capacity: slot.capacity,
                     is_active: slot.is_active,
                     sort_order: slot.sort_order,
-                }))
+                })),
             );
             setHasUnsavedChanges(false);
             setLastSyncedAt(new Date());

@@ -1,11 +1,12 @@
 import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
-import { ApiError } from '@/services/api';
 import { useServiceCatalog } from '@/hooks/useServiceCatalog';
+import { ApiError } from '@/services/api';
 import { customerService } from '@/services/customerService';
 import { BookingTimeSlot, JobOrder, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { AlertTriangle, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Loader2, Star, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 type Category = 'Maintenance' | 'Cleaning' | 'Repair';
@@ -216,6 +217,7 @@ const DEFAULT_PAYMENT_METHOD = 'gcash' as const;
 const SLOT_POLL_INTERVAL_MS = 8000;
 
 export default function CustomerServices() {
+    const navigate = useNavigate();
     const [activeCategory, setActiveCategory] = useState<Category>('Maintenance');
     const [selectedId, setSelectedId] = useState(2);
     const [modalStep, setModalStep] = useState<ModalStep>(null);
@@ -237,9 +239,12 @@ export default function CustomerServices() {
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [bookingError, setBookingError] = useState<string | null>(null);
+    const [onboardingCheckError, setOnboardingCheckError] = useState<string | null>(null);
+    const [checkingOnboarding, setCheckingOnboarding] = useState(false);
     const [confirmedJO, setConfirmedJO] = useState<JobOrder | null>(null);
     const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
     const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+    const onboardingCheckInFlightRef = useRef(false);
     const dateContainerRef = useRef<HTMLDivElement>(null);
     const { services, recommended, loading, error } = useServiceCatalog({ per_page: 50 });
     const { customer } = useCustomerProfile();
@@ -274,7 +279,7 @@ export default function CustomerServices() {
                 if (showLoader) setSlotsLoading(false);
             }
         },
-        [arrivalDateYmd]
+        [arrivalDateYmd],
     );
 
     // Fetch arrival slot availability from backend whenever the selected date changes.
@@ -326,6 +331,65 @@ export default function CustomerServices() {
     function handleOtpKey(idx: number, e: React.KeyboardEvent<HTMLInputElement>) {
         if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus();
     }
+
+    const ensureOnboardingForBooking = useCallback(
+        async (serviceId?: number): Promise<boolean> => {
+            if (onboardingCheckInFlightRef.current) {
+                return false;
+            }
+
+            onboardingCheckInFlightRef.current = true;
+            setCheckingOnboarding(true);
+            setOnboardingCheckError(null);
+
+            try {
+                const response = await customerService.getOnboardingStatus();
+                if (response.data.onboarding_completed) {
+                    return true;
+                }
+
+                const params = new URLSearchParams({
+                    returnTo: '/customer/services',
+                    intent: 'book',
+                });
+
+                if (typeof serviceId === 'number') {
+                    params.set('serviceId', String(serviceId));
+                }
+
+                navigate(`/customer/onboarding?${params.toString()}`);
+                return false;
+            } catch (err) {
+                setOnboardingCheckError(err instanceof Error ? err.message : 'Unable to verify onboarding status. Please try again.');
+                return false;
+            } finally {
+                onboardingCheckInFlightRef.current = false;
+                setCheckingOnboarding(false);
+            }
+        },
+        [navigate]
+    );
+
+    const beginBookingFlow = useCallback(
+        async (serviceId?: number) => {
+            if (typeof serviceId === 'number') {
+                setSelectedId(serviceId);
+            }
+
+            const canProceed = await ensureOnboardingForBooking(serviceId ?? selectedId);
+            if (canProceed) {
+                setModalStep('confirm');
+            }
+        },
+        [ensureOnboardingForBooking, selectedId]
+    );
+
+    const proceedToSecureStep = useCallback(async () => {
+        const canProceed = await ensureOnboardingForBooking(selectedId);
+        if (canProceed) {
+            setModalStep('secure');
+        }
+    }, [ensureOnboardingForBooking, selectedId]);
 
     const fmtCountdown = `00:${String(otpCountdown).padStart(2, '0')}`;
 
@@ -571,12 +635,12 @@ export default function CustomerServices() {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedId(service.id);
-                                                    setModalStep('confirm');
+                                                    void beginBookingFlow(service.id);
                                                 }}
-                                                className="rounded-lg bg-[#d4af37] px-3 py-1.5 text-xs font-bold text-black shadow-[0_2px_8px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-80"
+                                                disabled={checkingOnboarding}
+                                                className="rounded-lg bg-[#d4af37] px-3 py-1.5 text-xs font-bold text-black shadow-[0_2px_8px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
-                                                Book Now
+                                                {checkingOnboarding ? 'Checking...' : 'Book Now'}
                                             </button>
                                         </div>
                                     </div>
@@ -681,7 +745,8 @@ export default function CustomerServices() {
                         </div>
                         {slotsLastUpdatedAt && (
                             <p className="mb-1 text-[10px] text-muted-foreground">
-                                Live updates every {Math.floor(SLOT_POLL_INTERVAL_MS / 1000)}s · Last sync {slotsLastUpdatedAt.toLocaleTimeString('en-US')}
+                                Live updates every {Math.floor(SLOT_POLL_INTERVAL_MS / 1000)}s · Last sync{' '}
+                                {slotsLastUpdatedAt.toLocaleTimeString('en-US')}
                             </p>
                         )}
                         {slotsLoading && (
@@ -755,7 +820,9 @@ export default function CustomerServices() {
                                                 : 'Select a vehicle'}
                                         </span>
                                     </div>
-                                    <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${vehicleDropdownOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDown
+                                        className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${vehicleDropdownOpen ? 'rotate-180' : ''}`}
+                                    />
                                 </button>
 
                                 {vehicleDropdownOpen && (
@@ -771,7 +838,9 @@ export default function CustomerServices() {
                                                     selectedVehicle?.id === v.id ? 'text-[#d4af37]' : 'text-foreground'
                                                 }`}
                                             >
-                                                <span className="font-medium">{v.make} {v.model}</span>
+                                                <span className="font-medium">
+                                                    {v.make} {v.model}
+                                                </span>
                                                 <span className="text-muted-foreground">· {v.plate_number}</span>
                                             </button>
                                         ))}
@@ -800,11 +869,13 @@ export default function CustomerServices() {
 
                     {/* CTA */}
                     <button
-                        onClick={() => setModalStep('confirm')}
-                        className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90"
+                        onClick={() => void beginBookingFlow()}
+                        disabled={checkingOnboarding}
+                        className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        Schedule Now
+                        {checkingOnboarding ? 'Checking onboarding...' : 'Schedule Now'}
                     </button>
+                    {onboardingCheckError && <p className="text-xs text-red-400">{onboardingCheckError}</p>}
                 </div>
             </div>
 
@@ -924,11 +995,11 @@ export default function CustomerServices() {
                                 Cancel
                             </button>
                             <button
-                                onClick={() => setModalStep('secure')}
-                                disabled={!selectedVehicle}
+                                onClick={() => void proceedToSecureStep()}
+                                disabled={!selectedVehicle || checkingOnboarding}
                                 className="rounded-lg bg-[#d4af37] px-5 py-2 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                Confirm Booking
+                                {checkingOnboarding ? 'Checking...' : 'Confirm Booking'}
                             </button>
                         </div>
                     </div>
@@ -1050,9 +1121,7 @@ export default function CustomerServices() {
                                 <p>
                                     <span className="text-muted-foreground">Vehicle: </span>
                                     <span className="font-semibold">
-                                        {selectedVehicle
-                                            ? `${selectedVehicle.make} ${selectedVehicle.model} · ${selectedVehicle.plate_number}`
-                                            : '—'}
+                                        {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model} · ${selectedVehicle.plate_number}` : '—'}
                                     </span>
                                 </p>
                             </div>
@@ -1065,7 +1134,9 @@ export default function CustomerServices() {
                                 <p className="mt-0.5 text-xs text-muted-foreground">This amount will be deducted from your total bill</p>
                             </div>
 
-                            <p className="text-xs text-muted-foreground">You can choose your preferred payment channel on the next secure payment page.</p>
+                            <p className="text-xs text-muted-foreground">
+                                You can choose your preferred payment channel on the next secure payment page.
+                            </p>
                         </div>
 
                         {/* Footer */}
@@ -1127,9 +1198,7 @@ export default function CustomerServices() {
                             <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] px-5 py-4">
                                 <div className="mb-3 flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground">Job Order #:</span>
-                                    <span className="text-sm font-bold text-[#d4af37]">
-                                        {confirmedJO?.jo_number ?? '—'}
-                                    </span>
+                                    <span className="text-sm font-bold text-[#d4af37]">{confirmedJO?.jo_number ?? '—'}</span>
                                 </div>
                                 <p className="mb-4 text-sm font-semibold">
                                     {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {slotLabel}
@@ -1146,7 +1215,10 @@ export default function CustomerServices() {
                                         <p className="mb-0.5 text-xs text-muted-foreground">Service:</p>
                                         <p className="text-sm font-semibold text-[#d4af37]">{selectedService.name}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            Vehicle: {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model} - ${selectedVehicle.plate_number}` : '—'}
+                                            Vehicle:{' '}
+                                            {selectedVehicle
+                                                ? `${selectedVehicle.make} ${selectedVehicle.model} - ${selectedVehicle.plate_number}`
+                                                : '—'}
                                         </p>
                                     </div>
                                 </div>
@@ -1288,7 +1360,9 @@ export default function CustomerServices() {
                             </button>
 
                             {bookingError && (
-                                <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400 text-center">{bookingError}</p>
+                                <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-xs text-red-400">
+                                    {bookingError}
+                                </p>
                             )}
 
                             {/* Resend */}
@@ -1341,9 +1415,7 @@ export default function CustomerServices() {
                             <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] px-5 py-4">
                                 <div className="mb-3 flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground">Job Order #:</span>
-                                    <span className="font-mono text-sm font-bold text-[#d4af37]">
-                                        {confirmedJO?.jo_number ?? '—'}
-                                    </span>
+                                    <span className="font-mono text-sm font-bold text-[#d4af37]">{confirmedJO?.jo_number ?? '—'}</span>
                                 </div>
                                 <p className="mb-4 text-sm font-semibold">
                                     {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {slotLabel}
@@ -1355,7 +1427,9 @@ export default function CustomerServices() {
                                     </div>
                                     <div>
                                         <p className="mb-0.5 text-xs text-muted-foreground">Vehicle:</p>
-                                        <p className="text-sm font-semibold">{selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : '—'}</p>
+                                        <p className="text-sm font-semibold">
+                                            {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : '—'}
+                                        </p>
                                         <p className="text-xs text-muted-foreground">{selectedVehicle?.plate_number ?? ''}</p>
                                     </div>
                                     <div>

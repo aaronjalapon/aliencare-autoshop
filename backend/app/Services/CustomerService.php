@@ -8,6 +8,7 @@ use App\Contracts\Repositories\CustomerRepositoryInterface;
 use App\Contracts\Services\CustomerServiceInterface;
 use App\Enums\AccountStatus;
 use App\Enums\JobOrderStatus;
+use App\Enums\VehicleApprovalStatus;
 use App\Events\CustomerAccountApproved;
 use App\Events\CustomerAccountCreated;
 use App\Events\CustomerAccountDeleted;
@@ -17,7 +18,6 @@ use App\Models\CustomerAuditLog;
 use App\Models\CustomerTransaction;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Enums\VehicleApprovalStatus;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 

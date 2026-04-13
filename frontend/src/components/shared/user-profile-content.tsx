@@ -289,11 +289,7 @@ export function UserProfileContent() {
                                 <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="text-muted-foreground">Preferred Contact:</span>
                                 <span className="font-medium">
-                                    {isCustomer
-                                        ? loading
-                                            ? '…'
-                                            : (customer?.preferred_contact_method?.toUpperCase() ?? '—')
-                                        : 'SMS'}
+                                    {isCustomer ? (loading ? '…' : (customer?.preferred_contact_method?.toUpperCase() ?? '—')) : 'SMS'}
                                 </span>
                             </div>
                             <div className="flex items-start gap-2">

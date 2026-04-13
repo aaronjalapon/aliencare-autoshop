@@ -49,7 +49,7 @@ export default function PublicNavbar({ activePage }: PublicNavbarProps) {
                     {user ? (
                         <Link
                             to="/dashboard"
-                            className="inline-block rounded-sm border border-[#D9AF01]/40 px-5 py-1.5 text-sm font-semibold leading-normal text-[#D9AF01] transition-all duration-300 hover:bg-[#D9AF01] hover:text-[#0a0a0a]"
+                            className="inline-block rounded-sm border border-[#D9AF01]/40 px-5 py-1.5 text-sm leading-normal font-semibold text-[#D9AF01] transition-all duration-300 hover:bg-[#D9AF01] hover:text-[#0a0a0a]"
                         >
                             Dashboard
                         </Link>
@@ -57,13 +57,13 @@ export default function PublicNavbar({ activePage }: PublicNavbarProps) {
                         <>
                             <Link
                                 to="/login"
-                                className="inline-block px-4 py-1.5 text-sm font-semibold leading-normal text-gray-400 transition-colors duration-300 hover:text-[#EDEDEC]"
+                                className="inline-block px-4 py-1.5 text-sm leading-normal font-semibold text-gray-400 transition-colors duration-300 hover:text-[#EDEDEC]"
                             >
                                 Log in
                             </Link>
                             <Link
                                 to="/register"
-                                className="inline-block rounded-sm bg-[#D9AF01] px-5 py-1.5 text-sm font-bold leading-normal text-[#0a0a0a] transition-all duration-300 hover:bg-[#f0cc30] hover:shadow-[0_0_16px_rgba(217,175,1,0.35)]"
+                                className="inline-block rounded-sm bg-[#D9AF01] px-5 py-1.5 text-sm leading-normal font-bold text-[#0a0a0a] transition-all duration-300 hover:bg-[#f0cc30] hover:shadow-[0_0_16px_rgba(217,175,1,0.35)]"
                             >
                                 Sign up
                             </Link>

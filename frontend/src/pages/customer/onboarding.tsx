@@ -7,8 +7,8 @@ import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { customerService } from '@/services/customerService';
 import { Car, LoaderCircle, Plus, Trash2 } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 type ContactMethod = 'sms' | 'call' | 'email';
 
@@ -54,9 +54,7 @@ const CAR_BRAND_OPTIONS = [
     'Foton',
 ] as const;
 
-const VEHICLE_YEAR_OPTIONS = Array.from({ length: new Date().getFullYear() - 1898 }, (_, index) =>
-    String(new Date().getFullYear() + 1 - index),
-);
+const VEHICLE_YEAR_OPTIONS = Array.from({ length: new Date().getFullYear() - 1898 }, (_, index) => String(new Date().getFullYear() + 1 - index));
 
 function emptyVehicle(): VehicleForm {
     return {
@@ -71,7 +69,18 @@ function emptyVehicle(): VehicleForm {
 
 export default function CustomerOnboarding() {
     const navigate = useNavigate();
+    const location = useLocation();
     const makeListId = 'customer-onboarding-car-brands';
+
+    const returnToPath = useMemo(() => {
+        const rawReturnTo = new URLSearchParams(location.search).get('returnTo');
+        if (!rawReturnTo) return null;
+        if (!rawReturnTo.startsWith('/customer')) return null;
+        if (rawReturnTo.startsWith('//')) return null;
+        return rawReturnTo;
+    }, [location.search]);
+
+    const postOnboardingPath = returnToPath ?? '/customer';
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -98,7 +107,7 @@ export default function CustomerOnboarding() {
                 if (cancelled) return;
 
                 if (status.onboarding_completed) {
-                    navigate('/customer', { replace: true });
+                    navigate(postOnboardingPath, { replace: true });
                     return;
                 }
 
@@ -147,7 +156,7 @@ export default function CustomerOnboarding() {
         return () => {
             cancelled = true;
         };
-    }, [navigate]);
+    }, [navigate, postOnboardingPath]);
 
     const updateVehicle = (index: number, key: keyof VehicleForm, value: string) => {
         setVehicles((prev) => prev.map((vehicle, i) => (i === index ? { ...vehicle, [key]: value } : vehicle)));
@@ -193,7 +202,7 @@ export default function CustomerOnboarding() {
                 })),
             });
 
-            navigate('/customer', { replace: true });
+            navigate(postOnboardingPath, { replace: true });
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 const flatErrors = flattenValidationErrors(error.validationErrors);
@@ -226,9 +235,7 @@ export default function CustomerOnboarding() {
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Complete Your Onboarding</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Finish your profile so you can book services and manage your account.
-                    </p>
+                    <p className="text-sm text-muted-foreground">Finish your profile so you can book services and manage your account.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">

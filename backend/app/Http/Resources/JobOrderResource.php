@@ -34,7 +34,7 @@ class JobOrderResource extends JsonResource
             // Relationships
             'service' => $this->when($this->relationLoaded('service') && $this->service, function () {
                 return [
-                    'id'   => $this->service->id,
+                    'id' => $this->service->id,
                     'name' => $this->service->name,
                 ];
             }),

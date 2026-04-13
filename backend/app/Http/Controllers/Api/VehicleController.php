@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\UserRole;
 use App\Contracts\Repositories\VehicleRepositoryInterface;
 use App\Contracts\Services\VehicleServiceInterface;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Vehicle\StoreVehicleRequest;
 use App\Http\Requests\Api\Vehicle\UpdateVehicleRequest;

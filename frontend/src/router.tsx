@@ -96,7 +96,7 @@ function CustomerOnboardingGate({ children, requireCompleted }: { children: Reac
         return () => {
             cancelled = true;
         };
-    }, [user?.id, user?.role]);
+    }, [user]);
 
     if (loading || checking) {
         return <FullScreenLoading />;
@@ -119,10 +119,6 @@ function CustomerOnboardingGate({ children, requireCompleted }: { children: Reac
     }
 
     return <>{children}</>;
-}
-
-export function CustomerOnboardingRequiredRoute({ children }: { children: ReactNode }) {
-    return <CustomerOnboardingGate requireCompleted={true}>{children}</CustomerOnboardingGate>;
 }
 
 export function CustomerOnboardingOnlyRoute({ children }: { children: ReactNode }) {
