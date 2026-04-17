@@ -16,6 +16,7 @@ use App\Exceptions\ReservationStateException;
 use App\Models\Customer;
 use App\Models\Reservation;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,8 +30,7 @@ class ReservationService implements ReservationServiceInterface
     public function __construct(
         private ReservationRepositoryInterface $reservationRepository,
         private InventoryRepositoryInterface $inventoryRepository,
-        private StockTransactionRepositoryInterface $transactionRepository,
-        private XenditService $xenditService
+        private StockTransactionRepositoryInterface $transactionRepository
     ) {}
 
     /**
@@ -398,11 +398,30 @@ class ReservationService implements ReservationServiceInterface
         // Return the existing URL if a pending invoice already exists
         if ($reservation->fee_transaction_id) {
             $existing = $reservation->feeTransaction;
-            if ($existing && $existing->xendit_status === 'PENDING' && $existing->payment_url) {
-                return $existing->payment_url;
+
+            if ($existing) {
+                if ($existing->xendit_status === 'PAID') {
+                    throw new ReservationStateException(
+                        $id,
+                        $reservation->status,
+                        'pay_fee',
+                        'Reservation fee has already been paid'
+                    );
+                }
+
+                if ($existing->xendit_status === 'PENDING' && $existing->payment_url) {
+                    return $existing->payment_url;
+                }
+
+                return $this->xenditService()->createInvoice($existing, $customer);
             }
         }
 
-        return $this->xenditService->createReservationFeeInvoice($reservation, $customer);
+        return $this->xenditService()->createReservationFeeInvoice($reservation, $customer);
+    }
+
+    private function xenditService(): XenditService
+    {
+        return App::make(XenditService::class);
     }
 }

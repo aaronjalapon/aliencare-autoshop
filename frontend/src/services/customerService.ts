@@ -3,12 +3,49 @@
  * Handles customer-facing API calls (billing, logs, vehicles, job orders)
  */
 
-import { BookingAvailability, CustomerProfile, CustomerTransaction, JobOrder, Vehicle } from '@/types/customer';
+import {
+    BookingAvailability,
+    CustomerBillingReceipt,
+    CustomerBillingSummary,
+    CustomerProfile,
+    CustomerTransaction,
+    JobOrder,
+    JobOrderReceiptUrl,
+    Vehicle,
+} from '@/types/customer';
 import { api, ApiResponse, PaginatedResponse } from './api';
 
 export interface CustomerTransactionFilters {
-    type?: 'invoice' | 'payment' | 'refund';
+    type?: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
+    payment_state?: 'paid' | 'pending';
     search?: string;
+    from_date?: string;
+    to_date?: string;
+    payment_method?: string;
+    per_page?: number;
+    page?: number;
+}
+
+export interface CreateCustomerTransactionData {
+    type: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
+    amount: number;
+    job_order_id?: number | null;
+    reference_number?: string | null;
+    notes?: string | null;
+}
+
+export interface UpdateCustomerTransactionData {
+    type?: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
+    amount?: number;
+    reference_number?: string | null;
+    notes?: string | null;
+}
+
+export interface CustomerBillingReceiptFilters {
+    search?: string;
+    from_date?: string;
+    to_date?: string;
+    payment_method?: string;
     per_page?: number;
     page?: number;
 }
@@ -87,6 +124,11 @@ export interface CreateBookingWithPaymentResponse {
     payment_method: BookingPayMethod;
 }
 
+export interface RescheduleMyJobOrderData {
+    arrival_date: string;
+    arrival_time: string;
+}
+
 class CustomerService {
     async getOnboardingStatus(): Promise<ApiResponse<CustomerOnboardingStatus>> {
         return api.get<ApiResponse<CustomerOnboardingStatus>>('/v1/customer/onboarding-status');
@@ -126,7 +168,11 @@ class CustomerService {
         const params: Record<string, string | number> = {};
 
         if (filters.type) params.type = filters.type;
+        if (filters.payment_state) params.payment_state = filters.payment_state;
         if (filters.search) params.search = filters.search;
+        if (filters.from_date) params.from_date = filters.from_date;
+        if (filters.to_date) params.to_date = filters.to_date;
+        if (filters.payment_method) params.payment_method = filters.payment_method;
         if (filters.per_page) params.per_page = filters.per_page;
         if (filters.page) params.page = filters.page;
 
@@ -137,11 +183,50 @@ class CustomerService {
         const params: Record<string, string | number> = {};
 
         if (filters.type) params.type = filters.type;
+        if (filters.payment_state) params.payment_state = filters.payment_state;
         if (filters.search) params.search = filters.search;
+        if (filters.from_date) params.from_date = filters.from_date;
+        if (filters.to_date) params.to_date = filters.to_date;
+        if (filters.payment_method) params.payment_method = filters.payment_method;
         if (filters.per_page) params.per_page = filters.per_page;
         if (filters.page) params.page = filters.page;
 
         return api.get<ApiResponse<PaginatedResponse<CustomerTransaction>>>('/v1/customer/transactions', params);
+    }
+
+    async createCustomerTransaction(customerId: number, data: CreateCustomerTransactionData): Promise<ApiResponse<CustomerTransaction>> {
+        return api.post<ApiResponse<CustomerTransaction>>(`/v1/customers/${customerId}/transactions`, data);
+    }
+
+    async updateCustomerTransaction(
+        customerId: number,
+        transactionId: number,
+        data: UpdateCustomerTransactionData,
+    ): Promise<ApiResponse<CustomerTransaction>> {
+        return api.patch<ApiResponse<CustomerTransaction>>(`/v1/customers/${customerId}/transactions/${transactionId}`, data);
+    }
+
+    async getMyBillingSummary(): Promise<ApiResponse<CustomerBillingSummary>> {
+        return api.get<ApiResponse<CustomerBillingSummary>>('/v1/customer/billing/summary');
+    }
+
+    async getMyBillingReceipts(
+        filters: CustomerBillingReceiptFilters = {},
+    ): Promise<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>> {
+        const params: Record<string, string | number> = {};
+
+        if (filters.search) params.search = filters.search;
+        if (filters.from_date) params.from_date = filters.from_date;
+        if (filters.to_date) params.to_date = filters.to_date;
+        if (filters.payment_method) params.payment_method = filters.payment_method;
+        if (filters.per_page) params.per_page = filters.per_page;
+        if (filters.page) params.page = filters.page;
+
+        return api.get<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>>('/v1/customer/billing/receipts', params);
+    }
+
+    async getMyBillingReceiptDetail(transactionId: number): Promise<ApiResponse<CustomerBillingReceipt>> {
+        return api.get<ApiResponse<CustomerBillingReceipt>>(`/v1/customer/billing/receipts/${transactionId}`);
     }
 
     async getVehicles(customerId: number): Promise<ApiResponse<Vehicle[]>> {
@@ -154,6 +239,18 @@ class CustomerService {
 
     async getMyJobOrders(): Promise<ApiResponse<JobOrder[]>> {
         return api.get<ApiResponse<JobOrder[]>>('/v1/customer/job-orders');
+    }
+
+    async rescheduleMyJobOrder(id: number, data: RescheduleMyJobOrderData): Promise<ApiResponse<JobOrder>> {
+        return api.patch<ApiResponse<JobOrder>>(`/v1/customer/job-orders/${id}/reschedule`, data);
+    }
+
+    async cancelMyJobOrder(id: number): Promise<ApiResponse<JobOrder>> {
+        return api.delete<ApiResponse<JobOrder>>(`/v1/customer/job-orders/${id}/cancel`);
+    }
+
+    async getMyJobOrderReceiptUrl(id: number): Promise<ApiResponse<JobOrderReceiptUrl>> {
+        return api.get<ApiResponse<JobOrderReceiptUrl>>(`/v1/customer/job-orders/${id}/receipt-url`);
     }
 
     async createBooking(data: CreateBookingData): Promise<ApiResponse<JobOrder>> {

@@ -15,7 +15,7 @@ class CustomerTransactionResource extends JsonResource
             'id' => $this->id,
             'customer_id' => $this->customer_id,
             'job_order_id' => $this->job_order_id,
-            'type' => $this->type,
+            'type' => $this->type?->value ?? (string) $this->type,
             'amount' => $this->amount,
             'reference_number' => $this->reference_number,
             'notes' => $this->notes,

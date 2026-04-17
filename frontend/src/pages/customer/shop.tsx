@@ -3,8 +3,9 @@ import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { paymentService } from '@/services/paymentService';
 import { type BreadcrumbItem } from '@/types';
 import { InventoryItem } from '@/types/inventory';
-import { AlertCircle, ArrowRight, CircleDot, Droplets, type LucideIcon, Minus, Package, Plus, Search, ShoppingCart, Wind, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Banknote, CircleDot, CreditCard, Droplets, type LucideIcon, Minus, Package, Plus, Search, ShoppingCart, Wind, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/customer' },
@@ -61,13 +62,17 @@ const itemToProduct = (item: InventoryItem): Product => ({
 
 type ShopModalStep = 'invoice' | 'processing' | null;
 
+type ShopPaymentOption = 'online' | 'cash';
+
 export default function Shop() {
+    const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState<string>('All');
     const [cart, setCart] = useState<CartItem[]>([]);
     const [shopModal, setShopModal] = useState<ShopModalStep>(null);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [paymentOption, setPaymentOption] = useState<ShopPaymentOption>('online');
     const today = useMemo(() => new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }), []);
 
     const { products: rawProducts, categories: apiCategories, loading: productsLoading, error: productsError } = useProductCatalog();
@@ -110,6 +115,20 @@ export default function Shop() {
         setIsCheckingOut(true);
         setCheckoutError(null);
         const notes = 'Shop Order: ' + cart.map((i) => `${i.product.name} x${i.quantity}`).join(', ');
+
+        if (paymentOption === 'cash') {
+            try {
+                await paymentService.shopPayAtShop(cartTotal, notes + ' (pay at shop)');
+                setCart([]);
+                setShopModal(null);
+                navigate('/customer/billing');
+            } catch (err) {
+                setCheckoutError(err instanceof Error ? err.message : 'Order failed. Please try again.');
+                setIsCheckingOut(false);
+            }
+            return;
+        }
+
         try {
             const response = await paymentService.shopCheckout(cartTotal, notes);
             window.location.href = response.data.payment_url;
@@ -410,6 +429,53 @@ export default function Shop() {
                                 <span className="text-sm font-bold">Amount due</span>
                                 <span className="text-lg font-bold text-[#d4af37]">₱{cartTotal.toLocaleString()}</span>
                             </div>
+
+                            {/* Payment method selection */}
+                            <div className="flex flex-col gap-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment Method</p>
+                                <button
+                                    onClick={() => setPaymentOption('online')}
+                                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+                                        paymentOption === 'online' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
+                                    }`}
+                                >
+                                    <div
+                                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                                            paymentOption === 'online' ? 'border-[#d4af37]' : 'border-[#3a3a3e]'
+                                        }`}
+                                    >
+                                        {paymentOption === 'online' && <div className="h-2 w-2 rounded-full bg-[#d4af37]" />}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <CreditCard className="h-4 w-4 text-[#d4af37]" />
+                                        <div>
+                                            <p className="text-sm font-semibold">Pay Online</p>
+                                            <p className="text-xs text-muted-foreground">GCash, Maya, Card, Bank — via Xendit</p>
+                                        </div>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => setPaymentOption('cash')}
+                                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+                                        paymentOption === 'cash' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
+                                    }`}
+                                >
+                                    <div
+                                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                                            paymentOption === 'cash' ? 'border-[#d4af37]' : 'border-[#3a3a3e]'
+                                        }`}
+                                    >
+                                        {paymentOption === 'cash' && <div className="h-2 w-2 rounded-full bg-[#d4af37]" />}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Banknote className="h-4 w-4 text-[#d4af37]" />
+                                        <div>
+                                            <p className="text-sm font-semibold">Pay at Shop (Cash)</p>
+                                            <p className="text-xs text-muted-foreground">Full amount will be due upon pickup</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Footer */}
@@ -434,7 +500,11 @@ export default function Shop() {
                                     className="flex items-center gap-2 rounded-lg bg-[#d4af37] px-5 py-2 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90 disabled:opacity-60"
                                 >
                                     {isCheckingOut ? (
-                                        'Redirecting…'
+                                        'Processing…'
+                                    ) : paymentOption === 'cash' ? (
+                                        <>
+                                            Place Order <ArrowRight className="h-4 w-4" />
+                                        </>
                                     ) : (
                                         <>
                                             Pay with Xendit <ArrowRight className="h-4 w-4" />

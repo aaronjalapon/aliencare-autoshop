@@ -1,9 +1,22 @@
 import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerLogs } from '@/hooks/useCustomerLogs';
+import { customerService } from '@/services/customerService';
 import { type BreadcrumbItem } from '@/types';
 import { CustomerTransaction } from '@/types/customer';
-import { AlertCircle, ArrowDownRight, ArrowUpRight, Banknote, Calendar, CheckCircle2, Search, TrendingUp, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import {
+    AlertCircle,
+    ArrowDownRight,
+    ArrowUpRight,
+    Banknote,
+    Calendar,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    Search,
+    TrendingUp,
+    Wrench,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/customer' },
@@ -39,26 +52,86 @@ const getStatus = (t: CustomerTransaction): string => {
     return 'Pending';
 };
 
+const isPaidOutTransaction = (t: CustomerTransaction): boolean => {
+    if (t.type === 'payment') return true;
+
+    return (t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status === 'PAID';
+};
+
 export default function CustomerLogs() {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<LogType>('all');
+    const [paidSummary, setPaidSummary] = useState<{ totalPaid: number; paidCount: number } | null>(null);
 
-    const { logs, loading, error } = useCustomerLogs();
+    const { logs, loading, error, filters, pagination, updateFilters, setPage } = useCustomerLogs({ per_page: 20 });
 
-    const filtered = logs
-        .filter((log) => {
-            const matchesSearch =
-                (log.notes ?? '').toLowerCase().includes(search.toLowerCase()) ||
-                (log.reference_number ?? '').toLowerCase().includes(search.toLowerCase());
-            const matchesFilter = filter === 'all' || log.type === filter;
-            return matchesSearch && matchesFilter;
-        })
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    useEffect(() => {
+        let cancelled = false;
 
-    const totalPaidOut = logs.filter((l) => l.type === 'payment').reduce((s, l) => s + Math.abs(Number(l.amount)), 0);
+        const fetchPaidSummary = async () => {
+            try {
+                const response = await customerService.getMyBillingSummary();
+
+                if (cancelled) {
+                    return;
+                }
+
+                setPaidSummary({
+                    totalPaid: Number(response.data?.total_paid ?? 0),
+                    paidCount: Number(response.data?.paid_count ?? 0),
+                });
+            } catch {
+                if (!cancelled) {
+                    setPaidSummary(null);
+                }
+            }
+        };
+
+        fetchPaidSummary();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        const handle = window.setTimeout(() => {
+            const normalizedSearch = search.trim();
+
+            if ((filters.search ?? '') === normalizedSearch) {
+                return;
+            }
+
+            updateFilters({
+                search: normalizedSearch || undefined,
+            });
+        }, 250);
+
+        return () => {
+            window.clearTimeout(handle);
+        };
+    }, [search, filters.search, updateFilters]);
+
+    useEffect(() => {
+        const nextType = filter === 'invoice' || filter === 'refund' ? filter : undefined;
+        const nextPaymentState = filter === 'payment' ? 'paid' : undefined;
+
+        if (filters.type === nextType && filters.payment_state === nextPaymentState) {
+            return;
+        }
+
+        updateFilters({
+            type: nextType,
+            payment_state: nextPaymentState,
+        });
+    }, [filter, filters.payment_state, filters.type, updateFilters]);
+
+    const totalPaidOut = logs.filter((l) => isPaidOutTransaction(l)).reduce((s, l) => s + Math.abs(Number(l.amount)), 0);
     const totalInvoices = logs.filter((l) => l.type === 'invoice').length;
-    const completedPayments = logs.filter((l) => l.type === 'payment').length;
+    const completedPayments = logs.filter((l) => isPaidOutTransaction(l)).length;
     const pendingInvoices = logs.filter((l) => l.type === 'invoice' && l.xendit_status !== 'PAID').length;
+    const displayedTotalPaidOut = paidSummary?.totalPaid ?? totalPaidOut;
+    const displayedPaidCount = paidSummary?.paidCount ?? completedPayments;
 
     return (
         <CustomerLayout breadcrumbs={breadcrumbs}>
@@ -76,9 +149,9 @@ export default function CustomerLogs() {
                             <p className="text-sm text-muted-foreground">Total Transactions</p>
                             <TrendingUp className="h-4 w-4 text-[#d4af37]" />
                         </div>
-                        <p className="mt-2 text-2xl font-bold">{loading ? '—' : logs.length}</p>
+                        <p className="mt-2 text-2xl font-bold">{loading ? '—' : pagination.total}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                            {totalInvoices} invoice{totalInvoices !== 1 ? 's' : ''} · {completedPayments} payment{completedPayments !== 1 ? 's' : ''}
+                            Showing {logs.length} on this page
                         </p>
                     </div>
                     <div className="profile-card rounded-xl p-4">
@@ -87,10 +160,10 @@ export default function CustomerLogs() {
                             <Banknote className="h-4 w-4 text-green-400" />
                         </div>
                         <p className="mt-2 text-2xl font-bold text-green-400">
-                            {loading ? '—' : `₱${totalPaidOut.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                            {loading ? '—' : `₱${displayedTotalPaidOut.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                            {completedPayments} payment transaction{completedPayments !== 1 ? 's' : ''}
+                            {displayedPaidCount} paid transaction{displayedPaidCount !== 1 ? 's' : ''}
                         </p>
                     </div>
                     <div className="profile-card rounded-xl p-4">
@@ -146,10 +219,11 @@ export default function CustomerLogs() {
                         </div>
                     ) : (
                         <>
-                            {filtered.map((log) => {
+                            {logs.map((log) => {
                                 const ts = TYPE_STYLES[log.type] ?? TYPE_STYLES['invoice'];
-                                const isDebit = log.type === 'payment';
+                                const isDebit = isPaidOutTransaction(log);
                                 const status = getStatus(log);
+                                const typeLabel = log.type === 'reservation_fee' ? 'Reservation Fee' : log.type.charAt(0).toUpperCase() + log.type.slice(1);
                                 return (
                                     <div
                                         key={log.id}
@@ -174,7 +248,7 @@ export default function CustomerLogs() {
                                                     <span
                                                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ts.bg} ${ts.text}`}
                                                     >
-                                                        {log.type.charAt(0).toUpperCase() + log.type.slice(1)}
+                                                        {typeLabel}
                                                     </span>
                                                     {log.reference_number && (
                                                         <span className="font-mono text-xs text-muted-foreground">{log.reference_number}</span>
@@ -209,7 +283,7 @@ export default function CustomerLogs() {
                                 );
                             })}
 
-                            {filtered.length === 0 && !loading && (
+                            {logs.length === 0 && !loading && (
                                 <div className="flex items-center justify-center py-14 text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2">
                                         <CheckCircle2 className="h-8 w-8 opacity-20" />
@@ -220,6 +294,30 @@ export default function CustomerLogs() {
                         </>
                     )}
                 </div>
+
+                {!loading && !error && pagination.lastPage > 1 && (
+                    <div className="flex items-center justify-center gap-3">
+                        <button
+                            onClick={() => setPage(pagination.currentPage - 1)}
+                            disabled={pagination.currentPage <= 1}
+                            className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2 text-muted-foreground transition hover:border-[#d4af37]/50 hover:text-foreground disabled:opacity-40"
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="text-xs text-muted-foreground">
+                            Page {pagination.currentPage} of {pagination.lastPage}
+                        </span>
+                        <button
+                            onClick={() => setPage(pagination.currentPage + 1)}
+                            disabled={pagination.currentPage >= pagination.lastPage}
+                            className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2 text-muted-foreground transition hover:border-[#d4af37]/50 hover:text-foreground disabled:opacity-40"
+                            aria-label="Next page"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
             </div>
         </CustomerLayout>
     );

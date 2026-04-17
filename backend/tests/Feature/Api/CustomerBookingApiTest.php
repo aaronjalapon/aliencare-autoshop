@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Exceptions\PaymentGatewayException;
 use App\Models\BookingSlot;
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
@@ -347,5 +348,38 @@ class CustomerBookingApiTest extends TestCase
             ->postJson('/api/v1/customer/book-with-payment', $payload)
             ->assertStatus(422)
             ->assertJsonPath('message', 'Selected payment method is invalid.');
+    }
+
+    public function test_store_with_payment_returns_sanitized_gateway_error_response(): void
+    {
+        BookingSlot::query()->where('time', '10:00')->update(['capacity' => 2]);
+
+        $this->mock(XenditService::class, function ($mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->andThrow(new PaymentGatewayException(
+                    message: 'Unable to initialize online payment right now. Please try again later.',
+                    errorCode: 'xendit_invoice_creation_failed',
+                    statusCode: 503,
+                ));
+        });
+
+        $payload = [
+            'vehicle_id' => $this->vehicle->id,
+            'service_id' => $this->service->id,
+            'arrival_date' => now()->addDay()->toDateString(),
+            'arrival_time' => '10:00',
+            'payment_method' => 'gcash',
+        ];
+
+        $this->actingAs($this->user)
+            ->postJson('/api/v1/customer/book-with-payment', $payload)
+            ->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error', 'xendit_invoice_creation_failed')
+            ->assertJsonPath('message', 'Unable to initialize online payment right now. Please try again later.');
+
+        $this->assertDatabaseCount('job_orders', 0);
+        $this->assertDatabaseCount('customer_transactions', 0);
     }
 }

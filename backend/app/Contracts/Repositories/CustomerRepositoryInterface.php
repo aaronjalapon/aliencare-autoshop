@@ -57,6 +57,25 @@ interface CustomerRepositoryInterface
      */
     public function getTransactions(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator;
 
+    public function findTransactionForCustomer(int $customerId, int $transactionId): ?CustomerTransaction;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updateTransaction(int $customerId, int $transactionId, array $data): CustomerTransaction;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getBillingSummary(int $customerId): array;
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function getBillingReceipts(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator;
+
+    public function getBillingReceiptDetail(int $customerId, int $transactionId): ?CustomerTransaction;
+
     /**
      * @param  array<string, mixed>  $data
      */

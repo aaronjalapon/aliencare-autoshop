@@ -207,6 +207,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::get('/{id}/audit-log', [CustomerController::class, 'auditLog'])->name('audit-log');
         Route::get('/{id}/transactions', [CustomerController::class, 'transactions'])->name('transactions');
         Route::post('/{id}/transactions', [CustomerController::class, 'linkTransaction'])->name('link-transaction');
+        Route::patch('/{id}/transactions/{transactionId}', [CustomerController::class, 'updateTransaction'])->name('transactions.update');
         Route::get('/{id}/vehicles', [CustomerController::class, 'vehicles'])->name('vehicles');
         Route::post('/{id}/vehicles', [VehicleController::class, 'storeForCustomer'])->name('vehicles.store');
         Route::get('/{id}/job-orders', [CustomerController::class, 'jobOrders'])->name('job-orders');
@@ -247,6 +248,8 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     */
 
     Route::prefix('payments')->name('payments.')->group(function () {
+        Route::post('/pay-all', [PaymentController::class, 'createBulkInvoice'])->name('pay-all');
+        Route::post('/sync', [PaymentController::class, 'syncStatuses'])->name('sync');
         Route::post('/{transactionId}/invoice', [PaymentController::class, 'createInvoice'])->name('invoice.create');
     });
 
@@ -258,6 +261,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
 
     Route::prefix('shop')->name('shop.')->group(function () {
         Route::post('/checkout', [ShopController::class, 'checkout'])->name('checkout');
+        Route::post('/pay-at-shop', [ShopController::class, 'payAtShop'])->name('pay-at-shop');
     });
 
     /*
@@ -271,7 +275,13 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::post('/onboarding', [CustomerController::class, 'completeOnboarding'])->name('onboarding.complete');
         Route::get('/availability', [CustomerBookingController::class, 'availability'])->name('availability');
         Route::get('/transactions', [CustomerController::class, 'myTransactions'])->name('transactions');
+        Route::get('/billing/summary', [CustomerController::class, 'myBillingSummary'])->name('billing.summary');
+        Route::get('/billing/receipts', [CustomerController::class, 'myBillingReceipts'])->name('billing.receipts');
+        Route::get('/billing/receipts/{transactionId}', [CustomerController::class, 'myBillingReceiptDetail'])->name('billing.receipts.show');
         Route::get('/job-orders', [CustomerController::class, 'myJobOrders'])->name('job-orders');
+        Route::patch('/job-orders/{id}/reschedule', [CustomerController::class, 'rescheduleMyJobOrder'])->name('job-orders.reschedule');
+        Route::delete('/job-orders/{id}/cancel', [CustomerController::class, 'cancelMyJobOrder'])->name('job-orders.cancel');
+        Route::get('/job-orders/{id}/receipt-url', [CustomerController::class, 'myJobOrderReceiptUrl'])->name('job-orders.receipt-url');
         Route::post('/book', [CustomerBookingController::class, 'store'])->name('book');
         Route::post('/book-with-payment', [CustomerBookingController::class, 'storeWithPayment'])->name('book-with-payment');
     });

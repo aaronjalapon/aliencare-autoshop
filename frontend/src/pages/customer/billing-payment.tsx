@@ -2,9 +2,10 @@ import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerBilling } from '@/hooks/useCustomerBilling';
 import { paymentService } from '@/services/paymentService';
 import { type BreadcrumbItem } from '@/types';
-import { CustomerTransaction } from '@/types/customer';
-import { AlertCircle, ArrowLeft, Banknote, Calendar, CheckCircle2, CreditCard, Download, Printer, Receipt, TrendingUp } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { CustomerBillingReceipt, CustomerTransaction } from '@/types/customer';
+import { AlertCircle, ArrowLeft, Banknote, Calendar, CheckCircle2, CreditCard, Download, Printer, Receipt, TrendingUp, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/customer' },
@@ -39,70 +40,78 @@ interface ReceiptRecord {
     paymentMethod: string;
 }
 
-const SAMPLE_RECEIPTS: ReceiptRecord[] = [
-    {
-        id: 1,
-        receiptNo: 'RC-2026-00124',
-        transactionId: 'TXN-938245',
-        jobOrderNo: 'JO-10234',
-        date: '2026-01-10',
-        bookingDate: 'Jan 10, 2026',
-        bookingTime: '4:25 PM',
-        arrival: 'Mon, Jan 13, 2026',
-        arrivalTime: '10:00 AM',
-        branch: 'Davao City Branch, J.P. Laurel Ave, Davao City',
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        lineItems: [
-            { label: 'Full Detail Wash', amount: 2000 },
-            { label: 'Interior Vacuum', amount: 300 },
-            { label: 'Tire Black', amount: 100 },
-            { label: 'Engine Bay Clean', amount: 100 },
-        ],
-        totalPaid: 2500,
-        paymentMethod: 'GCash',
-    },
-    {
-        id: 2,
-        receiptNo: 'RC-2026-00098',
-        transactionId: 'TXN-917384',
-        jobOrderNo: 'JO-10201',
-        date: '2026-01-08',
-        bookingDate: 'Jan 8, 2026',
-        bookingTime: '2:10 PM',
-        arrival: 'Fri, Jan 10, 2026',
-        arrivalTime: '9:00 AM',
-        branch: 'Davao City Branch, J.P. Laurel Ave, Davao City',
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        lineItems: [{ label: 'Synthetic Engine Oil 5W-30 x2', amount: 1300 }],
-        totalPaid: 1300,
-        paymentMethod: 'Maya',
-    },
-    {
-        id: 3,
-        receiptNo: 'RC-2025-00892',
-        transactionId: 'TXN-882034',
-        jobOrderNo: 'JO-09985',
-        date: '2025-12-20',
-        bookingDate: 'Dec 20, 2025',
-        bookingTime: '11:30 AM',
-        arrival: 'Sat, Dec 21, 2025',
-        arrivalTime: '8:00 AM',
-        branch: 'Davao City Branch, J.P. Laurel Ave, Davao City',
-        customerName: 'Juan Dela Cruz',
-        customerPhone: '0912 345 6789',
-        vehicle: 'Toyota Innova',
-        vehiclePlate: 'CAV 1234',
-        lineItems: [{ label: 'Engine Tune-Up', amount: 3500 }],
-        totalPaid: 3500,
-        paymentMethod: 'GCash',
-    },
-];
+function formatDateLabel(value: string | null | undefined): string {
+    if (!value) return '—';
+    const date = value.includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDetailedDateLabel(value: string | null | undefined): string {
+    if (!value) return '—';
+    const date = value.includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTimeLabel(value: string | null | undefined): string {
+    if (!value) return '—';
+
+    if (!value.includes('T') && /^\d{2}:\d{2}$/.test(value)) {
+        const [hourText, minuteText] = value.split(':');
+        const hour = Number(hourText);
+        const minute = Number(minuteText);
+
+        if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+        return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
+    }
+
+    return new Date(value).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatPaymentMethod(value: string | null | undefined): string {
+    if (!value) return 'N/A';
+
+    return value
+        .split(/[_\s-]+/)
+        .map((part) => (part.length > 0 ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
+        .join(' ');
+}
+
+function formatReceiptNumber(transactionId: number, paidAtOrCreatedAt: string | null | undefined): string {
+    const year = paidAtOrCreatedAt ? new Date(paidAtOrCreatedAt).getFullYear() : new Date().getFullYear();
+    return `RC-${year}-${String(transactionId).padStart(5, '0')}`;
+}
+
+function mapReceiptToView(receipt: CustomerBillingReceipt): ReceiptRecord {
+    const receiptDate = receipt.paid_at ?? receipt.created_at;
+    const branch = receipt.branch_address ? `${receipt.branch_name}, ${receipt.branch_address}` : receipt.branch_name;
+    const vehicle = [receipt.vehicle_make, receipt.vehicle_model].filter(Boolean).join(' ').trim() || 'Vehicle';
+
+    return {
+        id: receipt.transaction_id,
+        receiptNo: formatReceiptNumber(receipt.transaction_id, receiptDate),
+        transactionId: `TXN-${String(receipt.transaction_id).padStart(6, '0')}`,
+        jobOrderNo: receipt.job_order_no ?? `JO-${receipt.job_order_id ?? 'N/A'}`,
+        date: receiptDate ?? receipt.created_at,
+        bookingDate: formatDateLabel(receipt.booking_date),
+        bookingTime: formatTimeLabel(receipt.booking_time),
+        arrival: formatDetailedDateLabel(receipt.arrival_date),
+        arrivalTime: formatTimeLabel(receipt.arrival_time),
+        branch,
+        customerName: receipt.customer_name,
+        customerPhone: receipt.customer_phone ?? '—',
+        vehicle,
+        vehiclePlate: receipt.vehicle_plate ?? '—',
+        lineItems: receipt.line_items.map((item) => ({
+            label: item.label,
+            amount: Number(item.amount),
+        })),
+        totalPaid: Number(receipt.amount_paid),
+        paymentMethod: formatPaymentMethod(receipt.payment_method),
+    };
+}
 
 // ── ReceiptDetail view ─────────────────────────────────────────────────────────
 function ReceiptDetail({ receipt, onBack }: { receipt: ReceiptRecord; onBack: () => void }) {
@@ -332,14 +341,86 @@ export default function BillingPayment() {
     const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
     const [payingId, setPayingId] = useState<number | null>(null);
     const [payError, setPayError] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [paymentBanner, setPaymentBanner] = useState<'success' | 'failed' | null>(null);
 
-    const { pendingItems, paidItems, outstandingBalance, loading, error: billingError } = useCustomerBilling();
+    const {
+        pendingItems,
+        paidItems,
+        outstandingBalance,
+        receipts,
+        summary,
+        loading,
+        error: billingError,
+        receiptsError,
+        refresh,
+    } = useCustomerBilling();
+
+    // Handle Xendit redirect query params (?payment=success|failed)
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const pollCountRef = useRef(0);
+
+    const stopPolling = useCallback(() => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+        pollCountRef.current = 0;
+    }, []);
+
+    useEffect(() => {
+        const paymentResult = searchParams.get('payment');
+        if (!paymentResult) return;
+
+        setPaymentBanner(paymentResult === 'success' ? 'success' : 'failed');
+
+        // Clear the query param from the URL without a full navigation
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('payment');
+            return next;
+        }, { replace: true });
+
+        // Auto-dismiss banner after 8 seconds
+        const dismissTimer = setTimeout(() => setPaymentBanner(null), 8000);
+
+        // Poll for updated billing data on success (handles webhook delay)
+        if (paymentResult === 'success') {
+            // Sync payment statuses with Xendit before refreshing billing data.
+            // This ensures transactions are marked PAID even if the webhook
+            // hasn't arrived yet (e.g. dev environment, network delay).
+            paymentService.syncPayments().finally(() => refresh());
+            pollRef.current = setInterval(() => {
+                pollCountRef.current += 1;
+                if (pollCountRef.current >= 5) {
+                    stopPolling();
+                    return;
+                }
+                paymentService.syncPayments().finally(() => refresh());
+            }, 3000);
+        }
+
+        return () => {
+            clearTimeout(dismissTimer);
+            stopPolling();
+        };
+    // Run only once on mount when payment param is present
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Stop polling early once pending items drop (payment reflected)
+    useEffect(() => {
+        if (pollRef.current && !loading && pendingItems.length === 0) {
+            stopPolling();
+        }
+    }, [pendingItems.length, loading, stopPolling]);
 
     const displayItems: CustomerTransaction[] = activeTab === 'pending' ? pendingItems : paidItems;
-    const totalPaid = paidItems.reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+    const mappedReceipts: ReceiptRecord[] = receipts.map(mapReceiptToView);
+
+    const totalPaid = summary.total_paid;
     const pendingServicesTotal = outstandingBalance;
-    const lastPayment =
-        paidItems.length > 0 ? [...paidItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] : null;
+    const lastPayment = summary.last_payment;
     const daysSince = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
 
     const handlePayNow = async (transaction: CustomerTransaction) => {
@@ -361,13 +442,40 @@ export default function BillingPayment() {
 
     const handlePayAll = async () => {
         if (pendingItems.length === 0) return;
-        // Pay the first unpaid invoice; customer can continue from there
-        await handlePayNow(pendingItems[0]);
+        setPayingId(-1);
+        setPayError(null);
+        try {
+            const response = await paymentService.payAll();
+            window.location.href = response.data.payment_url;
+        } catch (err) {
+            setPayError(err instanceof Error ? err.message : 'Failed to initiate bulk payment. Please try again.');
+            setPayingId(null);
+        }
     };
 
     if (viewingReceiptId !== null) {
-        const rc = SAMPLE_RECEIPTS.find((r) => r.id === viewingReceiptId);
-        if (!rc) return null;
+        const rc = mappedReceipts.find((r) => r.id === viewingReceiptId);
+
+        if (!rc) {
+            return (
+                <CustomerLayout breadcrumbs={breadcrumbs}>
+                    <div className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden p-6">
+                        <button
+                            onClick={() => {
+                                setViewingReceiptId(null);
+                                setActiveTab('receipts');
+                            }}
+                            className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Back to Billing &amp; Payment
+                        </button>
+                        <div className="profile-card rounded-xl p-6 text-sm text-muted-foreground">Receipt not found.</div>
+                    </div>
+                </CustomerLayout>
+            );
+        }
+
         return (
             <CustomerLayout breadcrumbs={breadcrumbs}>
                 <ReceiptDetail
@@ -390,6 +498,26 @@ export default function BillingPayment() {
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
+                    {/* Payment result banner */}
+                    {paymentBanner === 'success' && (
+                        <div className="flex items-center gap-3 rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-400">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            Payment successful! Your billing status is being updated.
+                            <button onClick={() => setPaymentBanner(null)} className="ml-auto">
+                                <XCircle className="h-4 w-4 text-green-400/60 hover:text-green-400" />
+                            </button>
+                        </div>
+                    )}
+                    {paymentBanner === 'failed' && (
+                        <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                            Payment was not completed. Please try again.
+                            <button onClick={() => setPaymentBanner(null)} className="ml-auto">
+                                <XCircle className="h-4 w-4 text-red-400/60 hover:text-red-400" />
+                            </button>
+                        </div>
+                    )}
+
                     {/* Loading / Error state */}
                     {billingError && (
                         <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
@@ -410,7 +538,7 @@ export default function BillingPayment() {
                                     <span
                                         className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${pendingItems.length > 0 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}`}
                                     >
-                                        {loading ? '…' : pendingItems.length > 0 ? `${pendingItems.length} pending` : 'All paid'}
+                                        {loading ? '…' : summary.pending_count > 0 ? `${summary.pending_count} pending` : 'All paid'}
                                     </span>
                                 </div>
                             </div>
@@ -420,7 +548,7 @@ export default function BillingPayment() {
                                     disabled={payingId !== null}
                                     className="rounded-lg bg-[#d4af37] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#e6c24e] disabled:opacity-60"
                                 >
-                                    {payingId !== null ? 'Redirecting…' : 'Pay Now'}
+                                    {payingId === -1 ? 'Redirecting…' : 'Pay All'}
                                 </button>
                             )}
                         </div>
@@ -449,7 +577,7 @@ export default function BillingPayment() {
                                 ₱{totalPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                             </p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                                {paidItems.length} completed transaction{paidItems.length !== 1 ? 's' : ''}
+                                {summary.paid_count} completed transaction{summary.paid_count !== 1 ? 's' : ''}
                             </p>
                         </div>
                         <div className="profile-card rounded-xl p-4">
@@ -457,9 +585,9 @@ export default function BillingPayment() {
                                 <p className="text-sm text-muted-foreground">Total Transactions</p>
                                 <TrendingUp className="h-4 w-4 text-[#d4af37]" />
                             </div>
-                            <p className="mt-2 text-2xl font-bold">{pendingItems.length + paidItems.length}</p>
+                            <p className="mt-2 text-2xl font-bold">{summary.total_transactions}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                                {pendingItems.length} pending · {paidItems.length} paid
+                                {summary.pending_count} pending · {summary.paid_count} paid
                             </p>
                         </div>
                         <div className="profile-card rounded-xl p-4">
@@ -470,7 +598,7 @@ export default function BillingPayment() {
                             {lastPayment ? (
                                 <>
                                     <p className="mt-2 text-lg font-bold">
-                                        {new Date(lastPayment.created_at).toLocaleDateString('en-US', {
+                                        {new Date(lastPayment.paid_at ?? lastPayment.created_at).toLocaleDateString('en-US', {
                                             month: 'short',
                                             day: 'numeric',
                                             year: 'numeric',
@@ -510,7 +638,7 @@ export default function BillingPayment() {
                                 activeTab === 'receipts' ? 'bg-[#1e1e22] text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                             }`}
                         >
-                            Receipts ({SAMPLE_RECEIPTS.length})
+                            Receipts ({mappedReceipts.length})
                         </button>
                     </div>
 
@@ -581,47 +709,66 @@ export default function BillingPayment() {
 
                     {/* Receipts tab */}
                     {activeTab === 'receipts' && (
-                        <div className="space-y-3">
-                            {SAMPLE_RECEIPTS.map((rc) => (
-                                <div key={rc.id} className="profile-card rounded-xl p-4 transition-shadow hover:shadow-md">
-                                    <div className="flex items-center gap-4">
-                                        <div className="rounded-lg bg-[#d4af37]/10 p-2.5">
-                                            <Receipt className="h-5 w-5 text-[#d4af37]" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate font-medium">{rc.lineItems.map((li) => li.label).join(', ')}</p>
-                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar className="h-3.5 w-3.5" />
-                                                    {new Date(rc.date).toLocaleDateString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        year: 'numeric',
-                                                    })}
-                                                </span>
-                                                <span className="font-mono text-xs">{rc.receiptNo}</span>
-                                                <span className="font-mono text-xs">Job: {rc.jobOrderNo}</span>
-                                                <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{rc.paymentMethod}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex shrink-0 flex-col items-end gap-2">
-                                            <p className="text-lg font-bold">₱{rc.totalPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
-                                            <div className="flex items-center gap-2">
-                                                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-500">
-                                                    Paid
-                                                </span>
-                                                <button
-                                                    onClick={() => setViewingReceiptId(rc.id)}
-                                                    className="rounded-lg border border-[#2a2a2e] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-[#d4af37]/50 hover:text-[#d4af37]"
-                                                >
-                                                    View Receipt
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <>
+                            {receiptsError && (
+                                <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+                                    <AlertCircle className="h-4 w-4 shrink-0" />
+                                    {receiptsError}
                                 </div>
-                            ))}
-                        </div>
+                            )}
+
+                            {loading ? (
+                                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                    <p>Loading receipts...</p>
+                                </div>
+                            ) : mappedReceipts.length === 0 ? (
+                                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                    <p>No receipts found.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {mappedReceipts.map((rc) => (
+                                        <div key={rc.id} className="profile-card rounded-xl p-4 transition-shadow hover:shadow-md">
+                                            <div className="flex items-center gap-4">
+                                                <div className="rounded-lg bg-[#d4af37]/10 p-2.5">
+                                                    <Receipt className="h-5 w-5 text-[#d4af37]" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-medium">{rc.lineItems.map((li) => li.label).join(', ')}</p>
+                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar className="h-3.5 w-3.5" />
+                                                            {new Date(rc.date).toLocaleDateString('en-US', {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                                year: 'numeric',
+                                                            })}
+                                                        </span>
+                                                        <span className="font-mono text-xs">{rc.receiptNo}</span>
+                                                        <span className="font-mono text-xs">Job: {rc.jobOrderNo}</span>
+                                                        <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{rc.paymentMethod}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex shrink-0 flex-col items-end gap-2">
+                                                    <p className="text-lg font-bold">₱{rc.totalPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-500">
+                                                            Paid
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setViewingReceiptId(rc.id)}
+                                                            className="rounded-lg border border-[#2a2a2e] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-[#d4af37]/50 hover:text-[#d4af37]"
+                                                        >
+                                                            View Receipt
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

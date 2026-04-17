@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\CustomerTransactionType;
 use App\Enums\JobOrderStatus;
+use App\Exceptions\PaymentGatewayException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Customer\BookingAvailabilityRequest;
 use App\Http\Requests\Api\Customer\StoreCustomerBookingRequest;
@@ -158,8 +159,20 @@ class CustomerBookingController extends Controller
 
                     $bookingPayload = $this->withReservationHoldExpiry($validated, false);
 
-                    return $this->createPendingJobOrder($customer, $service, $bookingPayload)
+                    $jobOrder = $this->createPendingJobOrder($customer, $service, $bookingPayload)
                         ->fresh(['customer', 'vehicle', 'service', 'items']);
+
+                    // Create a pending transaction for the full service fee so it
+                    // shows up in the customer's Billing & Payment section.
+                    CustomerTransaction::create([
+                        'customer_id' => $customer->id,
+                        'job_order_id' => $jobOrder->id,
+                        'type' => CustomerTransactionType::Invoice,
+                        'amount' => $service->price_fixed,
+                        'notes' => 'Service fee for '.$jobOrder->jo_number.' (pay at shop)',
+                    ]);
+
+                    return $jobOrder;
                 });
             });
 
@@ -264,6 +277,20 @@ class CustomerBookingController extends Controller
                         'payment_method' => $validated['payment_method'],
                     ]);
 
+                    // Create the remaining balance transaction immediately so it
+                    // appears in the customer's Billing & Payment pending tab.
+                    $remaining = round((float) $service->price_fixed - $reservationFeeAmount, 2);
+
+                    if ($remaining > 0) {
+                        CustomerTransaction::create([
+                            'customer_id' => $customer->id,
+                            'job_order_id' => $jobOrder->id,
+                            'type' => CustomerTransactionType::Invoice,
+                            'amount' => $remaining,
+                            'notes' => 'Remaining balance for '.$jobOrder->jo_number.' (reservation fee of ₱'.number_format($reservationFeeAmount, 2).' deducted)',
+                        ]);
+                    }
+
                     $paymentUrl = $xenditService->createInvoice($transaction, $customer);
 
                     return [
@@ -295,10 +322,16 @@ class CustomerBookingController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], $e->getStatusCode());
+        } catch (PaymentGatewayException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getErrorCode(),
+                'message' => $e->getMessage(),
+            ], $e->getStatusCode());
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to initialize booking payment: '.$e->getMessage(),
+                'message' => 'Failed to initialize booking payment. Please try again.',
             ], 500);
         }
     }
