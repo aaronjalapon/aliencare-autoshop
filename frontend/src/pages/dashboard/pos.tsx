@@ -1,19 +1,25 @@
 import AppLayout from '@/components/layout/app-layout';
+import { flattenValidationErrors } from '@/lib/validation-errors';
+import { ApiError } from '@/services/api';
+import { inventoryService, type NewInventoryItem } from '@/services/inventoryService';
+import { frontdeskJobOrderService } from '@/services/jobOrderService';
+import { posService, type PosPaymentMode } from '@/services/posService';
 import { type BreadcrumbItem } from '@/types';
-import { AlertTriangle, CheckCircle2, PencilLine, Plus, ReceiptText, Search, ShoppingCart, Trash2, X } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import type { CustomerProfile, CustomerTransaction } from '@/types/customer';
+import type { InventoryItem } from '@/types/inventory';
+import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, PencilLine, Plus, ReceiptText, Search, ShoppingCart, Trash2, X } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Point of Sale', href: '/pos' }];
 
-type ProductCategory = 'fluids' | 'parts' | 'accessories' | 'detailing';
-type CategoryFilter = ProductCategory | 'all';
+type CategoryFilter = 'all' | string;
 type ProductFormMode = 'create' | 'edit';
 
 interface ProductRecord {
     id: number;
     sku: string;
     name: string;
-    category: ProductCategory;
+    category: string;
     unitPrice: number;
     stock: number;
     minStock: number;
@@ -29,7 +35,7 @@ interface CartLine {
 interface ProductFormState {
     sku: string;
     name: string;
-    category: ProductCategory;
+    category: string;
     unitPrice: string;
     stock: string;
     minStock: string;
@@ -37,79 +43,17 @@ interface ProductFormState {
     isActive: boolean;
 }
 
-const productSeed: ProductRecord[] = [
-    {
-        id: 1,
-        sku: 'AC-OIL-5W30',
-        name: 'Synthetic Oil 5W-30 (1L)',
-        category: 'fluids',
-        unitPrice: 650,
-        stock: 18,
-        minStock: 8,
-        isActive: true,
-        description: 'Premium synthetic oil for modern gasoline engines.',
-    },
-    {
-        id: 2,
-        sku: 'AC-OIL-FLTR-TY',
-        name: 'Oil Filter Toyota Small',
-        category: 'parts',
-        unitPrice: 420,
-        stock: 10,
-        minStock: 6,
-        isActive: true,
-        description: 'Compatible with common Toyota compact platforms.',
-    },
-    {
-        id: 3,
-        sku: 'AC-BATT-NS60',
-        name: 'Battery NS60 Maintenance-Free',
-        category: 'parts',
-        unitPrice: 4700,
-        stock: 4,
-        minStock: 5,
-        isActive: true,
-        description: '12V maintenance-free battery for sedans.',
-    },
-    {
-        id: 4,
-        sku: 'AC-WASH-PREM',
-        name: 'Premium Car Wash Kit',
-        category: 'detailing',
-        unitPrice: 1200,
-        stock: 9,
-        minStock: 4,
-        isActive: true,
-        description: 'Foam wash solution and microfiber bundle.',
-    },
-    {
-        id: 5,
-        sku: 'AC-WIPER-24',
-        name: 'Wiper Blade 24 inch',
-        category: 'accessories',
-        unitPrice: 390,
-        stock: 14,
-        minStock: 6,
-        isActive: true,
-        description: 'All-weather graphite-coated wiper blade.',
-    },
-    {
-        id: 6,
-        sku: 'AC-BRAKE-CLEAN',
-        name: 'Brake Cleaner Spray',
-        category: 'fluids',
-        unitPrice: 280,
-        stock: 7,
-        minStock: 5,
-        isActive: true,
-        description: 'Quick drying cleaner for brake dust and residue.',
-    },
-];
+interface WalkInFormState {
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email: string;
+}
 
 const initialFormState: ProductFormState = {
     sku: '',
     name: '',
-    category: 'parts',
+    category: '',
     unitPrice: '',
     stock: '',
     minStock: '',
@@ -117,33 +61,72 @@ const initialFormState: ProductFormState = {
     isActive: true,
 };
 
-const categoryLabels: Record<ProductCategory, string> = {
-    fluids: 'Fluids',
-    parts: 'Parts',
-    accessories: 'Accessories',
-    detailing: 'Detailing',
+const initialWalkInFormState: WalkInFormState = {
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+    email: '',
 };
 
 function formatPeso(amount: number): string {
-    return `P${amount.toLocaleString('en-US')}`;
+    return `P${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function toProductRecord(form: ProductFormState, id: number): ProductRecord {
-    const unitPrice = Number.parseFloat(form.unitPrice);
-    const stock = Number.parseInt(form.stock, 10);
-    const minStock = Number.parseInt(form.minStock, 10);
+function categoryLabel(value: string): string {
+    return value
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+        .join(' ');
+}
 
+function customerLabel(customer: CustomerProfile): string {
+    const fullName = customer.full_name?.trim();
+    if (fullName) {
+        return fullName;
+    }
+
+    const fallback = `${customer.first_name} ${customer.last_name}`.trim();
+    return fallback || customer.email;
+}
+
+function toProductRecord(item: InventoryItem): ProductRecord {
     return {
-        id,
-        sku: form.sku.trim(),
-        name: form.name.trim(),
-        category: form.category,
-        unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
-        stock: Number.isFinite(stock) ? stock : 0,
-        minStock: Number.isFinite(minStock) ? minStock : 0,
-        isActive: form.isActive,
-        description: form.description.trim(),
+        id: item.item_id,
+        sku: item.sku ?? `INV-${String(item.item_id).padStart(6, '0')}`,
+        name: item.item_name,
+        category: item.category,
+        unitPrice: Number(item.unit_price),
+        stock: item.stock,
+        minStock: item.reorder_level,
+        isActive: item.status === 'active',
+        description: item.description ?? '',
     };
+}
+
+function mapProductValidationErrors(flatErrors: Record<string, string>): Record<string, string> {
+    const mapped: Record<string, string> = {};
+
+    if (flatErrors.sku) mapped.sku = flatErrors.sku;
+    if (flatErrors.item_name) mapped.name = flatErrors.item_name;
+    if (flatErrors.category) mapped.category = flatErrors.category;
+    if (flatErrors.unit_price) mapped.unitPrice = flatErrors.unit_price;
+    if (flatErrors.stock) mapped.stock = flatErrors.stock;
+    if (flatErrors.reorder_level) mapped.minStock = flatErrors.reorder_level;
+    if (flatErrors.description) mapped.description = flatErrors.description;
+
+    return mapped;
+}
+
+function mapWalkInValidationErrors(flatErrors: Record<string, string>): Record<string, string> {
+    const mapped: Record<string, string> = {};
+
+    if (flatErrors.first_name) mapped.firstName = flatErrors.first_name;
+    if (flatErrors.last_name) mapped.lastName = flatErrors.last_name;
+    if (flatErrors.phone_number) mapped.phoneNumber = flatErrors.phone_number;
+    if (flatErrors.email) mapped.email = flatErrors.email;
+
+    return mapped;
 }
 
 function toFormState(product: ProductRecord): ProductFormState {
@@ -160,18 +143,106 @@ function toFormState(product: ProductRecord): ProductFormState {
 }
 
 export default function PointOfSale() {
-    const [products, setProducts] = useState<ProductRecord[]>(productSeed);
+    const [products, setProducts] = useState<ProductRecord[]>([]);
+    const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+    const [recentTransactions, setRecentTransactions] = useState<CustomerTransaction[]>([]);
+
     const [cart, setCart] = useState<CartLine[]>([]);
     const [searchValue, setSearchValue] = useState('');
     const [category, setCategory] = useState<CategoryFilter>('all');
-    const [selectedId, setSelectedId] = useState<number>(productSeed[0]?.id ?? 0);
+    const [selectedId, setSelectedId] = useState<number>(0);
+
+    const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+    const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
+    const [checkoutNotes, setCheckoutNotes] = useState('');
 
     const [showProductModal, setShowProductModal] = useState(false);
+    const [showWalkInModal, setShowWalkInModal] = useState(false);
     const [productMode, setProductMode] = useState<ProductFormMode>('create');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formState, setFormState] = useState<ProductFormState>(initialFormState);
+    const [walkInFormState, setWalkInFormState] = useState<WalkInFormState>(initialWalkInFormState);
     const [deleteTarget, setDeleteTarget] = useState<ProductRecord | null>(null);
+
+    const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+    const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+    const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+    const [isSavingProduct, setIsSavingProduct] = useState(false);
+    const [isSavingWalkInCustomer, setIsSavingWalkInCustomer] = useState(false);
+    const [isDeletingProduct, setIsDeletingProduct] = useState(false);
+    const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+    const [pageError, setPageError] = useState<string | null>(null);
+    const [productFormErrors, setProductFormErrors] = useState<Record<string, string>>({});
+    const [walkInFormErrors, setWalkInFormErrors] = useState<Record<string, string>>({});
+    const [productFormErrorMessage, setProductFormErrorMessage] = useState<string | null>(null);
+    const [walkInFormErrorMessage, setWalkInFormErrorMessage] = useState<string | null>(null);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+    const [checkoutPaymentUrl, setCheckoutPaymentUrl] = useState<string | null>(null);
+
+    const loadProducts = useCallback(async () => {
+        setIsLoadingProducts(true);
+
+        try {
+            const response = await inventoryService.getInventoryItems({ per_page: 200 });
+            setProducts((response.data.data ?? []).map(toProductRecord));
+            setPageError(null);
+        } catch {
+            setPageError('Unable to load POS products right now. Please try again.');
+        } finally {
+            setIsLoadingProducts(false);
+        }
+    }, []);
+
+    const loadCustomers = useCallback(async () => {
+        setIsLoadingCustomers(true);
+
+        try {
+            const response = await frontdeskJobOrderService.getCustomers({ per_page: 200 });
+            const nextCustomers = (response.data.data ?? []).filter(
+                (customer) => customer.account_status !== 'rejected' && customer.account_status !== 'deleted',
+            );
+            nextCustomers.sort((a, b) => customerLabel(a).localeCompare(customerLabel(b)));
+            setCustomers(nextCustomers);
+        } catch {
+            setCustomers([]);
+        } finally {
+            setIsLoadingCustomers(false);
+        }
+    }, []);
+
+    const loadRecentTransactions = useCallback(async () => {
+        setIsLoadingTransactions(true);
+
+        try {
+            const response = await posService.getTransactions({ per_page: 5 });
+            setRecentTransactions(response.data.data ?? []);
+        } catch {
+            setRecentTransactions([]);
+        } finally {
+            setIsLoadingTransactions(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadProducts();
+        void loadCustomers();
+        void loadRecentTransactions();
+    }, [loadProducts, loadCustomers, loadRecentTransactions]);
+
+    const categoryOptions = useMemo(() => {
+        const unique = new Set<string>();
+
+        products.forEach((product) => {
+            const value = product.category.trim();
+            if (value) {
+                unique.add(value);
+            }
+        });
+
+        return Array.from(unique).sort((a, b) => a.localeCompare(b));
+    }, [products]);
 
     const filteredProducts = useMemo(() => {
         const normalized = searchValue.trim().toLowerCase();
@@ -197,6 +268,7 @@ export default function PointOfSale() {
     }, [filteredProducts, selectedId]);
 
     const selectedProduct = useMemo(() => products.find((product) => product.id === selectedId) ?? null, [products, selectedId]);
+    const selectedCustomer = useMemo(() => customers.find((customer) => customer.id === selectedCustomerId) ?? null, [customers, selectedCustomerId]);
 
     const totals = useMemo(() => {
         const lowStock = products.filter((product) => product.stock <= product.minStock).length;
@@ -229,13 +301,11 @@ export default function PointOfSale() {
     const cartSummary = useMemo(() => {
         const itemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
         const subtotal = cartLines.reduce((sum, line) => sum + line.lineTotal, 0);
-        const tax = subtotal * 0.12;
-        const total = subtotal + tax;
+        const total = subtotal;
 
         return {
             itemCount,
             subtotal,
-            tax,
             total,
         };
     }, [cartLines]);
@@ -243,7 +313,12 @@ export default function PointOfSale() {
     const openCreateProductModal = () => {
         setProductMode('create');
         setEditingId(null);
-        setFormState(initialFormState);
+        setFormState({
+            ...initialFormState,
+            category: categoryOptions[0] ?? 'General Parts',
+        });
+        setProductFormErrors({});
+        setProductFormErrorMessage(null);
         setShowProductModal(true);
     };
 
@@ -251,37 +326,159 @@ export default function PointOfSale() {
         setProductMode('edit');
         setEditingId(product.id);
         setFormState(toFormState(product));
+        setProductFormErrors({});
+        setProductFormErrorMessage(null);
         setShowProductModal(true);
     };
 
-    const upsertProduct = (event: FormEvent<HTMLFormElement>) => {
+    const openWalkInModal = () => {
+        setWalkInFormState(initialWalkInFormState);
+        setWalkInFormErrors({});
+        setWalkInFormErrorMessage(null);
+        setShowWalkInModal(true);
+    };
+
+    const createWalkInCustomer = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        if (productMode === 'create') {
-            const nextId = products.length ? Math.max(...products.map((product) => product.id)) + 1 : 1;
-            const created = toProductRecord(formState, nextId);
-            setProducts((prev) => [created, ...prev]);
-            setSelectedId(created.id);
-            setShowProductModal(false);
+        const firstName = walkInFormState.firstName.trim();
+        const lastName = walkInFormState.lastName.trim();
+        const phoneNumber = walkInFormState.phoneNumber.trim();
+        const email = walkInFormState.email.trim();
+
+        const localErrors: Record<string, string> = {};
+        if (!firstName) localErrors.firstName = 'First name is required.';
+        if (!lastName) localErrors.lastName = 'Last name is required.';
+        if (!phoneNumber) localErrors.phoneNumber = 'Phone number is required.';
+
+        if (Object.keys(localErrors).length > 0) {
+            setWalkInFormErrors(localErrors);
             return;
         }
 
-        if (!editingId) return;
+        setIsSavingWalkInCustomer(true);
+        setWalkInFormErrors({});
+        setWalkInFormErrorMessage(null);
 
-        setProducts((prev) => prev.map((product) => (product.id === editingId ? toProductRecord(formState, product.id) : product)));
-        setSelectedId(editingId);
-        setShowProductModal(false);
+        try {
+            const response = await frontdeskJobOrderService.createCustomer({
+                first_name: firstName,
+                last_name: lastName,
+                phone_number: phoneNumber,
+                email: email || null,
+            });
+
+            const createdCustomer = response.data;
+
+            setCustomers((prev) => {
+                const nextCustomers = [createdCustomer, ...prev.filter((customer) => customer.id !== createdCustomer.id)];
+                nextCustomers.sort((a, b) => customerLabel(a).localeCompare(customerLabel(b)));
+
+                return nextCustomers;
+            });
+
+            setSelectedCustomerId(createdCustomer.id);
+            setCheckoutNotice(`${customerLabel(createdCustomer)} added as walk-in customer.`);
+            setCheckoutError(null);
+            setShowWalkInModal(false);
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 422) {
+                const flatErrors = flattenValidationErrors(error.validationErrors);
+                setWalkInFormErrors(mapWalkInValidationErrors(flatErrors));
+                setWalkInFormErrorMessage(error.message || 'Please fix the walk-in customer fields.');
+            } else if (error instanceof Error) {
+                setWalkInFormErrorMessage(error.message || 'Unable to save walk-in customer right now.');
+            } else {
+                setWalkInFormErrorMessage('Unable to save walk-in customer right now.');
+            }
+        } finally {
+            setIsSavingWalkInCustomer(false);
+        }
     };
 
-    const deleteProduct = () => {
+    const toPayload = (form: ProductFormState): NewInventoryItem => {
+        const unitPrice = Number.parseFloat(form.unitPrice);
+        const stock = Number.parseInt(form.stock, 10);
+        const minStock = Number.parseInt(form.minStock, 10);
+
+        return {
+            sku: form.sku.trim() || undefined,
+            item_name: form.name.trim(),
+            description: form.description.trim(),
+            category: form.category.trim(),
+            stock: Number.isFinite(stock) ? stock : 0,
+            reorder_level: Number.isFinite(minStock) ? minStock : 0,
+            unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
+            supplier: '',
+            location: '',
+            status: form.isActive ? 'active' : 'inactive',
+        };
+    };
+
+    const upsertProduct = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        setIsSavingProduct(true);
+        setProductFormErrors({});
+        setProductFormErrorMessage(null);
+
+        try {
+            const payload = toPayload(formState);
+
+            if (productMode === 'create') {
+                const response = await inventoryService.createInventoryItem(payload);
+                setSelectedId(response.data.item_id);
+                setCheckoutNotice(`Product ${response.data.item_name} added to inventory.`);
+            } else {
+                if (!editingId) {
+                    return;
+                }
+
+                await inventoryService.updateInventoryItem(editingId, payload);
+                setSelectedId(editingId);
+                setCheckoutNotice('Product details updated.');
+            }
+
+            setShowProductModal(false);
+            await loadProducts();
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 422) {
+                const flat = flattenValidationErrors(error.validationErrors);
+                setProductFormErrors(mapProductValidationErrors(flat));
+                setProductFormErrorMessage(error.message || 'Please fix the highlighted fields and try again.');
+            } else if (error instanceof Error) {
+                setProductFormErrorMessage(error.message || 'Unable to save product right now.');
+            } else {
+                setProductFormErrorMessage('Unable to save product right now.');
+            }
+        } finally {
+            setIsSavingProduct(false);
+        }
+    };
+
+    const deleteProduct = async () => {
         if (!deleteTarget) return;
 
-        setProducts((prev) => prev.filter((product) => product.id !== deleteTarget.id));
-        setCart((prev) => prev.filter((line) => line.productId !== deleteTarget.id));
-        if (selectedId === deleteTarget.id) {
-            setSelectedId(0);
+        setIsDeletingProduct(true);
+
+        try {
+            await inventoryService.deleteInventoryItem(String(deleteTarget.id));
+
+            setCart((prev) => prev.filter((line) => line.productId !== deleteTarget.id));
+            setCheckoutNotice(`Product ${deleteTarget.name} was discontinued.`);
+
+            if (selectedId === deleteTarget.id) {
+                setSelectedId(0);
+            }
+
+            setDeleteTarget(null);
+            await loadProducts();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to delete product right now.';
+            setCheckoutError(message);
+        } finally {
+            setIsDeletingProduct(false);
         }
-        setDeleteTarget(null);
     };
 
     const addToCart = (product: ProductRecord) => {
@@ -314,29 +511,59 @@ export default function PointOfSale() {
 
     const clearCart = () => {
         setCart([]);
+        setCheckoutError(null);
         setCheckoutNotice(null);
+        setCheckoutPaymentUrl(null);
     };
 
-    const checkout = () => {
+    const checkout = async () => {
         if (!cartLines.length) {
-            setCheckoutNotice('Add at least one product to continue checkout.');
+            setCheckoutError('Add at least one product to continue checkout.');
             return;
         }
 
-        setProducts((prev) =>
-            prev.map((product) => {
-                const line = cart.find((entry) => entry.productId === product.id);
-                if (!line) return product;
+        if (!selectedCustomerId) {
+            setCheckoutError('Select or add a customer before checkout.');
+            return;
+        }
 
-                return {
-                    ...product,
-                    stock: Math.max(0, product.stock - line.quantity),
-                };
-            }),
-        );
+        setIsCheckingOut(true);
+        setCheckoutError(null);
+        setCheckoutNotice(null);
+        setCheckoutPaymentUrl(null);
 
-        setCart([]);
-        setCheckoutNotice(`Checkout completed. ${cartSummary.itemCount} item(s) settled for ${formatPeso(cartSummary.total)}.`);
+        try {
+            const response = await posService.checkout({
+                customer_id: selectedCustomerId,
+                payment_mode: paymentMode,
+                notes: checkoutNotes.trim() || undefined,
+                cart: cart.map((line) => ({
+                    item_id: line.productId,
+                    quantity: line.quantity,
+                })),
+            });
+
+            const summary = response.data.checkout;
+
+            setCart([]);
+            setCheckoutNotes('');
+            setCheckoutNotice(`Checkout ${summary.reference_number} completed for ${formatPeso(summary.total)}.`);
+            setCheckoutPaymentUrl(summary.payment_url);
+
+            await Promise.all([loadProducts(), loadRecentTransactions()]);
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 422) {
+                const flatErrors = flattenValidationErrors(error.validationErrors);
+                const firstError = Object.values(flatErrors)[0];
+                setCheckoutError(firstError || error.message || 'Checkout failed due to validation errors.');
+            } else if (error instanceof Error) {
+                setCheckoutError(error.message || 'Checkout failed. Please try again.');
+            } else {
+                setCheckoutError('Checkout failed. Please try again.');
+            }
+        } finally {
+            setIsCheckingOut(false);
+        }
     };
 
     return (
@@ -347,7 +574,7 @@ export default function PointOfSale() {
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Run checkout transactions and maintain the shop product catalog from one station.
+                                Run backend-connected checkout transactions and maintain the inventory-backed product catalog.
                             </p>
                         </div>
                         <button
@@ -357,6 +584,8 @@ export default function PointOfSale() {
                             <Plus className="h-4 w-4" /> Add Product
                         </button>
                     </div>
+
+                    {pageError && <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm text-red-300">{pageError}</div>}
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <div className="profile-card rounded-xl p-4">
@@ -391,15 +620,10 @@ export default function PointOfSale() {
                                 </div>
 
                                 <div className="flex flex-wrap gap-2">
-                                    {(
-                                        [
-                                            { key: 'all', label: 'All' },
-                                            { key: 'parts', label: 'Parts' },
-                                            { key: 'fluids', label: 'Fluids' },
-                                            { key: 'accessories', label: 'Accessories' },
-                                            { key: 'detailing', label: 'Detailing' },
-                                        ] as Array<{ key: CategoryFilter; label: string }>
-                                    ).map((item) => (
+                                    {[
+                                        { key: 'all', label: 'All' },
+                                        ...categoryOptions.map((value) => ({ key: value, label: categoryLabel(value) })),
+                                    ].map((item) => (
                                         <button
                                             key={item.key}
                                             onClick={() => setCategory(item.key)}
@@ -426,7 +650,11 @@ export default function PointOfSale() {
                                 </div>
 
                                 <div className="max-h-140 overflow-y-auto">
-                                    {filteredProducts.length === 0 ? (
+                                    {isLoadingProducts ? (
+                                        <div className="flex items-center justify-center gap-2 px-5 py-16 text-sm text-muted-foreground">
+                                            <Loader2 className="h-4 w-4 animate-spin" /> Loading products...
+                                        </div>
+                                    ) : filteredProducts.length === 0 ? (
                                         <div className="px-5 py-16 text-center text-sm text-muted-foreground">
                                             No products matched your search and filters.
                                         </div>
@@ -450,7 +678,7 @@ export default function PointOfSale() {
                                                     </div>
 
                                                     <div className="mb-2 text-xs text-muted-foreground lg:mb-0">
-                                                        {categoryLabels[product.category]}
+                                                        {categoryLabel(product.category)}
                                                     </div>
 
                                                     <div className="mb-2 text-sm font-semibold text-[#d4af37] lg:mb-0">
@@ -567,6 +795,73 @@ export default function PointOfSale() {
                                 </div>
                             )}
 
+                            <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Customer & Payment</p>
+
+                                <select
+                                    value={selectedCustomerId ? String(selectedCustomerId) : ''}
+                                    onChange={(event) => setSelectedCustomerId(event.target.value ? Number(event.target.value) : null)}
+                                    className="mt-2 h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                >
+                                    <option value="">Select customer</option>
+                                    {customers.map((customer) => (
+                                        <option key={customer.id} value={customer.id}>
+                                            {customerLabel(customer)}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <button
+                                    onClick={openWalkInModal}
+                                    className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                >
+                                    <Plus className="h-3.5 w-3.5" /> Add Walk-In Customer
+                                </button>
+
+                                {isLoadingCustomers && <p className="mt-2 text-xs text-muted-foreground">Loading customer list...</p>}
+                                {!isLoadingCustomers && customers.length === 0 && (
+                                    <p className="mt-2 text-xs text-amber-300">No customers available yet. Add a walk-in customer to continue.</p>
+                                )}
+
+                                {selectedCustomer && (
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        {customerLabel(selectedCustomer)}
+                                        {selectedCustomer.phone_number ? ` • ${selectedCustomer.phone_number}` : ''}
+                                    </p>
+                                )}
+
+                                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                    <button
+                                        onClick={() => setPaymentMode('cash')}
+                                        className={`rounded-md border px-3 py-2 font-semibold transition-colors ${
+                                            paymentMode === 'cash'
+                                                ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
+                                                : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+                                        }`}
+                                    >
+                                        Cash
+                                    </button>
+                                    <button
+                                        onClick={() => setPaymentMode('online')}
+                                        className={`rounded-md border px-3 py-2 font-semibold transition-colors ${
+                                            paymentMode === 'online'
+                                                ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
+                                                : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+                                        }`}
+                                    >
+                                        Online
+                                    </button>
+                                </div>
+
+                                <textarea
+                                    value={checkoutNotes}
+                                    onChange={(event) => setCheckoutNotes(event.target.value)}
+                                    rows={2}
+                                    placeholder="Optional checkout note"
+                                    className="mt-3 w-full rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs focus:border-[#d4af37] focus:outline-none"
+                                />
+                            </div>
+
                             <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
                                 <div className="flex items-center justify-between text-muted-foreground">
                                     <span>Items</span>
@@ -576,22 +871,43 @@ export default function PointOfSale() {
                                     <span>Subtotal</span>
                                     <span>{formatPeso(cartSummary.subtotal)}</span>
                                 </div>
-                                <div className="mt-1 flex items-center justify-between text-muted-foreground">
-                                    <span>VAT (12%)</span>
-                                    <span>{formatPeso(cartSummary.tax)}</span>
-                                </div>
                                 <div className="mt-2 flex items-center justify-between border-t border-[#2a2a2e] pt-2 text-base font-semibold">
                                     <span>Total</span>
                                     <span className="text-[#d4af37]">{formatPeso(cartSummary.total)}</span>
                                 </div>
                             </div>
 
+                            {checkoutError && (
+                                <div className="mt-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                                    {checkoutError}
+                                </div>
+                            )}
+
+                            {checkoutPaymentUrl && (
+                                <button
+                                    onClick={() => window.open(checkoutPaymentUrl, '_blank', 'noopener,noreferrer')}
+                                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#d4af37]/40 px-4 py-2 text-xs font-semibold text-[#f6d778] transition-colors hover:bg-[#d4af37]/10"
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5" /> Open Payment Link
+                                </button>
+                            )}
+
                             <div className="mt-4 grid gap-2">
                                 <button
                                     onClick={checkout}
+                                    disabled={isCheckingOut}
                                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90"
                                 >
-                                    <CheckCircle2 className="h-4 w-4" /> Charge Customer
+                                    {isCheckingOut ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" /> Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="h-4 w-4" />{' '}
+                                            {paymentMode === 'online' ? 'Create Payment Link' : 'Charge Customer'}
+                                        </>
+                                    )}
                                 </button>
                                 <button
                                     onClick={clearCart}
@@ -612,6 +928,35 @@ export default function PointOfSale() {
                                     </div>
                                 </div>
                             )}
+
+                            <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Recent POS Transactions</p>
+
+                                {isLoadingTransactions ? (
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading recent sales...
+                                    </div>
+                                ) : recentTransactions.length === 0 ? (
+                                    <p className="mt-2 text-xs text-muted-foreground">No POS transactions yet.</p>
+                                ) : (
+                                    <div className="mt-2 space-y-2">
+                                        {recentTransactions.map((transaction) => (
+                                            <div key={transaction.id} className="rounded-md border border-[#2a2a2e] px-2.5 py-2 text-xs">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="font-semibold text-foreground">
+                                                        {transaction.reference_number ?? `Transaction #${transaction.id}`}
+                                                    </p>
+                                                    <p className="font-semibold text-[#d4af37]">{formatPeso(Number(transaction.amount))}</p>
+                                                </div>
+                                                <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                    <span>{(transaction.payment_method || 'unknown').toUpperCase()}</span>
+                                                    <span>{transaction.xendit_status || 'PENDING'}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </aside>
                     </div>
                 </div>
@@ -637,6 +982,22 @@ export default function PointOfSale() {
                             </button>
                         </div>
 
+                        {productFormErrorMessage && (
+                            <div className="mb-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                                {productFormErrorMessage}
+                            </div>
+                        )}
+
+                        {Object.values(productFormErrors).length > 0 && (
+                            <div className="mb-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                                {Object.values(productFormErrors)
+                                    .slice(0, 3)
+                                    .map((message) => (
+                                        <p key={message}>{message}</p>
+                                    ))}
+                            </div>
+                        )}
+
                         <form onSubmit={upsertProduct} className="space-y-3">
                             <div className="grid gap-3 md:grid-cols-2">
                                 <input
@@ -653,16 +1014,13 @@ export default function PointOfSale() {
                                     required
                                     className="h-10 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
                                 />
-                                <select
+                                <input
                                     value={formState.category}
-                                    onChange={(event) => setFormState((prev) => ({ ...prev, category: event.target.value as ProductCategory }))}
+                                    onChange={(event) => setFormState((prev) => ({ ...prev, category: event.target.value }))}
+                                    placeholder="Category"
+                                    required
                                     className="h-10 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                                >
-                                    <option value="parts">Parts</option>
-                                    <option value="fluids">Fluids</option>
-                                    <option value="accessories">Accessories</option>
-                                    <option value="detailing">Detailing</option>
-                                </select>
+                                />
                                 <input
                                     value={formState.unitPrice}
                                     onChange={(event) => setFormState((prev) => ({ ...prev, unitPrice: event.target.value }))}
@@ -723,9 +1081,99 @@ export default function PointOfSale() {
                                 </button>
                                 <button
                                     type="submit"
+                                    disabled={isSavingProduct}
                                     className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90"
                                 >
-                                    {productMode === 'create' ? 'Create Product' : 'Save Changes'}
+                                    {isSavingProduct ? 'Saving...' : productMode === 'create' ? 'Create Product' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showWalkInModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowWalkInModal(false)}>
+                    <div className="profile-card w-full max-w-lg rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#d4af37] uppercase">Walk-In Customer</p>
+                                <h3 className="mt-1 text-lg font-semibold">Add customer details for this POS checkout</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowWalkInModal(false)}
+                                className="rounded-md border border-[#2a2a2e] p-2 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {walkInFormErrorMessage && (
+                            <div className="mb-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                                {walkInFormErrorMessage}
+                            </div>
+                        )}
+
+                        <form onSubmit={createWalkInCustomer} className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                    <input
+                                        value={walkInFormState.firstName}
+                                        onChange={(event) => setWalkInFormState((prev) => ({ ...prev, firstName: event.target.value }))}
+                                        placeholder="First name"
+                                        required
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
+                                    {walkInFormErrors.firstName && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.firstName}</p>}
+                                </div>
+                                <div>
+                                    <input
+                                        value={walkInFormState.lastName}
+                                        onChange={(event) => setWalkInFormState((prev) => ({ ...prev, lastName: event.target.value }))}
+                                        placeholder="Last name"
+                                        required
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
+                                    {walkInFormErrors.lastName && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.lastName}</p>}
+                                </div>
+                            </div>
+
+                            <div>
+                                <input
+                                    value={walkInFormState.phoneNumber}
+                                    onChange={(event) => setWalkInFormState((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+                                    placeholder="Phone number"
+                                    required
+                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                />
+                                {walkInFormErrors.phoneNumber && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.phoneNumber}</p>}
+                            </div>
+
+                            <div>
+                                <input
+                                    value={walkInFormState.email}
+                                    onChange={(event) => setWalkInFormState((prev) => ({ ...prev, email: event.target.value }))}
+                                    placeholder="Email (optional)"
+                                    type="email"
+                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                />
+                                {walkInFormErrors.email && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.email}</p>}
+                            </div>
+
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowWalkInModal(false)}
+                                    className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSavingWalkInCustomer}
+                                    className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90"
+                                >
+                                    {isSavingWalkInCustomer ? 'Saving...' : 'Save Customer'}
                                 </button>
                             </div>
                         </form>
@@ -754,9 +1202,10 @@ export default function PointOfSale() {
                             </button>
                             <button
                                 onClick={deleteProduct}
+                                disabled={isDeletingProduct}
                                 className="rounded-lg border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/10"
                             >
-                                Delete
+                                {isDeletingProduct ? 'Deleting...' : 'Delete'}
                             </button>
                         </div>
                     </div>

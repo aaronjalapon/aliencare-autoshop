@@ -422,7 +422,7 @@ export default function JobOrders() {
         });
         setUpdateError(null);
         setActionError(null);
-    }, [selectedOrder?.id]);
+    }, [selectedOrder]);
 
     const upsertJobOrder = useCallback((updatedOrder: JobOrder) => {
         setJobOrders((prev) => {
@@ -453,9 +453,7 @@ export default function JobOrders() {
                 frontdeskJobOrderService.getBays(),
             ]);
 
-            const availableMechanics = mechanicsResponse.data.filter(
-                (mechanic) => mechanic.availability_status.toLowerCase() !== 'busy',
-            );
+            const availableMechanics = mechanicsResponse.data.filter((mechanic) => mechanic.availability_status.toLowerCase() !== 'busy');
             const availableBays = baysResponse.data.filter((bay) => bay.status.toLowerCase() === 'available');
 
             setMechanics(availableMechanics);
@@ -754,8 +752,12 @@ export default function JobOrders() {
                         </div>
                     </div>
 
-                    {jobOrdersError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{jobOrdersError}</div>}
-                    {actionError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{actionError}</div>}
+                    {jobOrdersError && (
+                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{jobOrdersError}</div>
+                    )}
+                    {actionError && (
+                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{actionError}</div>
+                    )}
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <div className="profile-card rounded-xl p-4">
@@ -830,7 +832,9 @@ export default function JobOrders() {
                                             <Loader2 className="h-4 w-4 animate-spin" /> Loading job orders...
                                         </div>
                                     ) : filteredOrders.length === 0 ? (
-                                        <div className="px-5 py-16 text-center text-sm text-muted-foreground">No job orders matched your filters.</div>
+                                        <div className="px-5 py-16 text-center text-sm text-muted-foreground">
+                                            No job orders matched your filters.
+                                        </div>
                                     ) : (
                                         filteredOrders.map((order) => {
                                             const selected = selectedOrder?.id === order.id;
@@ -856,7 +860,9 @@ export default function JobOrders() {
 
                                                     <div className="mb-2 lg:mb-0">
                                                         <p className="text-sm">{order.customer?.full_name ?? 'Unknown Customer'}</p>
-                                                        <p className="text-xs text-muted-foreground">{order.customer?.phone_number ?? 'No phone on record'}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {order.customer?.phone_number ?? 'No phone on record'}
+                                                        </p>
                                                     </div>
 
                                                     <div className="mb-2 lg:mb-0">
@@ -867,7 +873,9 @@ export default function JobOrders() {
                                                     <div className="mb-2 text-sm text-muted-foreground lg:mb-0">{getScheduleLabel(order)}</div>
 
                                                     <div className="mb-2 lg:mb-0">
-                                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${status.className}`}>
+                                                        <span
+                                                            className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${status.className}`}
+                                                        >
                                                             {status.label}
                                                         </span>
                                                     </div>
@@ -885,9 +893,13 @@ export default function JobOrders() {
                             {selectedOrder ? (
                                 <div className="flex h-full flex-col gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{selectedOrder.jo_number}</p>
+                                        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                            {selectedOrder.jo_number}
+                                        </p>
                                         <h2 className="mt-2 text-xl font-bold">{selectedOrder.customer?.full_name ?? 'Unknown Customer'}</h2>
-                                        <p className="mt-1 text-sm text-muted-foreground">{selectedOrder.customer?.phone_number ?? 'No phone on record'}</p>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {selectedOrder.customer?.phone_number ?? 'No phone on record'}
+                                        </p>
                                         <div className="mt-2 inline-flex rounded-full border border-[#2a2a2e] bg-[#0d0d10] px-2 py-0.5 text-[11px] text-muted-foreground">
                                             {getSourceLabel(selectedOrder)}
                                         </div>
@@ -983,7 +995,11 @@ export default function JobOrders() {
                                         onClick={() => void handlePrimaryAction()}
                                         className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                                     >
-                                        {selectedPrimaryAction === 'none' ? <CheckCircle2 className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                                        {selectedPrimaryAction === 'none' ? (
+                                            <CheckCircle2 className="h-4 w-4" />
+                                        ) : (
+                                            <ShieldCheck className="h-4 w-4" />
+                                        )}
                                         {isProcessingAction ? 'Processing...' : getPrimaryActionLabel(selectedPrimaryAction)}
                                     </button>
 
@@ -1091,9 +1107,7 @@ export default function JobOrders() {
                                         <div>
                                             <input
                                                 value={walkInForm.newCustomerFirstName}
-                                                onChange={(event) =>
-                                                    setWalkInForm((prev) => ({ ...prev, newCustomerFirstName: event.target.value }))
-                                                }
+                                                onChange={(event) => setWalkInForm((prev) => ({ ...prev, newCustomerFirstName: event.target.value }))}
                                                 placeholder="First name"
                                                 required
                                                 className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
@@ -1105,9 +1119,7 @@ export default function JobOrders() {
                                         <div>
                                             <input
                                                 value={walkInForm.newCustomerLastName}
-                                                onChange={(event) =>
-                                                    setWalkInForm((prev) => ({ ...prev, newCustomerLastName: event.target.value }))
-                                                }
+                                                onChange={(event) => setWalkInForm((prev) => ({ ...prev, newCustomerLastName: event.target.value }))}
                                                 placeholder="Last name"
                                                 required
                                                 className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
@@ -1211,7 +1223,9 @@ export default function JobOrders() {
                                                 required={walkInForm.vehicleMode === 'new'}
                                                 className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
                                             />
-                                            {walkInFormErrors.vehicleMake && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.vehicleMake}</p>}
+                                            {walkInFormErrors.vehicleMake && (
+                                                <p className="mt-1 text-xs text-red-300">{walkInFormErrors.vehicleMake}</p>
+                                            )}
                                         </div>
                                         <div>
                                             <input
@@ -1236,7 +1250,9 @@ export default function JobOrders() {
                                                 required={walkInForm.vehicleMode === 'new'}
                                                 className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
                                             />
-                                            {walkInFormErrors.vehicleYear && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.vehicleYear}</p>}
+                                            {walkInFormErrors.vehicleYear && (
+                                                <p className="mt-1 text-xs text-red-300">{walkInFormErrors.vehicleYear}</p>
+                                            )}
                                         </div>
                                         <div>
                                             <input
@@ -1259,7 +1275,9 @@ export default function JobOrders() {
                                                 placeholder="Vehicle color (optional)"
                                                 className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
                                             />
-                                            {walkInFormErrors.vehicleColor && <p className="mt-1 text-xs text-red-300">{walkInFormErrors.vehicleColor}</p>}
+                                            {walkInFormErrors.vehicleColor && (
+                                                <p className="mt-1 text-xs text-red-300">{walkInFormErrors.vehicleColor}</p>
+                                            )}
                                         </div>
                                     </div>
                                 )}

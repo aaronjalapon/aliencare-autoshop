@@ -80,15 +80,17 @@ export interface StockOperation {
 }
 
 export interface NewInventoryItem {
+    sku?: string;
     item_id?: number; // Optional since it's auto-generated
     item_name: string;
-    description: string;
+    description: string | null;
     category: string;
     stock: number;
     reorder_level: number;
     unit_price: number;
-    supplier: string;
-    location: string;
+    supplier: string | null;
+    location: string | null;
+    status?: 'active' | 'inactive' | 'discontinued';
 }
 
 class InventoryService {
@@ -128,7 +130,7 @@ class InventoryService {
     // Check stock status for quantity
     async checkStockStatus(itemId: string, quantity: number): Promise<ApiResponse<{ available: boolean; current_stock: number }>> {
         return api.get<ApiResponse<{ available: boolean; current_stock: number }>>(`/v1/inventory/${itemId}/stock-status`, {
-            quantity: quantity.toString(),
+            requested_quantity: quantity.toString(),
         });
     }
 

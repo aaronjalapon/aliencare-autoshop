@@ -17,6 +17,7 @@ class Inventory extends Model
     protected $primaryKey = 'item_id'; // Using item_id as primary key
 
     protected $fillable = [
+        'sku',
         'item_name',
         'description',
         'category',
@@ -29,6 +30,7 @@ class Inventory extends Model
     ];
 
     protected $casts = [
+        'sku' => 'string',
         'unit_price' => 'decimal:2',
         'stock' => 'integer',
         'reorder_level' => 'integer',

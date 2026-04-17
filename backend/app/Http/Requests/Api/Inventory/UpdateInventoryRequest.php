@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\Inventory;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Form request for updating an inventory item.
@@ -27,6 +28,7 @@ class UpdateInventoryRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'sku' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('inventories', 'sku')->ignore($this->route('id'), 'item_id')],
             'item_name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'category' => ['sometimes', 'required', 'string', 'max:100'],
@@ -47,6 +49,8 @@ class UpdateInventoryRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'sku.max' => 'SKU cannot exceed 100 characters.',
+            'sku.unique' => 'SKU is already in use.',
             'item_name.max' => 'Item name cannot exceed 255 characters.',
             'stock.min' => 'Stock quantity cannot be negative.',
             'reorder_level.min' => 'Reorder level must be at least 1.',

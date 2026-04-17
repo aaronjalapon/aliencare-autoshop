@@ -69,7 +69,8 @@ class InventoryRepository extends BaseRepository implements InventoryRepositoryI
         if (isset($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('item_name', 'like', "%{$search}%")
+                $q->where('sku', 'like', "%{$search}%")
+                    ->orWhere('item_name', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")
                     ->orWhere('supplier', 'like', "%{$search}%");
             });
