@@ -17,7 +17,9 @@ test('profile information is displayed', function () {
         ->getJson('/api/settings/profile');
 
     $response->assertOk()
-        ->assertJsonStructure(['user', 'mustVerifyEmail']);
+        ->assertJsonStructure(['user', 'mustVerifyEmail'])
+        ->assertJsonPath('user.phone_number', null)
+        ->assertJsonPath('user.address', null);
 });
 
 test('profile information can be updated', function () {
@@ -28,6 +30,8 @@ test('profile information can be updated', function () {
         ->patchJson('/api/settings/profile', [
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'phone_number' => '09171234567',
+            'address' => '123 Main St',
         ]);
 
     $response->assertOk()
@@ -38,7 +42,33 @@ test('profile information can be updated', function () {
 
     expect($user->name)->toBe('Test User');
     expect($user->email)->toBe('test@example.com');
+    expect($user->phone_number)->toBe('09171234567');
+    expect($user->address)->toBe('123 Main St');
     expect($user->email_verified_at)->toBeNull();
+});
+
+test('phone and address can be updated to optional empty values', function () {
+    $user = User::factory()->create([
+        'phone_number' => '09170000000',
+        'address' => 'Initial Address',
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->patchJson('/api/settings/profile', [
+            'name' => 'Test User',
+            'email' => $user->email,
+            'phone_number' => '',
+            'address' => '',
+        ]);
+
+    $response->assertOk()
+        ->assertJson(['message' => 'Profile updated']);
+
+    $user->refresh();
+
+    expect([null, ''])->toContain($user->phone_number);
+    expect([null, ''])->toContain($user->address);
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {

@@ -8,9 +8,7 @@ import { CustomerBillingReceipt, CustomerBillingSummary, CustomerTransaction } f
 import { useCallback, useEffect, useState } from 'react';
 
 function fallbackSummaryFromTransactions(transactions: CustomerTransaction[]): CustomerBillingSummary {
-    const pendingItems = transactions.filter(
-        (t) => (t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status !== 'PAID',
-    );
+    const pendingItems = transactions.filter((t) => (t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status !== 'PAID');
     const paidItems = transactions.filter(
         (t) => t.type === 'payment' || ((t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status === 'PAID'),
     );
@@ -84,8 +82,7 @@ export function useCustomerBilling() {
                 setSummary(summaryResult.value?.data ?? null);
             } else {
                 setSummary(fallbackSummaryFromTransactions(nextTransactions));
-                nextCoreError ??=
-                    summaryResult.reason instanceof Error ? summaryResult.reason.message : 'Failed to fetch billing summary';
+                nextCoreError ??= summaryResult.reason instanceof Error ? summaryResult.reason.message : 'Failed to fetch billing summary';
             }
 
             if (receiptsResult.status === 'fulfilled') {
@@ -108,9 +105,7 @@ export function useCustomerBilling() {
         fetchBilling();
     }, [fetchBilling]);
 
-    const pendingItems = transactions.filter(
-        (t) => (t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status !== 'PAID',
-    );
+    const pendingItems = transactions.filter((t) => (t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status !== 'PAID');
 
     const paidItems = transactions.filter(
         (t) => t.type === 'payment' || ((t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status === 'PAID'),

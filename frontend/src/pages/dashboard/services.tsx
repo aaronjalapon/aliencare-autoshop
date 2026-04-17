@@ -1,9 +1,11 @@
 import AppLayout from '@/components/layout/app-layout';
-import { cloneServicePlaceholders } from '@/data/servicePlaceholders';
+import { flattenValidationErrors } from '@/lib/validation-errors';
+import { ApiError } from '@/services/api';
+import { ServiceCatalogMutationPayload, serviceCatalogService } from '@/services/serviceCatalogService';
 import { type BreadcrumbItem } from '@/types';
 import { type ServiceCatalogItem } from '@/types/customer';
-import { AlertCircle, Check, PencilLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Check, Loader2, PencilLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Services', href: '/services' }];
 
@@ -28,6 +30,8 @@ interface ServiceFormState {
     recommendedNote: string;
     isActive: boolean;
 }
+
+type ServiceFormErrors = Partial<Record<keyof ServiceFormState, string>>;
 
 const categoryOptions: Array<{ value: ServiceCategory; label: string }> = [
     { value: 'maintenance', label: 'Maintenance' },
@@ -88,14 +92,43 @@ function toFormState(service: ServiceCatalogItem): ServiceFormState {
     };
 }
 
-function toServiceItem(form: ServiceFormState, id: number, createdAt: string): ServiceCatalogItem {
+const apiFieldToFormField: Record<string, keyof ServiceFormState> = {
+    name: 'name',
+    category: 'category',
+    description: 'description',
+    price_label: 'priceLabel',
+    price_fixed: 'priceFixed',
+    duration: 'duration',
+    estimated_duration: 'estimatedDuration',
+    queue_label: 'queueLabel',
+    rating: 'rating',
+    rating_count: 'ratingCount',
+    features: 'featuresText',
+    includes: 'includesText',
+    recommended: 'recommended',
+    recommended_note: 'recommendedNote',
+    is_active: 'isActive',
+};
+
+function mapValidationErrors(validationErrors?: Record<string, string[]>): ServiceFormErrors {
+    const flatErrors = flattenValidationErrors(validationErrors);
+
+    return Object.entries(flatErrors).reduce<ServiceFormErrors>((acc, [field, message]) => {
+        const mappedField = apiFieldToFormField[field];
+        if (mappedField) {
+            acc[mappedField] = message;
+        }
+
+        return acc;
+    }, {});
+}
+
+function toMutationPayload(form: ServiceFormState): ServiceCatalogMutationPayload {
     const parsedPrice = Number.parseFloat(form.priceFixed);
     const parsedRating = Number.parseFloat(form.rating);
     const parsedRatingCount = Number.parseInt(form.ratingCount, 10);
-    const nowIso = new Date().toISOString();
 
     return {
-        id,
         name: form.name.trim(),
         category: form.category,
         description: form.description.trim() || null,
@@ -111,13 +144,13 @@ function toServiceItem(form: ServiceFormState, id: number, createdAt: string): S
         includes: toLineList(form.includesText),
         rating: Number.isFinite(parsedRating) ? parsedRating : 0,
         rating_count: Number.isFinite(parsedRatingCount) ? parsedRatingCount : 0,
-        created_at: createdAt,
-        updated_at: nowIso,
     };
 }
 
 export default function Services() {
-    const [services, setServices] = useState<ServiceCatalogItem[]>(() => cloneServicePlaceholders());
+    const [services, setServices] = useState<ServiceCatalogItem[]>([]);
+    const [isLoadingServices, setIsLoadingServices] = useState(true);
+    const [servicesError, setServicesError] = useState<string | null>(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
@@ -127,8 +160,32 @@ export default function Services() {
     const [formMode, setFormMode] = useState<FormMode>('create');
     const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
     const [formState, setFormState] = useState<ServiceFormState>(initialFormState);
+    const [formErrors, setFormErrors] = useState<ServiceFormErrors>({});
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [deleteTarget, setDeleteTarget] = useState<ServiceCatalogItem | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [isDeactivating, setIsDeactivating] = useState(false);
+
+    const loadServices = useCallback(async () => {
+        try {
+            setIsLoadingServices(true);
+            setServicesError(null);
+
+            const response = await serviceCatalogService.getManageServices({ per_page: 100 });
+            setServices(response.data.data);
+        } catch (error) {
+            setServicesError(error instanceof Error ? error.message : 'Failed to load services.');
+            setServices([]);
+        } finally {
+            setIsLoadingServices(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadServices();
+    }, [loadServices]);
 
     const filteredServices = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -160,11 +217,20 @@ export default function Services() {
     const activeCount = services.filter((service) => service.is_active).length;
     const recommendedCount = services.filter((service) => service.recommended).length;
     const averagePrice = services.length > 0 ? services.reduce((sum, service) => sum + service.price_fixed, 0) / services.length : 0;
+    const getFieldError = (field: keyof ServiceFormState) => formErrors[field] ?? null;
+
+    const closeFormModal = () => {
+        setShowFormModal(false);
+        setFormErrors({});
+        setSubmitError(null);
+    };
 
     const openCreateModal = () => {
         setFormMode('create');
         setEditingServiceId(null);
         setFormState(initialFormState);
+        setFormErrors({});
+        setSubmitError(null);
         setShowFormModal(true);
     };
 
@@ -172,40 +238,74 @@ export default function Services() {
         setFormMode('edit');
         setEditingServiceId(service.id);
         setFormState(toFormState(service));
+        setFormErrors({});
+        setSubmitError(null);
         setShowFormModal(true);
     };
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        if (formMode === 'create') {
-            const nextId = services.length === 0 ? 1 : Math.max(...services.map((service) => service.id)) + 1;
-            const created = toServiceItem(formState, nextId, new Date().toISOString());
+        setFormErrors({});
+        setSubmitError(null);
+        setIsSubmitting(true);
 
-            setServices((prev) => [created, ...prev]);
-            setSelectedServiceId(created.id);
+        try {
+            const payload = toMutationPayload(formState);
+
+            if (formMode === 'create') {
+                const response = await serviceCatalogService.createService(payload);
+                const created = response.data;
+
+                setServices((prev) => [created, ...prev]);
+                setSelectedServiceId(created.id);
+                setShowFormModal(false);
+
+                return;
+            }
+
+            if (editingServiceId == null) {
+                setSubmitError('No service selected for update.');
+
+                return;
+            }
+
+            const response = await serviceCatalogService.updateService(editingServiceId, payload);
+            const updated = response.data;
+
+            setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
+            setSelectedServiceId(updated.id);
             setShowFormModal(false);
-            return;
-        }
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 422) {
+                setFormErrors(mapValidationErrors(error.validationErrors));
+            }
 
-        if (editingServiceId == null) {
-            return;
+            setSubmitError(error instanceof Error ? error.message : 'Failed to save service.');
+        } finally {
+            setIsSubmitting(false);
         }
-
-        setServices((prev) =>
-            prev.map((service) => (service.id === editingServiceId ? toServiceItem(formState, service.id, service.created_at) : service)),
-        );
-        setSelectedServiceId(editingServiceId);
-        setShowFormModal(false);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (!deleteTarget) {
             return;
         }
 
-        setServices((prev) => prev.filter((service) => service.id !== deleteTarget.id));
-        setDeleteTarget(null);
+        setDeleteError(null);
+        setIsDeactivating(true);
+
+        try {
+            const response = await serviceCatalogService.deactivateService(deleteTarget.id);
+            const deactivated = response.data;
+
+            setServices((prev) => prev.map((service) => (service.id === deactivated.id ? deactivated : service)));
+            setDeleteTarget(null);
+        } catch (error) {
+            setDeleteError(error instanceof Error ? error.message : 'Failed to deactivate service.');
+        } finally {
+            setIsDeactivating(false);
+        }
     };
 
     return (
@@ -226,6 +326,10 @@ export default function Services() {
                             <Plus className="h-4 w-4" /> Add Service
                         </button>
                     </div>
+
+                    {servicesError && (
+                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{servicesError}</div>
+                    )}
 
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="profile-card rounded-xl p-4">
@@ -278,7 +382,11 @@ export default function Services() {
                                 </div>
                             </div>
 
-                            {filteredServices.length === 0 ? (
+                            {isLoadingServices ? (
+                                <div className="flex min-h-50 items-center justify-center gap-2 rounded-lg border border-dashed border-[#2a2a2e] text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading services...
+                                </div>
+                            ) : filteredServices.length === 0 ? (
                                 <div className="rounded-lg border border-dashed border-[#2a2a2e] py-14 text-center text-sm text-muted-foreground">
                                     No services matched your filters.
                                 </div>
@@ -312,6 +420,15 @@ export default function Services() {
                                                             </p>
                                                             <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                                                 <span>{service.duration}</span>
+                                                                <span
+                                                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                                                        service.is_active
+                                                                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                                                                            : 'border-red-500/40 bg-red-500/10 text-red-300'
+                                                                    }`}
+                                                                >
+                                                                    {service.is_active ? 'Active' : 'Inactive'}
+                                                                </span>
                                                                 {service.recommended && (
                                                                     <span className="inline-flex items-center gap-1 rounded-full border border-[#d4af37]/40 bg-[#d4af37]/10 px-2 py-0.5 text-[#d4af37]">
                                                                         <Sparkles className="h-3 w-3" /> Recommended
@@ -339,11 +456,12 @@ export default function Services() {
                                                                 <button
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
+                                                                        setDeleteError(null);
                                                                         setDeleteTarget(service);
                                                                     }}
                                                                     className="inline-flex items-center gap-1 rounded-md border border-red-500/30 px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-500/10"
                                                                 >
-                                                                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                                                                    <Trash2 className="h-3.5 w-3.5" /> Deactivate
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -358,13 +476,28 @@ export default function Services() {
 
                         <div className="profile-card min-h-0 overflow-y-auto rounded-xl p-5">
                             <h2 className="text-base font-semibold">Service Details</h2>
-                            {selectedService ? (
+                            {isLoadingServices ? (
+                                <div className="mt-6 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#2a2a2e] p-6 text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading service details...
+                                </div>
+                            ) : selectedService ? (
                                 <div className="mt-4 space-y-4 text-sm">
                                     <div>
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
                                                 <p className="text-lg font-bold">{selectedService.name}</p>
-                                                <p className="text-xs text-muted-foreground">{formatCategory(selectedService.category)}</p>
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    <p className="text-xs text-muted-foreground">{formatCategory(selectedService.category)}</p>
+                                                    <span
+                                                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                                            selectedService.is_active
+                                                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                                                                : 'border-red-500/40 bg-red-500/10 text-red-300'
+                                                        }`}
+                                                    >
+                                                        {selectedService.is_active ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <span className="rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-2 py-1 text-xs font-semibold text-[#d4af37]">
                                                 P{selectedService.price_fixed.toLocaleString('en-US')}
@@ -432,11 +565,12 @@ export default function Services() {
                                         </button>
                                         <button
                                             onClick={() => {
+                                                setDeleteError(null);
                                                 setDeleteTarget(selectedService);
                                             }}
                                             className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10"
                                         >
-                                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                                            <Trash2 className="h-3.5 w-3.5" /> Deactivate
                                         </button>
                                     </div>
                                 </div>
@@ -451,7 +585,7 @@ export default function Services() {
             </div>
 
             {showFormModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowFormModal(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={closeFormModal}>
                     <div
                         className="profile-card max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl p-5"
                         onClick={(event) => event.stopPropagation()}
@@ -466,12 +600,16 @@ export default function Services() {
                                 </h2>
                             </div>
                             <button
-                                onClick={() => setShowFormModal(false)}
+                                onClick={closeFormModal}
                                 className="rounded-md border border-[#2a2a2e] p-2 text-muted-foreground transition-colors hover:border-[#d4af37]/40"
                             >
                                 <X className="h-4 w-4" />
                             </button>
                         </div>
+
+                        {submitError && (
+                            <p className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{submitError}</p>
+                        )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid gap-3 md:grid-cols-2">
@@ -481,8 +619,11 @@ export default function Services() {
                                         value={formState.name}
                                         onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
                                         required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('name') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('name') && <p className="text-xs text-red-400">{getFieldError('name')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -490,7 +631,9 @@ export default function Services() {
                                     <select
                                         value={formState.category}
                                         onChange={(event) => setFormState((prev) => ({ ...prev, category: event.target.value as ServiceCategory }))}
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('category') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     >
                                         {categoryOptions.map((option) => (
                                             <option key={option.value} value={option.value}>
@@ -498,6 +641,7 @@ export default function Services() {
                                             </option>
                                         ))}
                                     </select>
+                                    {getFieldError('category') && <p className="text-xs text-red-400">{getFieldError('category')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -509,8 +653,11 @@ export default function Services() {
                                         min="0"
                                         step="0.01"
                                         required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('priceFixed') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('priceFixed') && <p className="text-xs text-red-400">{getFieldError('priceFixed')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -520,8 +667,11 @@ export default function Services() {
                                         onChange={(event) => setFormState((prev) => ({ ...prev, priceLabel: event.target.value }))}
                                         placeholder="Ex: P300-P800"
                                         required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('priceLabel') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('priceLabel') && <p className="text-xs text-red-400">{getFieldError('priceLabel')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -531,8 +681,11 @@ export default function Services() {
                                         onChange={(event) => setFormState((prev) => ({ ...prev, duration: event.target.value }))}
                                         placeholder="Ex: 45 mins"
                                         required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('duration') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('duration') && <p className="text-xs text-red-400">{getFieldError('duration')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -542,8 +695,13 @@ export default function Services() {
                                         onChange={(event) => setFormState((prev) => ({ ...prev, estimatedDuration: event.target.value }))}
                                         placeholder="Ex: 45-60 mins"
                                         required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('estimatedDuration') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('estimatedDuration') && (
+                                        <p className="text-xs text-red-400">{getFieldError('estimatedDuration')}</p>
+                                    )}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -552,8 +710,11 @@ export default function Services() {
                                         value={formState.queueLabel}
                                         onChange={(event) => setFormState((prev) => ({ ...prev, queueLabel: event.target.value }))}
                                         placeholder="Ex: 2-3 in queue"
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('queueLabel') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('queueLabel') && <p className="text-xs text-red-400">{getFieldError('queueLabel')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -565,8 +726,11 @@ export default function Services() {
                                         min="0"
                                         max="5"
                                         step="0.1"
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('rating') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('rating') && <p className="text-xs text-red-400">{getFieldError('rating')}</p>}
                                 </label>
 
                                 <label className="space-y-1.5 text-sm">
@@ -577,8 +741,11 @@ export default function Services() {
                                         type="number"
                                         min="0"
                                         step="1"
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`h-10 w-full rounded-lg border bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('ratingCount') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('ratingCount') && <p className="text-xs text-red-400">{getFieldError('ratingCount')}</p>}
                                 </label>
                             </div>
 
@@ -588,8 +755,11 @@ export default function Services() {
                                     value={formState.description}
                                     onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
                                     rows={3}
-                                    className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                    className={`w-full rounded-lg border bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                        getFieldError('description') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                    }`}
                                 />
+                                {getFieldError('description') && <p className="text-xs text-red-400">{getFieldError('description')}</p>}
                             </label>
 
                             <div className="grid gap-3 md:grid-cols-2">
@@ -599,8 +769,11 @@ export default function Services() {
                                         value={formState.featuresText}
                                         onChange={(event) => setFormState((prev) => ({ ...prev, featuresText: event.target.value }))}
                                         rows={4}
-                                        className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`w-full rounded-lg border bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('featuresText') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('featuresText') && <p className="text-xs text-red-400">{getFieldError('featuresText')}</p>}
                                 </label>
 
                                 <label className="block space-y-1.5 text-sm">
@@ -609,8 +782,11 @@ export default function Services() {
                                         value={formState.includesText}
                                         onChange={(event) => setFormState((prev) => ({ ...prev, includesText: event.target.value }))}
                                         rows={4}
-                                        className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
+                                        className={`w-full rounded-lg border bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                            getFieldError('includesText') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('includesText') && <p className="text-xs text-red-400">{getFieldError('includesText')}</p>}
                                 </label>
                             </div>
 
@@ -642,24 +818,30 @@ export default function Services() {
                                         onChange={(event) => setFormState((prev) => ({ ...prev, recommendedNote: event.target.value }))}
                                         disabled={!formState.recommended}
                                         placeholder="Why should this be highlighted?"
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#18181b] px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                        className={`h-10 w-full rounded-lg border bg-[#18181b] px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
+                                            getFieldError('recommendedNote') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                        }`}
                                     />
+                                    {getFieldError('recommendedNote') && <p className="text-xs text-red-400">{getFieldError('recommendedNote')}</p>}
                                 </label>
                             </div>
 
                             <div className="flex items-center justify-end gap-2 pt-1">
                                 <button
                                     type="button"
-                                    onClick={() => setShowFormModal(false)}
+                                    onClick={closeFormModal}
+                                    disabled={isSubmitting}
                                     className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
+                                    disabled={isSubmitting}
                                     className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90"
                                 >
-                                    {formMode === 'create' ? 'Create Service' : 'Save Changes'}
+                                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    {isSubmitting ? 'Saving...' : formMode === 'create' ? 'Create Service' : 'Save Changes'}
                                 </button>
                             </div>
                         </form>
@@ -672,25 +854,33 @@ export default function Services() {
                     <div className="profile-card w-full max-w-md rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
                         <div className="mb-3 flex items-center gap-2 text-red-400">
                             <AlertCircle className="h-5 w-5" />
-                            <h3 className="text-base font-semibold">Delete service</h3>
+                            <h3 className="text-base font-semibold">Deactivate service</h3>
                         </div>
 
                         <p className="text-sm text-muted-foreground">
-                            You are deleting <span className="font-semibold text-foreground">{deleteTarget.name}</span>. This action cannot be undone.
+                            You are deactivating <span className="font-semibold text-foreground">{deleteTarget.name}</span>. Inactive services stay in
+                            records but no longer appear in customer listings.
                         </p>
+
+                        {deleteError && (
+                            <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">{deleteError}</p>
+                        )}
 
                         <div className="mt-5 flex items-center justify-end gap-2">
                             <button
                                 onClick={() => setDeleteTarget(null)}
+                                disabled={isDeactivating}
                                 className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmDelete}
+                                disabled={isDeactivating}
                                 className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/10"
                             >
-                                Delete
+                                {isDeactivating && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {isDeactivating ? 'Deactivating...' : 'Deactivate'}
                             </button>
                         </div>
                     </div>

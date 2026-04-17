@@ -62,24 +62,21 @@ export default function AdminBookingSlots() {
     const [addSlotDraft, setAddSlotDraft] = useState<BookingSlotDraft>(defaultDraft());
     const [addSlotError, setAddSlotError] = useState<string | null>(null);
 
-    const fetchSlots = useCallback(
-        async (showLoader = true) => {
-            if (showLoader) setLoading(true);
+    const fetchSlots = useCallback(async (showLoader = true) => {
+        if (showLoader) setLoading(true);
 
-            try {
-                const response = await api.get<BookingSlotsResponse>('/v1/admin/booking-slots');
-                setSlots(normalizeSlots(response.data.slots));
+        try {
+            const response = await api.get<BookingSlotsResponse>('/v1/admin/booking-slots');
+            setSlots(normalizeSlots(response.data.slots));
 
-                setLastSyncedAt(new Date());
-                setError(null);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load booking slots.');
-            } finally {
-                if (showLoader) setLoading(false);
-            }
-        },
-        [],
-    );
+            setLastSyncedAt(new Date());
+            setError(null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load booking slots.');
+        } finally {
+            if (showLoader) setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         void fetchSlots(true);

@@ -3,7 +3,22 @@ import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { paymentService } from '@/services/paymentService';
 import { type BreadcrumbItem } from '@/types';
 import { InventoryItem } from '@/types/inventory';
-import { AlertCircle, ArrowRight, Banknote, CircleDot, CreditCard, Droplets, type LucideIcon, Minus, Package, Plus, Search, ShoppingCart, Wind, X } from 'lucide-react';
+import {
+    AlertCircle,
+    ArrowRight,
+    Banknote,
+    CircleDot,
+    CreditCard,
+    Droplets,
+    type LucideIcon,
+    Minus,
+    Package,
+    Plus,
+    Search,
+    ShoppingCart,
+    Wind,
+    X,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -432,7 +447,7 @@ export default function Shop() {
 
                             {/* Payment method selection */}
                             <div className="flex flex-col gap-2">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment Method</p>
+                                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Payment Method</p>
                                 <button
                                     onClick={() => setPaymentOption('online')}
                                     className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-colors ${

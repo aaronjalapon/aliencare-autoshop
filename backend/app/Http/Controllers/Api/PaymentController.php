@@ -74,7 +74,7 @@ class PaymentController extends Controller
             ->whereIn('type', [CustomerTransactionType::Invoice->value, CustomerTransactionType::ReservationFee->value])
             ->where(function ($q) {
                 $q->whereNull('xendit_status')
-                  ->orWhere('xendit_status', '!=', 'PAID');
+                    ->orWhere('xendit_status', '!=', 'PAID');
             })
             ->get();
 
@@ -342,7 +342,7 @@ class PaymentController extends Controller
             ->where('id', '!=', $transaction->id)
             ->where(function ($q) {
                 $q->whereNull('xendit_status')
-                  ->orWhere('xendit_status', '!=', 'PAID');
+                    ->orWhere('xendit_status', '!=', 'PAID');
             })
             ->exists();
 
@@ -381,7 +381,7 @@ class PaymentController extends Controller
             ->whereIn('type', [CustomerTransactionType::Invoice->value, CustomerTransactionType::ReservationFee->value])
             ->where(function ($q) {
                 $q->whereNull('xendit_status')
-                  ->orWhere('xendit_status', '!=', 'PAID');
+                    ->orWhere('xendit_status', '!=', 'PAID');
             })
             ->exists();
 

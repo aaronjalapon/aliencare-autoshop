@@ -411,51 +411,47 @@ export function UsageReports() {
                     <h3 className="font-semibold text-foreground">Detailed Usage Report</h3>
                 </div>
                 <div className="overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="border-border">
-                                    <TableHead className="text-foreground">Part Number</TableHead>
-                                    <TableHead className="text-foreground">Description</TableHead>
-                                    <TableHead className="text-foreground">Category</TableHead>
-                                    <TableHead className="text-foreground">Consumed</TableHead>
-                                    <TableHead className="text-foreground">Total Cost</TableHead>
-                                    <TableHead className="text-foreground">Unit Price</TableHead>
-                                    <TableHead className="text-foreground">Transactions</TableHead>
-                                    <TableHead className="text-foreground">Usage Intensity</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sortedUsageItems.map((item) => {
-                                    const usageIntensity = item.consumed > 10 ? 'HIGH' : item.consumed > 5 ? 'MEDIUM' : 'LOW';
-                                    return (
-                                        <TableRow key={item.item_id} className="border-border hover:bg-muted/50">
-                                            <TableCell className="font-medium text-foreground">{item.part_number}</TableCell>
-                                            <TableCell className="max-w-50 truncate text-foreground" title={item.description}>
-                                                {item.description}
-                                            </TableCell>
-                                            <TableCell className="text-foreground">{item.category}</TableCell>
-                                            <TableCell className="text-foreground">{item.consumed}</TableCell>
-                                            <TableCell className="text-foreground">₱{item.cost.toFixed(2)}</TableCell>
-                                            <TableCell className="text-foreground">₱{item.unit_price}</TableCell>
-                                            <TableCell className="text-foreground">{item.transaction_count}</TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant={
-                                                        usageIntensity === 'HIGH'
-                                                            ? 'destructive'
-                                                            : usageIntensity === 'MEDIUM'
-                                                              ? 'default'
-                                                              : 'secondary'
-                                                    }
-                                                >
-                                                    {usageIntensity}
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                </Table>
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="border-border">
+                                <TableHead className="text-foreground">Part Number</TableHead>
+                                <TableHead className="text-foreground">Description</TableHead>
+                                <TableHead className="text-foreground">Category</TableHead>
+                                <TableHead className="text-foreground">Consumed</TableHead>
+                                <TableHead className="text-foreground">Total Cost</TableHead>
+                                <TableHead className="text-foreground">Unit Price</TableHead>
+                                <TableHead className="text-foreground">Transactions</TableHead>
+                                <TableHead className="text-foreground">Usage Intensity</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedUsageItems.map((item) => {
+                                const usageIntensity = item.consumed > 10 ? 'HIGH' : item.consumed > 5 ? 'MEDIUM' : 'LOW';
+                                return (
+                                    <TableRow key={item.item_id} className="border-border hover:bg-muted/50">
+                                        <TableCell className="font-medium text-foreground">{item.part_number}</TableCell>
+                                        <TableCell className="max-w-50 truncate text-foreground" title={item.description}>
+                                            {item.description}
+                                        </TableCell>
+                                        <TableCell className="text-foreground">{item.category}</TableCell>
+                                        <TableCell className="text-foreground">{item.consumed}</TableCell>
+                                        <TableCell className="text-foreground">₱{item.cost.toFixed(2)}</TableCell>
+                                        <TableCell className="text-foreground">₱{item.unit_price}</TableCell>
+                                        <TableCell className="text-foreground">{item.transaction_count}</TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={
+                                                    usageIntensity === 'HIGH' ? 'destructive' : usageIntensity === 'MEDIUM' ? 'default' : 'secondary'
+                                                }
+                                            >
+                                                {usageIntensity}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
                 </div>
                 {usageItems.length === 0 && (
                     <div className="py-8 text-center text-muted-foreground">No usage data found for the selected period and category</div>

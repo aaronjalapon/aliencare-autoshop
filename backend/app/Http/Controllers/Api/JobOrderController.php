@@ -16,9 +16,11 @@ use App\Http\Requests\Api\JobOrder\StoreJobOrderRequest;
 use App\Http\Requests\Api\JobOrder\UpdateJobOrderRequest;
 use App\Http\Resources\JobOrderItemResource;
 use App\Http\Resources\JobOrderResource;
+use App\Models\JobOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class JobOrderController extends Controller
 {
@@ -29,8 +31,11 @@ class JobOrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         $filters = array_filter([
             'status' => $request->input('status'),
+            'source' => $request->input('source'),
             'customer_id' => $request->input('customer_id'),
             'mechanic_id' => $request->input('mechanic_id'),
             'search' => $request->input('search'),
@@ -51,12 +56,14 @@ class JobOrderController extends Controller
 
     public function store(StoreJobOrderRequest $request): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderService->createJobOrder($request->validated());
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder->load(['customer', 'vehicle', 'items'])),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order created successfully.',
             ], 201);
         } catch (\Exception $e) {
@@ -69,12 +76,14 @@ class JobOrderController extends Controller
 
     public function show(int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderRepository->findByIdOrFail($id);
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder->load('approvedByUser')),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -86,12 +95,14 @@ class JobOrderController extends Controller
 
     public function update(UpdateJobOrderRequest $request, int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderRepository->update($id, $request->validated());
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order updated successfully.',
             ]);
         } catch (\Exception $e) {
@@ -102,14 +113,33 @@ class JobOrderController extends Controller
         }
     }
 
+    public function submit(int $id): JsonResponse
+    {
+        $this->authorizeManageJobOrders();
+
+        try {
+            $jobOrder = $this->jobOrderService->submitJobOrderForApproval($id);
+
+            return response()->json([
+                'success' => true,
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
+                'message' => 'Job order submitted for approval.',
+            ]);
+        } catch (JobOrderNotFoundException|JobOrderStateException $e) {
+            return $e->render();
+        }
+    }
+
     public function approve(int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderService->approveJobOrder($id, Auth::id());
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order approved successfully.',
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
@@ -119,6 +149,8 @@ class JobOrderController extends Controller
 
     public function start(StartJobOrderRequest $request, int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderService->startJobOrder(
                 $id,
@@ -128,7 +160,7 @@ class JobOrderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order started. Mechanic and bay assigned.',
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
@@ -138,12 +170,14 @@ class JobOrderController extends Controller
 
     public function complete(int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderService->completeJobOrder($id);
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order completed. Bay and mechanic released.',
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
@@ -153,6 +187,8 @@ class JobOrderController extends Controller
 
     public function settle(SettleJobOrderRequest $request, int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderService->settleJobOrder(
                 $id,
@@ -161,7 +197,7 @@ class JobOrderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order settled and closed.',
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
@@ -171,12 +207,14 @@ class JobOrderController extends Controller
 
     public function cancel(int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $jobOrder = $this->jobOrderService->cancelJobOrder($id);
 
             return response()->json([
                 'success' => true,
-                'data' => new JobOrderResource($jobOrder),
+                'data' => new JobOrderResource($this->loadJobOrderForResponse($jobOrder)),
                 'message' => 'Job order cancelled.',
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
@@ -186,6 +224,8 @@ class JobOrderController extends Controller
 
     public function addItem(AddJobOrderItemRequest $request, int $id): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $item = $this->jobOrderService->addItemToJobOrder($id, $request->validated());
 
@@ -201,6 +241,8 @@ class JobOrderController extends Controller
 
     public function removeItem(int $id, int $itemId): JsonResponse
     {
+        $this->authorizeManageJobOrders();
+
         try {
             $this->jobOrderService->removeItemFromJobOrder($id, $itemId);
 
@@ -211,5 +253,25 @@ class JobOrderController extends Controller
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
             return $e->render();
         }
+    }
+
+    private function authorizeManageJobOrders(): void
+    {
+        Gate::authorize('manage-job-orders');
+    }
+
+    private function loadJobOrderForResponse(JobOrder $jobOrder): JobOrder
+    {
+        return $jobOrder->loadMissing([
+            'service',
+            'customer',
+            'vehicle',
+            'mechanic.user',
+            'bay',
+            'approvedByUser',
+            'items',
+            'reservations',
+            'customerTransactions',
+        ]);
     }
 }

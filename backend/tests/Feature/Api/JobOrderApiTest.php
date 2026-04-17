@@ -6,9 +6,11 @@ namespace Tests\Feature\Api;
 
 use App\Models\Bay;
 use App\Models\Customer;
+use App\Models\CustomerTransaction;
 use App\Models\JobOrder;
 use App\Models\JobOrderItem;
 use App\Models\Mechanic;
+use App\Models\Reservation;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,6 +21,8 @@ class JobOrderApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
+    private User $customerRoleUser;
 
     private Customer $customer;
 
@@ -31,7 +35,8 @@ class JobOrderApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['role' => 'frontdesk']);
+        $this->customerRoleUser = User::factory()->create(['role' => 'customer']);
         $this->customer = Customer::factory()->create();
         $this->vehicle = Vehicle::factory()->create(['customer_id' => $this->customer->id]);
         $this->mechanic = Mechanic::factory()->create(['user_id' => User::factory()->create()->id]);
@@ -44,6 +49,29 @@ class JobOrderApiTest extends TestCase
     {
         $response = $this->getJson('/api/v1/job-orders');
         $response->assertStatus(401);
+    }
+
+    public function test_management_endpoints_require_frontdesk_or_admin_role(): void
+    {
+        $jobOrder = JobOrder::factory()->create([
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+        ]);
+
+        $this->actingAs($this->customerRoleUser)
+            ->getJson('/api/v1/job-orders')
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerRoleUser)
+            ->postJson('/api/v1/job-orders', [
+                'customer_id' => $this->customer->id,
+                'vehicle_id' => $this->vehicle->id,
+            ])
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerRoleUser)
+            ->putJson("/api/v1/job-orders/{$jobOrder->id}/submit")
+            ->assertStatus(403);
     }
 
     // INDEX TESTS
@@ -62,7 +90,7 @@ class JobOrderApiTest extends TestCase
                 'success',
                 'data' => [
                     'data' => [
-                        '*' => ['id', 'jo_number', 'status', 'status_label', 'status_color'],
+                        '*' => ['id', 'jo_number', 'status', 'status_label', 'status_color', 'source', 'balance'],
                     ],
                 ],
             ]);
@@ -88,6 +116,43 @@ class JobOrderApiTest extends TestCase
         $data = $response->json('data.data');
         $this->assertCount(1, $data);
         $this->assertEquals('created', $data[0]['status']);
+    }
+
+    public function test_index_filters_by_source(): void
+    {
+        $onlineJobOrder = JobOrder::factory()->create([
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+        ]);
+
+        Reservation::factory()->create([
+            'job_order_id' => $onlineJobOrder->id,
+            'job_order_number' => $onlineJobOrder->jo_number,
+            'customer_id' => $this->customer->id,
+        ]);
+
+        JobOrder::factory()->create([
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+        ]);
+
+        $onlineResponse = $this->actingAs($this->user)
+            ->getJson('/api/v1/job-orders?source=online_booking');
+
+        $onlineResponse->assertStatus(200);
+        $onlineData = $onlineResponse->json('data.data');
+
+        $this->assertCount(1, $onlineData);
+        $this->assertSame('Online Booking', $onlineData[0]['source']);
+
+        $walkInResponse = $this->actingAs($this->user)
+            ->getJson('/api/v1/job-orders?source=walk_in');
+
+        $walkInResponse->assertStatus(200);
+        $walkInData = $walkInResponse->json('data.data');
+
+        $this->assertCount(1, $walkInData);
+        $this->assertSame('Walk-in', $walkInData[0]['source']);
     }
 
     // STORE TESTS
@@ -120,6 +185,78 @@ class JobOrderApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['customer_id', 'vehicle_id']);
+    }
+
+    public function test_store_response_includes_source_and_balance_fields(): void
+    {
+        $payload = [
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+            'service_fee' => 1500.00,
+        ];
+
+        $response = $this->actingAs($this->user)->postJson('/api/v1/job-orders', $payload);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.source', 'Walk-in')
+            ->assertJsonPath('data.balance', 1500);
+    }
+
+    public function test_show_computes_balance_from_paid_transactions(): void
+    {
+        $jobOrder = JobOrder::factory()->create([
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+            'service_fee' => 1000,
+        ]);
+
+        CustomerTransaction::query()->create([
+            'customer_id' => $this->customer->id,
+            'job_order_id' => $jobOrder->id,
+            'type' => 'payment',
+            'amount' => 400,
+            'paid_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson("/api/v1/job-orders/{$jobOrder->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.balance', 600);
+    }
+
+    public function test_submit_transitions_created_to_pending_approval(): void
+    {
+        $jobOrder = JobOrder::factory()->create([
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+            'status' => 'created',
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->putJson("/api/v1/job-orders/{$jobOrder->id}/submit");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'pending_approval');
+
+        $this->assertDatabaseHas('job_orders', [
+            'id' => $jobOrder->id,
+            'status' => 'pending_approval',
+        ]);
+    }
+
+    public function test_submit_fails_for_invalid_transition(): void
+    {
+        $jobOrder = JobOrder::factory()->approved()->create([
+            'customer_id' => $this->customer->id,
+            'vehicle_id' => $this->vehicle->id,
+            'approved_by' => $this->user->id,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->putJson("/api/v1/job-orders/{$jobOrder->id}/submit");
+
+        $response->assertStatus(422);
     }
 
     // SHOW TESTS
@@ -347,16 +484,17 @@ class JobOrderApiTest extends TestCase
         $response->assertStatus(201);
         $jobOrderId = $response->json('data.id');
 
-        // Step 2: Approve (from created → pending_approval needs manual status set for direct approve)
-        // The spec says created → pending_approval → approved, so we test the two hops
-        $jobOrder = JobOrder::find($jobOrderId);
-        $jobOrder->update(['status' => 'pending_approval']);
+        // Step 2: Submit for approval (created -> pending_approval)
+        $response = $this->actingAs($this->user)
+            ->putJson("/api/v1/job-orders/{$jobOrderId}/submit");
+        $response->assertStatus(200)->assertJsonPath('data.status', 'pending_approval');
 
+        // Step 3: Approve
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/approve");
         $response->assertStatus(200)->assertJsonPath('data.status', 'approved');
 
-        // Step 3: Start
+        // Step 4: Start
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/start", [
                 'mechanic_id' => $this->mechanic->id,
@@ -364,12 +502,12 @@ class JobOrderApiTest extends TestCase
             ]);
         $response->assertStatus(200)->assertJsonPath('data.status', 'in_progress');
 
-        // Step 4: Complete
+        // Step 5: Complete
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/complete");
         $response->assertStatus(200)->assertJsonPath('data.status', 'completed');
 
-        // Step 5: Settle
+        // Step 6: Settle
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/settle", [
                 'invoice_id' => 'INV-LIFECYCLE-001',

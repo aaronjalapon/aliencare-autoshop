@@ -375,11 +375,14 @@ export default function BillingPayment() {
         setPaymentBanner(paymentResult === 'success' ? 'success' : 'failed');
 
         // Clear the query param from the URL without a full navigation
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            next.delete('payment');
-            return next;
-        }, { replace: true });
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('payment');
+                return next;
+            },
+            { replace: true },
+        );
 
         // Auto-dismiss banner after 8 seconds
         const dismissTimer = setTimeout(() => setPaymentBanner(null), 8000);
@@ -404,8 +407,8 @@ export default function BillingPayment() {
             clearTimeout(dismissTimer);
             stopPolling();
         };
-    // Run only once on mount when payment param is present
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // Run only once on mount when payment param is present
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Stop polling early once pending items drop (payment reflected)
@@ -750,7 +753,9 @@ export default function BillingPayment() {
                                                     </div>
                                                 </div>
                                                 <div className="flex shrink-0 flex-col items-end gap-2">
-                                                    <p className="text-lg font-bold">₱{rc.totalPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                                                    <p className="text-lg font-bold">
+                                                        ₱{rc.totalPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                    </p>
                                                     <div className="flex items-center gap-2">
                                                         <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-500">
                                                             Paid

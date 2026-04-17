@@ -28,6 +28,8 @@ export interface User {
     name: string;
     email: string;
     role: UserRole;
+    phone_number?: string | null;
+    address?: string | null;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

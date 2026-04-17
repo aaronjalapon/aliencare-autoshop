@@ -24,7 +24,11 @@ const SETTING_SECTIONS = [
         items: [
             { icon: CreditCard, label: 'Payment Methods', description: 'Enable and configure accepted payment channels at the counter' },
             { icon: ReceiptText, label: 'Invoice and Receipt Format', description: 'Set default notes and print behavior for customer documents' },
-            { icon: SlidersHorizontal, label: 'Counter Workflow Defaults', description: 'Adjust payment flow and frontdesk billing operation defaults' },
+            {
+                icon: SlidersHorizontal,
+                label: 'Counter Workflow Defaults',
+                description: 'Adjust payment flow and frontdesk billing operation defaults',
+            },
         ],
     },
     {

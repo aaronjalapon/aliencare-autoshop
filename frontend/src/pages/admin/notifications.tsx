@@ -138,9 +138,7 @@ export default function AdminNotifications() {
                                         <div
                                             key={notification.id}
                                             className={`relative flex items-start gap-4 rounded-xl border p-4 transition-colors ${
-                                                notification.read
-                                                    ? 'border-[#2a2a2e] bg-[#0d0d10]'
-                                                    : 'border-[#d4af37]/30 bg-[#d4af37]/5'
+                                                notification.read ? 'border-[#2a2a2e] bg-[#0d0d10]' : 'border-[#d4af37]/30 bg-[#d4af37]/5'
                                             }`}
                                         >
                                             {!notification.read && <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-[#d4af37]" />}

@@ -985,16 +985,25 @@ export default function CustomerServices() {
                                 <div className="flex flex-col gap-1.5 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Service Total</span>
-                                        <span className="font-semibold">₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold">
+                                            ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Reservation Fee (deducted)</span>
-                                        <span className="font-semibold text-[#d4af37]">−₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold text-[#d4af37]">
+                                            −₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                        </span>
                                     </div>
                                     <div className="h-px bg-[#2a2a2e]" />
                                     <div className="flex justify-between">
                                         <span className="font-semibold">Remaining Balance</span>
-                                        <span className="font-bold text-[#d4af37]">₱{Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-[#d4af37]">
+                                            ₱
+                                            {Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </span>
                                     </div>
                                 </div>
                                 <p className="mt-2 text-[10px] text-muted-foreground">Remaining balance will appear in your Billing &amp; Payment.</p>
@@ -1154,19 +1163,30 @@ export default function CustomerServices() {
                                 <div className="flex flex-col gap-1.5 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Service Total</span>
-                                        <span className="font-semibold">₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold">
+                                            ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Reservation Fee</span>
-                                        <span className="font-bold text-[#d4af37]">₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-[#d4af37]">
+                                            ₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                        </span>
                                     </div>
                                     <div className="h-px bg-[#2a2a2e]" />
                                     <div className="flex justify-between">
                                         <span className="font-semibold">Remaining Balance</span>
-                                        <span className="font-semibold">₱{Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold">
+                                            ₱
+                                            {Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </span>
                                     </div>
                                 </div>
-                                <p className="mt-2 text-[10px] text-muted-foreground">The reservation fee will be deducted from your total. Remaining balance will appear in Billing &amp; Payment.</p>
+                                <p className="mt-2 text-[10px] text-muted-foreground">
+                                    The reservation fee will be deducted from your total. Remaining balance will appear in Billing &amp; Payment.
+                                </p>
                             </div>
 
                             <p className="text-xs text-muted-foreground">
@@ -1485,7 +1505,9 @@ export default function CustomerServices() {
                                 <div className="flex flex-col gap-1 text-xs">
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Service Total</span>
-                                        <span className="font-medium">₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-medium">
+                                            ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between text-[#d4af37]">
                                         <span>Reservation Fee (paid)</span>
@@ -1494,10 +1516,17 @@ export default function CustomerServices() {
                                     <div className="my-0.5 h-px bg-[#2a2a2e]" />
                                     <div className="flex justify-between font-semibold">
                                         <span>Remaining Balance</span>
-                                        <span className="text-[#d4af37]">₱{Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                        <span className="text-[#d4af37]">
+                                            ₱
+                                            {Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </span>
                                     </div>
                                 </div>
-                                <p className="mt-1.5 text-[10px] text-muted-foreground">Remaining balance will appear in your Billing &amp; Payment page.</p>
+                                <p className="mt-1.5 text-[10px] text-muted-foreground">
+                                    Remaining balance will appear in your Billing &amp; Payment page.
+                                </p>
                             </div>
 
                             {/* Notice */}

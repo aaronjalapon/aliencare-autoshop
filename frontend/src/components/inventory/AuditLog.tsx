@@ -191,66 +191,66 @@ export function AuditLog() {
                     </div>
                 </div>
                 {loading ? (
-                        <div className="py-8 text-center">
-                            <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-muted-foreground" />
-                            <div className="text-muted-foreground">Loading audit data...</div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="overflow-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="border-border">
-                                            <TableHead className="text-foreground">Timestamp</TableHead>
-                                            <TableHead className="text-foreground">Transaction ID</TableHead>
-                                            <TableHead className="text-foreground">Type</TableHead>
-                                            <TableHead className="text-foreground">Item ID</TableHead>
-                                            <TableHead className="text-foreground">Quantity</TableHead>
-                                            <TableHead className="text-foreground">Job Order</TableHead>
-                                            <TableHead className="text-foreground">Performed By</TableHead>
-                                            <TableHead className="text-foreground">Reason/Notes</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredTransactions
-                                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                                            .map((transaction, index) => {
-                                                // Create a unique key using multiple fields to avoid duplicates
-                                                const uniqueKey = transaction.id
-                                                    ? transaction.id
-                                                    : `${transaction.timestamp}-${transaction.type}-${transaction.item_id}-${transaction.quantity}-${index}`;
+                    <div className="py-8 text-center">
+                        <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-muted-foreground" />
+                        <div className="text-muted-foreground">Loading audit data...</div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="border-border">
+                                        <TableHead className="text-foreground">Timestamp</TableHead>
+                                        <TableHead className="text-foreground">Transaction ID</TableHead>
+                                        <TableHead className="text-foreground">Type</TableHead>
+                                        <TableHead className="text-foreground">Item ID</TableHead>
+                                        <TableHead className="text-foreground">Quantity</TableHead>
+                                        <TableHead className="text-foreground">Job Order</TableHead>
+                                        <TableHead className="text-foreground">Performed By</TableHead>
+                                        <TableHead className="text-foreground">Reason/Notes</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredTransactions
+                                        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                                        .map((transaction, index) => {
+                                            // Create a unique key using multiple fields to avoid duplicates
+                                            const uniqueKey = transaction.id
+                                                ? transaction.id
+                                                : `${transaction.timestamp}-${transaction.type}-${transaction.item_id}-${transaction.quantity}-${index}`;
 
-                                                return (
-                                                    <TableRow key={uniqueKey} className="border-border hover:bg-muted/50">
-                                                        <TableCell className="font-mono text-sm text-foreground">
-                                                            {new Date(transaction.timestamp).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell className="font-mono text-sm text-foreground">{transaction.id || 'N/A'}</TableCell>
-                                                        <TableCell>{getTransactionBadge(transaction.type)}</TableCell>
-                                                        <TableCell className="font-medium text-foreground">{transaction.item_id}</TableCell>
-                                                        <TableCell>{getQuantityDisplay(transaction)}</TableCell>
-                                                        <TableCell>
-                                                            {transaction.job_order_id ? (
-                                                                <Badge variant="outline">{transaction.job_order_id}</Badge>
-                                                            ) : (
-                                                                <span className="text-muted-foreground">-</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-foreground">{transaction.performed_by || 'System'}</TableCell>
-                                                        <TableCell className="max-w-xs truncate text-foreground">
-                                                            {transaction.reason || transaction.notes || '-'}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                                {filteredTransactions.length === 0 && (
-                                    <div className="py-8 text-center text-muted-foreground">No transactions found matching your criteria</div>
-                                )}
-                            </>
+                                            return (
+                                                <TableRow key={uniqueKey} className="border-border hover:bg-muted/50">
+                                                    <TableCell className="font-mono text-sm text-foreground">
+                                                        {new Date(transaction.timestamp).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-sm text-foreground">{transaction.id || 'N/A'}</TableCell>
+                                                    <TableCell>{getTransactionBadge(transaction.type)}</TableCell>
+                                                    <TableCell className="font-medium text-foreground">{transaction.item_id}</TableCell>
+                                                    <TableCell>{getQuantityDisplay(transaction)}</TableCell>
+                                                    <TableCell>
+                                                        {transaction.job_order_id ? (
+                                                            <Badge variant="outline">{transaction.job_order_id}</Badge>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-foreground">{transaction.performed_by || 'System'}</TableCell>
+                                                    <TableCell className="max-w-xs truncate text-foreground">
+                                                        {transaction.reason || transaction.notes || '-'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        {filteredTransactions.length === 0 && (
+                            <div className="py-8 text-center text-muted-foreground">No transactions found matching your criteria</div>
                         )}
+                    </>
+                )}
             </div>
 
             <div className="profile-card rounded-xl">

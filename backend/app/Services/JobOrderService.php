@@ -33,6 +33,25 @@ class JobOrderService implements JobOrderServiceInterface
         return $this->jobOrderRepository->create($data);
     }
 
+    public function submitJobOrderForApproval(int $id): JobOrder
+    {
+        return DB::transaction(function () use ($id) {
+            $jobOrder = $this->findOrFail($id);
+
+            $this->validateTransition($jobOrder, JobOrderStatus::PendingApproval);
+
+            $previousStatus = $jobOrder->status->value;
+
+            $jobOrder->update([
+                'status' => JobOrderStatus::PendingApproval,
+            ]);
+
+            event(new JobOrderStatusChanged($jobOrder, $previousStatus, JobOrderStatus::PendingApproval->value));
+
+            return $jobOrder->fresh(['customer', 'vehicle', 'mechanic.user', 'bay', 'items']);
+        });
+    }
+
     public function approveJobOrder(int $id, int $approvedByUserId): JobOrder
     {
         return DB::transaction(function () use ($id, $approvedByUserId) {

@@ -210,9 +210,7 @@ class CustomerService {
         return api.get<ApiResponse<CustomerBillingSummary>>('/v1/customer/billing/summary');
     }
 
-    async getMyBillingReceipts(
-        filters: CustomerBillingReceiptFilters = {},
-    ): Promise<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>> {
+    async getMyBillingReceipts(filters: CustomerBillingReceiptFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>> {
         const params: Record<string, string | number> = {};
 
         if (filters.search) params.search = filters.search;

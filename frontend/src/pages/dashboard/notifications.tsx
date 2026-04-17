@@ -149,7 +149,9 @@ export default function FrontdeskNotifications() {
 
                                         {/* Content */}
                                         <div className="min-w-0 flex-1 pr-4">
-                                            <p className={`text-sm leading-snug font-semibold ${notif.read ? 'text-foreground/70' : 'text-foreground'}`}>
+                                            <p
+                                                className={`text-sm leading-snug font-semibold ${notif.read ? 'text-foreground/70' : 'text-foreground'}`}
+                                            >
                                                 {notif.title}
                                             </p>
                                             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{notif.message}</p>

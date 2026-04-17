@@ -21,6 +21,13 @@ export interface ResetPasswordData {
     password_confirmation: string;
 }
 
+export interface UpdateProfileData {
+    name: string;
+    email: string;
+    phone_number?: string | null;
+    address?: string | null;
+}
+
 class AuthService {
     async login(data: LoginData): Promise<{ message: string; user: User }> {
         await api.getCsrfCookie();
@@ -65,7 +72,7 @@ class AuthService {
         return api.get('/settings/profile');
     }
 
-    async updateProfile(data: { name: string; email: string }): Promise<{ user: User; message: string }> {
+    async updateProfile(data: UpdateProfileData): Promise<{ user: User; message: string }> {
         return api.patch('/settings/profile', data);
     }
 

@@ -44,7 +44,7 @@ export function useCustomerLogs(initialFilters: CustomerTransactionFilters = {})
             setPagination({
                 currentPage: paginated?.current_page ?? 1,
                 lastPage: paginated?.last_page ?? 1,
-                perPage: paginated?.per_page ?? (filters.per_page ?? DEFAULT_PER_PAGE),
+                perPage: paginated?.per_page ?? filters.per_page ?? DEFAULT_PER_PAGE,
                 total: paginated?.total ?? data.length,
             });
         } catch (err) {

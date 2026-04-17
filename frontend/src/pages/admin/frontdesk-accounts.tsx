@@ -79,43 +79,43 @@ export default function FrontDeskAccounts() {
                         ) : (
                             <div className="max-h-full overflow-auto">
                                 <table className="w-full">
-                                <thead>
-                                    <tr className="border-b text-left text-sm text-muted-foreground">
-                                        <th className="px-4 py-3 font-medium">Name</th>
-                                        <th className="px-4 py-3 font-medium">Email</th>
-                                        <th className="px-4 py-3 font-medium">Created</th>
-                                        <th className="px-4 py-3 font-medium">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {accounts.map((account) => (
-                                        <tr key={account.id} className="border-b last:border-0 hover:bg-muted/50">
-                                            <td className="px-4 py-3 font-medium">{account.name}</td>
-                                            <td className="px-4 py-3 text-sm text-muted-foreground">{account.email}</td>
-                                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                                                {new Date(account.created_at).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                })}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <button
-                                                    onClick={() => handleDelete(account.id)}
-                                                    disabled={deleting === account.id}
-                                                    className="inline-flex items-center gap-1 rounded-lg py-1.5 pr-3 pl-0 text-sm text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
-                                                >
-                                                    {deleting === account.id ? (
-                                                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <Trash2 className="h-4 w-4" />
-                                                    )}
-                                                    Delete
-                                                </button>
-                                            </td>
+                                    <thead>
+                                        <tr className="border-b text-left text-sm text-muted-foreground">
+                                            <th className="px-4 py-3 font-medium">Name</th>
+                                            <th className="px-4 py-3 font-medium">Email</th>
+                                            <th className="px-4 py-3 font-medium">Created</th>
+                                            <th className="px-4 py-3 font-medium">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
+                                    </thead>
+                                    <tbody>
+                                        {accounts.map((account) => (
+                                            <tr key={account.id} className="border-b last:border-0 hover:bg-muted/50">
+                                                <td className="px-4 py-3 font-medium">{account.name}</td>
+                                                <td className="px-4 py-3 text-sm text-muted-foreground">{account.email}</td>
+                                                <td className="px-4 py-3 text-sm text-muted-foreground">
+                                                    {new Date(account.created_at).toLocaleDateString('en-US', {
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        year: 'numeric',
+                                                    })}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <button
+                                                        onClick={() => handleDelete(account.id)}
+                                                        disabled={deleting === account.id}
+                                                        className="inline-flex items-center gap-1 rounded-lg py-1.5 pr-3 pl-0 text-sm text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                                                    >
+                                                        {deleting === account.id ? (
+                                                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
                                 </table>
                             </div>
                         )}

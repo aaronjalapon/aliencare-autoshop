@@ -116,11 +116,33 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('link-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('update-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('manage-booking-slots', fn (User $user): bool => $this->canManageBookingSlots($user));
+        Gate::define('manage-services', fn (User $user): bool => $this->canManageServices($user));
+        Gate::define('manage-job-orders', fn (User $user): bool => $this->canManageJobOrders($user));
     }
 
     private function canManageBookingSlots(User $user): bool
     {
         return $this->canAccessSensitiveEndpoints($user) && $user->role === UserRole::Admin;
+    }
+
+    private function canManageServices(User $user): bool
+    {
+        if (! $this->canAccessSensitiveEndpoints($user)) {
+            return false;
+        }
+
+        return in_array($user->role, [UserRole::Admin, UserRole::FrontDesk], true)
+            || in_array($user->role, [UserRole::Admin->value, UserRole::FrontDesk->value], true);
+    }
+
+    private function canManageJobOrders(User $user): bool
+    {
+        if (! $this->canAccessSensitiveEndpoints($user)) {
+            return false;
+        }
+
+        return in_array($user->role, [UserRole::Admin, UserRole::FrontDesk], true)
+            || in_array($user->role, [UserRole::Admin->value, UserRole::FrontDesk->value], true);
     }
 
     private function warnIfXenditConfigLooksInvalid(): void

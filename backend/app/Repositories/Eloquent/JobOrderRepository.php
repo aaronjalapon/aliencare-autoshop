@@ -18,27 +18,77 @@ class JobOrderRepository extends BaseRepository implements JobOrderRepositoryInt
 
     public function findById(int|string $id): ?JobOrder
     {
-        return $this->model->with(['customer', 'vehicle', 'mechanic.user', 'bay', 'items'])->find($id);
+        return $this->model->with([
+            'service',
+            'customer',
+            'vehicle',
+            'mechanic.user',
+            'bay',
+            'approvedByUser',
+            'items',
+            'reservations',
+            'customerTransactions',
+        ])->find($id);
     }
 
     public function findByIdOrFail(int|string $id): JobOrder
     {
-        return $this->model->with(['customer', 'vehicle', 'mechanic.user', 'bay', 'items'])->findOrFail($id);
+        return $this->model->with([
+            'service',
+            'customer',
+            'vehicle',
+            'mechanic.user',
+            'bay',
+            'approvedByUser',
+            'items',
+            'reservations',
+            'customerTransactions',
+        ])->findOrFail($id);
     }
 
     public function findByJoNumber(string $joNumber): ?JobOrder
     {
-        return $this->model->with(['customer', 'vehicle', 'mechanic.user', 'bay', 'items'])
+        return $this->model->with([
+            'service',
+            'customer',
+            'vehicle',
+            'mechanic.user',
+            'bay',
+            'approvedByUser',
+            'items',
+            'reservations',
+            'customerTransactions',
+        ])
             ->where('jo_number', $joNumber)
             ->first();
     }
 
     public function all(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()->with(['customer', 'vehicle', 'mechanic.user', 'bay']);
+        $query = $this->model->newQuery()->with([
+            'service',
+            'customer',
+            'vehicle',
+            'mechanic.user',
+            'bay',
+            'approvedByUser',
+            'items',
+            'reservations',
+            'customerTransactions',
+        ]);
 
         if (isset($filters['status'])) {
             $query->where('status', $filters['status']);
+        }
+
+        if (isset($filters['source'])) {
+            $source = strtolower(trim((string) $filters['source']));
+
+            if (in_array($source, ['online', 'online booking', 'online_booking', 'online-booking'], true)) {
+                $query->whereHas('reservations');
+            } elseif (in_array($source, ['walkin', 'walk in', 'walk-in', 'walk_in'], true)) {
+                $query->whereDoesntHave('reservations');
+            }
         }
 
         if (isset($filters['customer_id'])) {
@@ -81,7 +131,17 @@ class JobOrderRepository extends BaseRepository implements JobOrderRepositoryInt
         $record = $this->model->findOrFail($id);
         $record->update($data);
 
-        return $record->fresh(['customer', 'vehicle', 'mechanic.user', 'bay', 'items']);
+        return $record->fresh([
+            'service',
+            'customer',
+            'vehicle',
+            'mechanic.user',
+            'bay',
+            'approvedByUser',
+            'items',
+            'reservations',
+            'customerTransactions',
+        ]);
     }
 
     public function delete(int|string $id): bool

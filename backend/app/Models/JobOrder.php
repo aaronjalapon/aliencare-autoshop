@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CustomerTransactionType;
 use App\Enums\JobOrderStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class JobOrder extends Model
 {
@@ -86,6 +89,53 @@ class JobOrder extends Model
         return (float) $itemsTotal + (float) $this->service_fee;
     }
 
+    public function calculatePaidAmount(): float
+    {
+        if ($this->relationLoaded('customerTransactions')) {
+            return (float) $this->customerTransactions
+                ->filter(fn (CustomerTransaction $transaction): bool => $this->transactionCountsAsPaid($transaction))
+                ->sum(fn (CustomerTransaction $transaction): float => abs((float) $transaction->amount));
+        }
+
+        return (float) $this->customerTransactions()
+            ->where(function (Builder $query): void {
+                $query
+                    ->where(function (Builder $invoiceQuery): void {
+                        $invoiceQuery
+                            ->whereIn('type', [
+                                CustomerTransactionType::Invoice->value,
+                                CustomerTransactionType::ReservationFee->value,
+                            ])
+                            ->where('xendit_status', 'PAID');
+                    })
+                    ->orWhere(function (Builder $paymentQuery): void {
+                        $paymentQuery
+                            ->where('type', CustomerTransactionType::Payment->value)
+                            ->where(function (Builder $statusQuery): void {
+                                $statusQuery
+                                    ->whereNull('xendit_status')
+                                    ->orWhere('xendit_status', 'PAID')
+                                    ->orWhereNotNull('paid_at');
+                            });
+                    });
+            })
+            ->sum(DB::raw('ABS(amount)'));
+    }
+
+    public function calculateBalance(): float
+    {
+        return max(0.0, round($this->calculateTotalCost() - $this->calculatePaidAmount(), 2));
+    }
+
+    public function isOnlineBooking(): bool
+    {
+        if ($this->relationLoaded('reservations')) {
+            return $this->reservations->isNotEmpty();
+        }
+
+        return $this->reservations()->exists();
+    }
+
     public function service(): BelongsTo
     {
         return $this->belongsTo(ServiceCatalog::class);
@@ -129,6 +179,23 @@ class JobOrder extends Model
     public function customerTransactions(): HasMany
     {
         return $this->hasMany(CustomerTransaction::class);
+    }
+
+    private function transactionCountsAsPaid(CustomerTransaction $transaction): bool
+    {
+        $type = $transaction->type?->value ?? (string) $transaction->type;
+
+        if (in_array($type, [CustomerTransactionType::Invoice->value, CustomerTransactionType::ReservationFee->value], true)) {
+            return strtoupper((string) $transaction->xendit_status) === 'PAID';
+        }
+
+        if ($type === CustomerTransactionType::Payment->value) {
+            $status = strtoupper((string) $transaction->xendit_status);
+
+            return $status === '' || $status === 'PAID' || $transaction->paid_at !== null;
+        }
+
+        return false;
     }
 
     public function scopeByStatus($query, JobOrderStatus $status)

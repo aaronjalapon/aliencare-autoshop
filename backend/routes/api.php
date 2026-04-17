@@ -111,11 +111,18 @@ Route::middleware('auth:sanctum')->prefix('settings')->name('settings.')->group(
 Route::prefix('v1')->name('api.v1.public.')->group(function () {
     Route::prefix('services')->name('services.')->group(function () {
         Route::get('/', [ServiceCatalogController::class, 'index'])->name('index');
-        Route::get('/{id}', [ServiceCatalogController::class, 'show'])->name('show');
+        Route::get('/{id}', [ServiceCatalogController::class, 'show'])->whereNumber('id')->name('show');
     });
 });
 
 Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::prefix('services')->name('services.')->group(function () {
+        Route::get('/manage', [ServiceCatalogController::class, 'manageIndex'])->name('manage.index');
+        Route::post('/', [ServiceCatalogController::class, 'store'])->name('store');
+        Route::put('/{id}', [ServiceCatalogController::class, 'update'])->whereNumber('id')->name('update');
+        Route::delete('/{id}', [ServiceCatalogController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    });
+
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->name('index');
         Route::post('/', [InventoryController::class, 'store'])->name('store');
@@ -183,6 +190,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::post('/', [JobOrderController::class, 'store'])->name('store');
         Route::get('/{id}', [JobOrderController::class, 'show'])->name('show');
         Route::put('/{id}', [JobOrderController::class, 'update'])->name('update');
+        Route::put('/{id}/submit', [JobOrderController::class, 'submit'])->name('submit');
         Route::put('/{id}/approve', [JobOrderController::class, 'approve'])->name('approve');
         Route::put('/{id}/start', [JobOrderController::class, 'start'])->name('start');
         Route::put('/{id}/complete', [JobOrderController::class, 'complete'])->name('complete');

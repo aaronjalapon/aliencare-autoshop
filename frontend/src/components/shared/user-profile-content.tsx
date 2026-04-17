@@ -1,6 +1,7 @@
 import { RoleAvatar } from '@/components/shared/role-avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
+import { authService } from '@/services/authService';
 import { customerService } from '@/services/customerService';
 import type { Vehicle } from '@/types/customer';
 import { CalendarDays, Car, FileText, History, Mail, MapPin, Phone, SquarePen } from 'lucide-react';
@@ -14,26 +15,66 @@ interface UserProfileContentProps {
 }
 
 export function UserProfileContent({ showTitle = true, subtitle }: UserProfileContentProps) {
-    const { user } = useAuth();
-    const { customer, loading, refetch } = useCustomerProfile();
+    const { user, refreshUser } = useAuth();
+
+    const isCustomer = user?.role === 'customer';
+    const isFrontdesk = user?.role === 'frontdesk';
+    const isAdmin = user?.role === 'admin';
+
+    const { customer, loading, refetch } = useCustomerProfile(isCustomer);
 
     const [personalEditOpen, setPersonalEditOpen] = useState(false);
     const [specialEditOpen, setSpecialEditOpen] = useState(false);
     const [vehicleEditTarget, setVehicleEditTarget] = useState<Vehicle | null>(null);
     const [addVehicleOpen, setAddVehicleOpen] = useState(false);
 
-    // For non-customer roles — keep existing edit capability (non-functional placeholder)
     const [nonCustomerSection, setNonCustomerSection] = useState<'personal' | 'account' | 'special' | null>(null);
-
-    const isCustomer = user?.role === 'customer';
-    const isFrontdesk = user?.role === 'frontdesk';
-    const isAdmin = user?.role === 'admin';
 
     const roleLabel = isCustomer ? 'Customer' : isFrontdesk ? 'Front Desk' : 'Admin';
 
     const memberSince = user?.created_at
         ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
         : '—';
+
+    const normalizeOptionalText = (value: string | undefined): string | null => {
+        const normalized = value?.trim();
+        return normalized ? normalized : null;
+    };
+
+    const handleFrontdeskProfileUpdate = async (partial: {
+        name?: string;
+        email?: string;
+        phone_number?: string | null;
+        address?: string | null;
+    }) => {
+        if (!user) return;
+
+        const currentPhone = typeof user.phone_number === 'string' ? user.phone_number : null;
+        const currentAddress = typeof user.address === 'string' ? user.address : null;
+
+        await authService.updateProfile({
+            name: partial.name ?? user.name,
+            email: partial.email ?? user.email,
+            phone_number: Object.prototype.hasOwnProperty.call(partial, 'phone_number') ? partial.phone_number : currentPhone,
+            address: Object.prototype.hasOwnProperty.call(partial, 'address') ? partial.address : currentAddress,
+        });
+
+        await refreshUser();
+    };
+
+    const handleFrontdeskPersonalSave = async (values: Record<string, string>) => {
+        await handleFrontdeskProfileUpdate({
+            phone_number: normalizeOptionalText(values.phone),
+            address: normalizeOptionalText(values.address),
+        });
+    };
+
+    const handleFrontdeskAccountSave = async (values: Record<string, string>) => {
+        await handleFrontdeskProfileUpdate({
+            name: values.name?.trim() ?? '',
+            email: values.email?.trim() ?? '',
+        });
+    };
 
     // ── Customer: Personal Information save ──────────────────────────────────
     const handlePersonalSave = async (values: Record<string, string>) => {
@@ -150,7 +191,9 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
                                 <div className="flex items-center gap-2">
                                     <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     <span className="text-muted-foreground">Phone:</span>
-                                    <span className="font-medium">{isCustomer ? (loading ? '…' : (customer?.phone_number ?? '—')) : '—'}</span>
+                                    <span className="font-medium">
+                                        {isCustomer ? (loading ? '…' : (customer?.phone_number ?? '—')) : (user?.phone_number ?? '—')}
+                                    </span>
                                 </div>
                                 <div className="flex min-w-0 items-center gap-2">
                                     <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -160,7 +203,9 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
                                 <div className="flex items-center gap-2">
                                     <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     <span className="text-muted-foreground">Address:</span>
-                                    <span className="font-medium">{isCustomer ? (loading ? '…' : (customer?.address ?? '—')) : '—'}</span>
+                                    <span className="font-medium">
+                                        {isCustomer ? (loading ? '…' : (customer?.address ?? '—')) : (user?.address ?? '—')}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -278,38 +323,40 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
                         </div>
 
                         {/* Special Information */}
-                        <div className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex items-center justify-between">
-                                <h3 className="font-semibold">Special Information</h3>
-                                {isCustomer ? (
-                                    <button
-                                        onClick={() => setSpecialEditOpen(true)}
-                                        aria-label="Edit Special Information"
-                                        disabled={loading || !customer}
-                                    >
-                                        <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70 disabled:opacity-30" />
-                                    </button>
-                                ) : (
-                                    <button onClick={() => setNonCustomerSection('special')} aria-label="Edit Special Information">
-                                        <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-3 text-sm">
-                                <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <span className="text-muted-foreground">Preferred Contact:</span>
-                                    <span className="font-medium">
-                                        {isCustomer ? (loading ? '…' : (customer?.preferred_contact_method?.toUpperCase() ?? '—')) : 'SMS'}
-                                    </span>
+                        {!isFrontdesk && (
+                            <div className="profile-card rounded-xl p-5">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h3 className="font-semibold">Special Information</h3>
+                                    {isCustomer ? (
+                                        <button
+                                            onClick={() => setSpecialEditOpen(true)}
+                                            aria-label="Edit Special Information"
+                                            disabled={loading || !customer}
+                                        >
+                                            <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70 disabled:opacity-30" />
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => setNonCustomerSection('special')} aria-label="Edit Special Information">
+                                            <SquarePen className="h-4 w-4 text-[#d4af37] transition-opacity hover:opacity-70" />
+                                        </button>
+                                    )}
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <span className="text-muted-foreground">Notes:</span>
-                                    <span className="italic">{isCustomer ? (loading ? '…' : (customer?.special_notes ?? '—')) : 'N/A'}</span>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                        <span className="text-muted-foreground">Preferred Contact:</span>
+                                        <span className="font-medium">
+                                            {isCustomer ? (loading ? '…' : (customer?.preferred_contact_method?.toUpperCase() ?? '—')) : 'SMS'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                        <span className="text-muted-foreground">Notes:</span>
+                                        <span className="italic">{isCustomer ? (loading ? '…' : (customer?.special_notes ?? '—')) : 'N/A'}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -368,8 +415,34 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
                 <AddVehicleModal open={addVehicleOpen} onClose={() => setAddVehicleOpen(false)} customerId={customer.id} onSuccess={refetch} />
             )}
 
-            {/* Non-customer: placeholder modals (edit icon opens modal, save is no-op) */}
-            {!isCustomer && nonCustomerSection === 'personal' && (
+            {/* Frontdesk: connected modals */}
+            {isFrontdesk && nonCustomerSection === 'personal' && (
+                <ProfileEditModal
+                    open={true}
+                    onClose={() => setNonCustomerSection(null)}
+                    title="Edit Personal Information"
+                    fields={[
+                        { label: 'Phone Number', key: 'phone', value: user?.phone_number ?? '', type: 'tel' },
+                        { label: 'Address', key: 'address', value: user?.address ?? '', type: 'text' },
+                    ]}
+                    onSave={handleFrontdeskPersonalSave}
+                />
+            )}
+            {isFrontdesk && nonCustomerSection === 'account' && (
+                <ProfileEditModal
+                    open={true}
+                    onClose={() => setNonCustomerSection(null)}
+                    title="Edit Account Details"
+                    fields={[
+                        { label: 'Name', key: 'name', value: user?.name ?? '', type: 'text' },
+                        { label: 'Email', key: 'email', value: user?.email ?? '', type: 'email' },
+                    ]}
+                    onSave={handleFrontdeskAccountSave}
+                />
+            )}
+
+            {/* Non-customer placeholders for admin */}
+            {!isCustomer && !isFrontdesk && nonCustomerSection === 'personal' && (
                 <ProfileEditModal
                     open={true}
                     onClose={() => setNonCustomerSection(null)}
@@ -381,20 +454,16 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
                     onSave={async () => {}}
                 />
             )}
-            {!isCustomer && nonCustomerSection === 'account' && (
+            {!isCustomer && !isFrontdesk && nonCustomerSection === 'account' && (
                 <ProfileEditModal
                     open={true}
                     onClose={() => setNonCustomerSection(null)}
                     title="Edit Account Details"
-                    fields={
-                        isFrontdesk
-                            ? [{ label: 'Department', key: 'department', value: 'Operations', type: 'text' }]
-                            : [{ label: 'System Access', key: 'access', value: 'Full Access', type: 'text' }]
-                    }
+                    fields={[{ label: 'System Access', key: 'access', value: 'Full Access', type: 'text' }]}
                     onSave={async () => {}}
                 />
             )}
-            {!isCustomer && nonCustomerSection === 'special' && (
+            {!isCustomer && !isFrontdesk && nonCustomerSection === 'special' && (
                 <ProfileEditModal
                     open={true}
                     onClose={() => setNonCustomerSection(null)}

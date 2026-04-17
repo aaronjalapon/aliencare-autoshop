@@ -26,8 +26,8 @@ import JobOrders from '@/pages/dashboard/job-orders';
 import PointOfSale from '@/pages/dashboard/pos';
 import FrontdeskProfile from '@/pages/dashboard/profile';
 import Reports from '@/pages/dashboard/reports';
-import FrontdeskSettings from '@/pages/dashboard/settings';
 import Services from '@/pages/dashboard/services';
+import FrontdeskSettings from '@/pages/dashboard/settings';
 
 // Admin pages
 import AdminBookingSlots from '@/pages/admin/booking-slots';

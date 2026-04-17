@@ -370,7 +370,9 @@ function BookingDetailView({
                                 <Calendar className="h-3.5 w-3.5 text-[#d4af37]" />
                                 <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Arrival</p>
                             </div>
-                            <p className="text-sm leading-snug font-semibold">{booking.arrival === '—' ? '—' : booking.arrival.split(',').slice(0, 2).join(',')}</p>
+                            <p className="text-sm leading-snug font-semibold">
+                                {booking.arrival === '—' ? '—' : booking.arrival.split(',').slice(0, 2).join(',')}
+                            </p>
                             <p className="text-lg font-bold text-[#d4af37]">{booking.scheduledTime}</p>
                         </div>
                         {/* Estimated Start */}
@@ -1041,7 +1043,11 @@ export default function MyServices() {
                                     disabled={receiptLoadingId === selected.id}
                                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
                                 >
-                                    {receiptLoadingId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                    {receiptLoadingId === selected.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Download className="h-4 w-4" />
+                                    )}
                                     {receiptLoadingId === selected.id ? 'Opening Receipt...' : 'View Receipt'}
                                 </button>
                             )}

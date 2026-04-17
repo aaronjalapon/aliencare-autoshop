@@ -764,63 +764,61 @@ export function InventoryTable() {
                 </div>
                 <div className="overflow-auto">
                     <Table>
-                            <TableHeader>
-                                <TableRow className="border-border">
-                                    <TableHead className="text-foreground">Part Number</TableHead>
-                                    <TableHead className="text-foreground">Name</TableHead>
-                                    <TableHead className="text-foreground">Category</TableHead>
-                                    <TableHead className="text-foreground">Stock Level</TableHead>
-                                    <TableHead className="text-foreground">Status</TableHead>
-                                    <TableHead className="text-foreground">Unit Price</TableHead>
-                                    <TableHead className="text-foreground">Location</TableHead>
-                                    <TableHead className="text-foreground">Supplier</TableHead>
-                                    <TableHead className="text-foreground">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredParts.map((part) => (
-                                    <TableRow key={part.id} className="border-border hover:bg-muted/50">
-                                        <TableCell className="font-medium text-foreground">{part.item_id}</TableCell>
-                                        <TableCell className="text-foreground">{part.item_name}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{part.category}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-foreground">{part.stock}</span>
-                                                    <span className="text-muted-foreground">Min: {part.reorder_level}</span>
-                                                </div>
-                                                <div className="h-2 w-full rounded-full bg-muted">
-                                                    <div
-                                                        className={`h-2 rounded-full ${getStockBarColor(part)}`}
-                                                        style={{ width: `${Math.min((part.stock / (part.reorder_level * 3)) * 100, 100)}%` }}
-                                                    />
-                                                </div>
+                        <TableHeader>
+                            <TableRow className="border-border">
+                                <TableHead className="text-foreground">Part Number</TableHead>
+                                <TableHead className="text-foreground">Name</TableHead>
+                                <TableHead className="text-foreground">Category</TableHead>
+                                <TableHead className="text-foreground">Stock Level</TableHead>
+                                <TableHead className="text-foreground">Status</TableHead>
+                                <TableHead className="text-foreground">Unit Price</TableHead>
+                                <TableHead className="text-foreground">Location</TableHead>
+                                <TableHead className="text-foreground">Supplier</TableHead>
+                                <TableHead className="text-foreground">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredParts.map((part) => (
+                                <TableRow key={part.id} className="border-border hover:bg-muted/50">
+                                    <TableCell className="font-medium text-foreground">{part.item_id}</TableCell>
+                                    <TableCell className="text-foreground">{part.item_name}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">{part.category}</Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-foreground">{part.stock}</span>
+                                                <span className="text-muted-foreground">Min: {part.reorder_level}</span>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>{getStockBadge(part)}</TableCell>
-                                        <TableCell className="text-foreground">₱{parseFloat(part.unit_price.toString()).toFixed(2)}</TableCell>
-                                        <TableCell className="text-foreground">{part.location || 'N/A'}</TableCell>
-                                        <TableCell className="text-foreground">{part.supplier || 'N/A'}</TableCell>
-                                        <TableCell>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleEditItem(part)}
-                                                className="border-border text-foreground hover:bg-muted"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                            <div className="h-2 w-full rounded-full bg-muted">
+                                                <div
+                                                    className={`h-2 rounded-full ${getStockBarColor(part)}`}
+                                                    style={{ width: `${Math.min((part.stock / (part.reorder_level * 3)) * 100, 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{getStockBadge(part)}</TableCell>
+                                    <TableCell className="text-foreground">₱{parseFloat(part.unit_price.toString()).toFixed(2)}</TableCell>
+                                    <TableCell className="text-foreground">{part.location || 'N/A'}</TableCell>
+                                    <TableCell className="text-foreground">{part.supplier || 'N/A'}</TableCell>
+                                    <TableCell>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleEditItem(part)}
+                                            className="border-border text-foreground hover:bg-muted"
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </div>
-                {filteredParts.length === 0 && (
-                    <div className="py-8 text-center text-muted-foreground">No parts found matching your criteria</div>
-                )}
+                {filteredParts.length === 0 && <div className="py-8 text-center text-muted-foreground">No parts found matching your criteria</div>}
             </div>
         </div>
     );

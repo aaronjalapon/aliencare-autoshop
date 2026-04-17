@@ -1,6 +1,6 @@
 import AppLayout from '@/components/layout/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Banknote, CheckCircle2, Clock3, CreditCard, Link2, ReceiptText, Search, Wallet, X } from 'lucide-react';
+import { Banknote, CheckCircle2, CreditCard, Link2, ReceiptText, Search, Wallet, X } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing & Payment', href: '/billing' }];
@@ -423,8 +423,7 @@ export default function Billing() {
             .filter((view) => view.status !== 'paid' && view.ticket.source === 'online_booking')
             .reduce((sum, view) => sum + view.balance, 0);
         const walkInOpenTickets = ticketViews.filter((view) => view.status !== 'paid' && view.ticket.source === 'walk_in').length;
-        const averageTicketValue =
-            ticketViews.length > 0 ? ticketViews.reduce((sum, view) => sum + view.subtotal, 0) / ticketViews.length : 0;
+        const averageTicketValue = ticketViews.length > 0 ? ticketViews.reduce((sum, view) => sum + view.subtotal, 0) / ticketViews.length : 0;
 
         const today = new Date().toISOString().slice(0, 10);
         const settledToday = ticketViews.reduce((sum, view) => {
@@ -549,7 +548,8 @@ export default function Billing() {
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Process online booking invoices and walk-in settlements in one queue, including deposits, partial payments, and release-ready balances.
+                                Process online booking invoices and walk-in settlements in one queue, including deposits, partial payments, and
+                                release-ready balances.
                             </p>
                             {notice && <p className="mt-2 text-xs text-[#d4af37]">{notice}</p>}
                         </div>
@@ -557,7 +557,11 @@ export default function Billing() {
                         <div className="flex flex-wrap items-center gap-2">
                             <button
                                 onClick={sendPaymentLink}
-                                disabled={!selectedTicketView || selectedTicketView.status === 'paid' || selectedTicketView.ticket.source !== 'online_booking'}
+                                disabled={
+                                    !selectedTicketView ||
+                                    selectedTicketView.status === 'paid' ||
+                                    selectedTicketView.ticket.source !== 'online_booking'
+                                }
                                 className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Link2 className="h-4 w-4" /> Send Payment Link
@@ -693,7 +697,9 @@ export default function Billing() {
                                                     <div className="mb-2 lg:mb-0">
                                                         <p className="text-sm font-semibold">{view.ticket.invoiceNo}</p>
                                                         <div className="mt-1 flex items-center gap-1.5">
-                                                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sourceStyles[view.ticket.source]}`}>
+                                                            <span
+                                                                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sourceStyles[view.ticket.source]}`}
+                                                            >
                                                                 {sourceLabels[view.ticket.source]}
                                                             </span>
                                                             <span className="text-[10px] text-muted-foreground uppercase">{view.ticket.kind}</span>
@@ -710,12 +716,16 @@ export default function Billing() {
                                                         <p className="text-xs text-muted-foreground">Due {formatDateTime(view.ticket.dueAt)}</p>
                                                     </div>
 
-                                                    <div className="mb-2 text-sm font-semibold text-[#d4af37] lg:mb-0">{formatPeso(view.subtotal)}</div>
+                                                    <div className="mb-2 text-sm font-semibold text-[#d4af37] lg:mb-0">
+                                                        {formatPeso(view.subtotal)}
+                                                    </div>
 
                                                     <div className="mb-2 text-sm font-semibold lg:mb-0">{formatPeso(view.balance)}</div>
 
                                                     <div>
-                                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[view.status]}`}>
+                                                        <span
+                                                            className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[view.status]}`}
+                                                        >
                                                             {statusLabels[view.status]}
                                                         </span>
                                                     </div>
@@ -733,13 +743,17 @@ export default function Billing() {
                                     <div>
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
-                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{selectedTicketView.ticket.invoiceNo}</p>
+                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                                    {selectedTicketView.ticket.invoiceNo}
+                                                </p>
                                                 <h2 className="mt-1 text-xl font-bold">{selectedTicketView.ticket.customerName}</h2>
                                                 <p className="mt-1 text-sm text-muted-foreground">
                                                     {selectedTicketView.ticket.jobOrderNo ?? selectedTicketView.ticket.posRef ?? 'Reference pending'}
                                                 </p>
                                             </div>
-                                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[selectedTicketView.status]}`}>
+                                            <span
+                                                className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[selectedTicketView.status]}`}
+                                            >
                                                 {statusLabels[selectedTicketView.status]}
                                             </span>
                                         </div>
@@ -747,11 +761,13 @@ export default function Billing() {
                                         <div className="mt-3 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
                                             {selectedTicketView.ticket.source === 'online_booking' ? (
                                                 <p>
-                                                    Online booking workflow: verify booking deposit, send hosted invoice if requested, then settle remaining balance before releasing vehicle.
+                                                    Online booking workflow: verify booking deposit, send hosted invoice if requested, then settle
+                                                    remaining balance before releasing vehicle.
                                                 </p>
                                             ) : (
                                                 <p>
-                                                    Walk-in workflow: collect same-day payment on-site, then finalize release after complete settlement and receipt confirmation.
+                                                    Walk-in workflow: collect same-day payment on-site, then finalize release after complete
+                                                    settlement and receipt confirmation.
                                                 </p>
                                             )}
                                         </div>
@@ -759,15 +775,21 @@ export default function Billing() {
 
                                     <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
                                         <div className="mb-2 flex items-center justify-between text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1"><ReceiptText className="h-3.5 w-3.5" /> Subtotal</span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <ReceiptText className="h-3.5 w-3.5" /> Subtotal
+                                            </span>
                                             <span className="font-semibold text-foreground">{formatPeso(selectedTicketView.subtotal)}</span>
                                         </div>
                                         <div className="mb-2 flex items-center justify-between text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Deposit Credit</span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <CreditCard className="h-3.5 w-3.5" /> Deposit Credit
+                                            </span>
                                             <span className="font-semibold text-foreground">{formatPeso(selectedTicketView.ticket.depositPaid)}</span>
                                         </div>
                                         <div className="mb-2 flex items-center justify-between text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1"><Banknote className="h-3.5 w-3.5" /> Recorded Payments</span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <Banknote className="h-3.5 w-3.5" /> Recorded Payments
+                                            </span>
                                             <span className="font-semibold text-foreground">{formatPeso(selectedTicketView.manualPaid)}</span>
                                         </div>
                                         <div className="flex items-center justify-between border-t border-[#2a2a2e] pt-2 text-sm">
@@ -800,9 +822,13 @@ export default function Billing() {
                                                 <div className="rounded-md border border-[#2a2a2e] bg-[#090a0d] px-3 py-2">
                                                     <div className="flex items-center justify-between">
                                                         <p className="font-medium">Booking Deposit ({methodLabels.xendit})</p>
-                                                        <p className="font-semibold text-emerald-300">{formatPeso(selectedTicketView.ticket.depositPaid)}</p>
+                                                        <p className="font-semibold text-emerald-300">
+                                                            {formatPeso(selectedTicketView.ticket.depositPaid)}
+                                                        </p>
                                                     </div>
-                                                    <p className="mt-1 text-xs text-muted-foreground">Reference: {selectedTicketView.ticket.depositReference ?? 'N/A'}</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Reference: {selectedTicketView.ticket.depositReference ?? 'N/A'}
+                                                    </p>
                                                 </div>
                                             )}
 
@@ -820,7 +846,9 @@ export default function Billing() {
                                                             <p className="mt-1 text-xs text-muted-foreground">
                                                                 {formatDateTime(payment.paidAt)} by {payment.receivedBy}
                                                             </p>
-                                                            {payment.reference && <p className="text-xs text-muted-foreground">Reference: {payment.reference}</p>}
+                                                            {payment.reference && (
+                                                                <p className="text-xs text-muted-foreground">Reference: {payment.reference}</p>
+                                                            )}
                                                         </div>
                                                     ))
                                             )}
@@ -944,7 +972,10 @@ export default function Billing() {
                                 >
                                     Cancel
                                 </button>
-                                <button type="submit" className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90">
+                                <button
+                                    type="submit"
+                                    className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90"
+                                >
                                     Save Payment
                                 </button>
                             </div>

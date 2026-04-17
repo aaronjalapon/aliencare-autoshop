@@ -1,18 +1,7 @@
 import AppLayout from '@/components/layout/app-layout';
 import { reportsService } from '@/services/reportsService';
 import { type BreadcrumbItem } from '@/types';
-import {
-    Activity,
-    AlertTriangle,
-    BarChart3,
-    CheckCircle2,
-    Clock3,
-    Loader2,
-    RefreshCcw,
-    TrendingDown,
-    TrendingUp,
-    Wrench,
-} from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, CheckCircle2, Clock3, Loader2, RefreshCcw, TrendingDown, TrendingUp, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reports and Analytics', href: '/reports' }];
@@ -196,9 +185,7 @@ function toShortDateLabel(rawDate: string): string {
 }
 
 function formatTypeLabel(type: string): string {
-    return type
-        .replaceAll('_', ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+    return type.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function normalizeDashboardPayload(raw: unknown): DashboardAnalyticsView {
@@ -221,11 +208,7 @@ function normalizeUsagePayload(raw: unknown): UsageAnalyticsView {
         return fallbackState.usage;
     }
 
-    const topItemsRaw = Array.isArray(raw.top_consumed_items)
-        ? raw.top_consumed_items
-        : Array.isArray(raw.top_items)
-          ? raw.top_items
-          : [];
+    const topItemsRaw = Array.isArray(raw.top_consumed_items) ? raw.top_consumed_items : Array.isArray(raw.top_items) ? raw.top_items : [];
 
     const topItems = topItemsRaw
         .map((entry, index) => {
@@ -294,9 +277,18 @@ function normalizeUsagePayload(raw: unknown): UsageAnalyticsView {
     }
 
     const summary = isRecord(raw.summary) ? raw.summary : null;
-    const totalTransactions = toNumber(raw.total_transactions, toNumber(summary?.total_consumed, topItems.reduce((sum, item) => sum + item.count, 0)));
+    const totalTransactions = toNumber(
+        raw.total_transactions,
+        toNumber(
+            summary?.total_consumed,
+            topItems.reduce((sum, item) => sum + item.count, 0),
+        ),
+    );
     const totalConsumed = toNumber(summary?.total_consumed, totalTransactions);
-    const totalCost = toNumber(summary?.total_cost, topItems.reduce((sum, item) => sum + item.cost, 0));
+    const totalCost = toNumber(
+        summary?.total_cost,
+        topItems.reduce((sum, item) => sum + item.cost, 0),
+    );
 
     const normalized: UsageAnalyticsView = {
         totalTransactions,
@@ -470,9 +462,7 @@ export default function Reports() {
                     : fallbackState.dashboard;
 
             const usageData =
-                usageResult.status === 'fulfilled' && usageResult.value.success
-                    ? normalizeUsagePayload(usageResult.value.data)
-                    : fallbackState.usage;
+                usageResult.status === 'fulfilled' && usageResult.value.success ? normalizeUsagePayload(usageResult.value.data) : fallbackState.usage;
 
             const procurementData =
                 procurementResult.status === 'fulfilled' && procurementResult.value.success
@@ -503,9 +493,7 @@ export default function Reports() {
 
     const servicePerformance = useMemo<ServicePerformanceRow[]>(() => {
         if (data.usage.topItems.length === 0) {
-            return [
-                { service: 'General Service', completed: 0, completionRate: 0, averageHours: 0 },
-            ];
+            return [{ service: 'General Service', completed: 0, completionRate: 0, averageHours: 0 }];
         }
 
         const maxCompleted = Math.max(...data.usage.topItems.map((item) => item.count), 1);
@@ -662,7 +650,9 @@ export default function Reports() {
                                 <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Risk Signals</p>
                                 <AlertTriangle className="h-4 w-4 text-red-400" />
                             </div>
-                            <p className="mt-2 text-3xl font-bold text-foreground">{data.dashboard.lowStockCount + data.dashboard.pendingReservations}</p>
+                            <p className="mt-2 text-3xl font-bold text-foreground">
+                                {data.dashboard.lowStockCount + data.dashboard.pendingReservations}
+                            </p>
                             <p className="mt-1 text-xs text-muted-foreground">Low-stock + reservation bottlenecks requiring action</p>
                         </article>
                     </section>
@@ -672,7 +662,9 @@ export default function Reports() {
                             <div className="mb-4 flex items-center justify-between gap-2">
                                 <div>
                                     <h2 className="text-base font-semibold">Revenue, Cost, and Margin Trend</h2>
-                                    <p className="text-xs text-muted-foreground">Observed workload and projected financial movement for the selected window</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Observed workload and projected financial movement for the selected window
+                                    </p>
                                 </div>
                                 <BarChart3 className="h-4 w-4 text-[#d4af37]" />
                             </div>
@@ -688,7 +680,9 @@ export default function Reports() {
 
                                     {[0, 1, 2, 3].map((gridLine) => {
                                         const y = 20 + gridLine * 50;
-                                        return <line key={gridLine} x1="20" y1={y} x2="600" y2={y} stroke="rgba(80,84,92,0.45)" strokeDasharray="4 5" />;
+                                        return (
+                                            <line key={gridLine} x1="20" y1={y} x2="600" y2={y} stroke="rgba(80,84,92,0.45)" strokeDasharray="4 5" />
+                                        );
                                     })}
 
                                     <path d={marginAreaPath} fill="url(#marginFill)" />
@@ -774,15 +768,21 @@ export default function Reports() {
 
                             <div className="mt-4 space-y-2 text-sm">
                                 <div className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2">
-                                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Completed</span>
+                                    <span className="inline-flex items-center gap-2">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Completed
+                                    </span>
                                     <span className="font-semibold">{completedJobs}</span>
                                 </div>
                                 <div className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2">
-                                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> In Progress</span>
+                                    <span className="inline-flex items-center gap-2">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> In Progress
+                                    </span>
                                     <span className="font-semibold">{inProgressJobs}</span>
                                 </div>
                                 <div className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2">
-                                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Queued / Blocked</span>
+                                    <span className="inline-flex items-center gap-2">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Queued / Blocked
+                                    </span>
                                     <span className="font-semibold">{queuedJobs}</span>
                                 </div>
                             </div>
@@ -808,12 +808,17 @@ export default function Reports() {
                                         </div>
 
                                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#1c1e23]">
-                                            <div className="h-full rounded-full bg-linear-to-r from-[#d4af37] to-[#f3d886]" style={{ width: `${row.completionRate}%` }} />
+                                            <div
+                                                className="h-full rounded-full bg-linear-to-r from-[#d4af37] to-[#f3d886]"
+                                                style={{ width: `${row.completionRate}%` }}
+                                            />
                                         </div>
 
                                         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                                             <span>Completion Confidence: {formatPercentage(row.completionRate)}</span>
-                                            <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> Avg {row.averageHours.toFixed(1)}h</span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <Clock3 className="h-3.5 w-3.5" /> Avg {row.averageHours.toFixed(1)}h
+                                            </span>
                                         </div>
                                     </div>
                                 ))}
@@ -855,9 +860,17 @@ export default function Reports() {
                             <div className="mt-3 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
                                 <p className="font-semibold text-foreground">Operational Notes</p>
                                 <ul className="mt-2 space-y-1">
-                                    <li>High-priority suppliers: {data.procurement.bySupplier.slice(0, 2).map((item) => item.supplier).join(', ') || 'Not available'}.</li>
                                     <li>
-                                        Top cost center: {data.procurement.byCategory[0]?.category || 'N/A'} ({peso.format(data.procurement.byCategory[0]?.value || 0)}).
+                                        High-priority suppliers:{' '}
+                                        {data.procurement.bySupplier
+                                            .slice(0, 2)
+                                            .map((item) => item.supplier)
+                                            .join(', ') || 'Not available'}
+                                        .
+                                    </li>
+                                    <li>
+                                        Top cost center: {data.procurement.byCategory[0]?.category || 'N/A'} (
+                                        {peso.format(data.procurement.byCategory[0]?.value || 0)}).
                                     </li>
                                     <li>Inventory-at-risk value: {peso.format(data.dashboard.inventoryValue * 0.08)} based on low-stock pressure.</li>
                                 </ul>

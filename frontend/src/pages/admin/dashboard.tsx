@@ -16,10 +16,7 @@ export default function AdminDashboard() {
 
                 <div className="min-h-0 flex-1 overflow-auto pr-1">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        <Link
-                            to="/admin/frontdesk-accounts"
-                            className="profile-card group rounded-xl p-6 transition-all hover:-translate-y-0.5"
-                        >
+                        <Link to="/admin/frontdesk-accounts" className="profile-card group rounded-xl p-6 transition-all hover:-translate-y-0.5">
                             <div className="flex items-center gap-3">
                                 <div className="rounded-lg bg-[#d4af37]/10 p-2.5">
                                     <Users className="h-6 w-6 text-[#d4af37]" />
@@ -31,10 +28,7 @@ export default function AdminDashboard() {
                             </div>
                         </Link>
 
-                        <Link
-                            to="/admin/booking-slots"
-                            className="profile-card group rounded-xl p-6 transition-all hover:-translate-y-0.5"
-                        >
+                        <Link to="/admin/booking-slots" className="profile-card group rounded-xl p-6 transition-all hover:-translate-y-0.5">
                             <div className="flex items-center gap-3">
                                 <div className="rounded-lg bg-[#d4af37]/10 p-2.5">
                                     <CalendarClock className="h-6 w-6 text-[#d4af37]" />

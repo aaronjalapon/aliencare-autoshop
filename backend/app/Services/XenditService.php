@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Exceptions\PaymentGatewayException;
 use App\Enums\CustomerTransactionType;
+use App\Exceptions\PaymentGatewayException;
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
 use App\Models\Reservation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Xendit\Configuration;
 use Xendit\Invoice\CreateInvoiceRequest;
@@ -25,7 +26,7 @@ class XenditService
         try {
             $this->withoutDeprecationWarnings(function () use ($secretKey): void {
                 Configuration::setXenditKey($secretKey);
-                $this->invoiceApi = new InvoiceApi();
+                $this->invoiceApi = new InvoiceApi;
             });
         } catch (\Throwable $e) {
             Log::error('Xendit client initialization failed.', [
@@ -48,7 +49,7 @@ class XenditService
      *
      * @return string The Xendit hosted-payment URL
      *
-    * @throws PaymentGatewayException When the Xendit API call fails
+     * @throws PaymentGatewayException When the Xendit API call fails
      */
     public function createInvoice(CustomerTransaction $transaction, Customer $customer): string
     {
@@ -122,7 +123,7 @@ class XenditService
      *
      * @return string The Xendit hosted-payment URL
      *
-    * @throws PaymentGatewayException When the Xendit API call fails
+     * @throws PaymentGatewayException When the Xendit API call fails
      */
     public function createReservationFeeInvoice(Reservation $reservation, Customer $customer): string
     {
@@ -192,12 +193,12 @@ class XenditService
      * Tags every included transaction with a shared batch_external_id so the
      * webhook can settle them all at once.
      *
-     * @param  \Illuminate\Support\Collection<int, CustomerTransaction>  $transactions
+     * @param  Collection<int, CustomerTransaction>  $transactions
      * @return string The Xendit hosted-payment URL
      *
-    * @throws PaymentGatewayException When the Xendit API call fails
+     * @throws PaymentGatewayException When the Xendit API call fails
      */
-    public function createBulkInvoice(\Illuminate\Support\Collection $transactions, Customer $customer): string
+    public function createBulkInvoice(Collection $transactions, Customer $customer): string
     {
         $totalAmount = $transactions->sum(fn (CustomerTransaction $t) => (float) $t->amount);
         $batchExternalId = 'BATCH-'.$customer->id.'-'.time();

@@ -9,12 +9,18 @@ interface UseCustomerProfileResult {
     refetch: () => Promise<void>;
 }
 
-export function useCustomerProfile(): UseCustomerProfileResult {
+export function useCustomerProfile(enabled = true): UseCustomerProfileResult {
     const [customer, setCustomer] = useState<CustomerProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(enabled);
     const [error, setError] = useState<string | null>(null);
 
     const refetch = useCallback(async () => {
+        if (!enabled) {
+            setCustomer(null);
+            setError(null);
+            return;
+        }
+
         try {
             setError(null);
             const response = await customerService.getMe();
@@ -24,11 +30,19 @@ export function useCustomerProfile(): UseCustomerProfileResult {
             setError(message);
             setCustomer(null);
         }
-    }, []);
+    }, [enabled]);
 
     useEffect(() => {
+        if (!enabled) {
+            setCustomer(null);
+            setError(null);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
         refetch().finally(() => setLoading(false));
-    }, [refetch]);
+    }, [enabled, refetch]);
 
     return { customer, loading, error, refetch };
 }

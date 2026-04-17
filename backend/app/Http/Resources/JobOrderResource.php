@@ -17,11 +17,13 @@ class JobOrderResource extends JsonResource
             'status' => $this->status,
             'status_label' => $this->status->label(),
             'status_color' => $this->status->color(),
+            'source' => $this->resource->isOnlineBooking() ? 'Online Booking' : 'Walk-in',
             'service_fee' => (float) $this->service_fee,
             'total_cost' => $this->when(
                 $this->relationLoaded('items'),
                 fn () => $this->calculateTotalCost()
             ),
+            'balance' => $this->resource->calculateBalance(),
             'settled_flag' => $this->settled_flag,
             'invoice_id' => $this->invoice_id,
             'approved_at' => $this->approved_at?->toISOString(),

@@ -14,6 +14,8 @@ interface JobOrderServiceInterface
      */
     public function createJobOrder(array $data): JobOrder;
 
+    public function submitJobOrderForApproval(int $id): JobOrder;
+
     public function approveJobOrder(int $id, int $approvedByUserId): JobOrder;
 
     public function startJobOrder(int $id, int $mechanicId, int $bayId): JobOrder;

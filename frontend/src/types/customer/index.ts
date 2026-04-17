@@ -114,6 +114,15 @@ export interface JobOrderServiceSummary {
     includes: string[];
 }
 
+export interface JobOrderCustomerSummary {
+    id: number;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    email: string | null;
+    phone_number: string | null;
+}
+
 export interface JobOrderReceiptUrl {
     job_order_id: number;
     transaction_id: number;
@@ -178,8 +187,10 @@ export interface JobOrder {
     status: JobOrderStatus;
     status_label: string;
     status_color: string;
+    source?: 'Online Booking' | 'Walk-in' | string;
     service_fee: number;
     total_cost: number | null;
+    balance?: number;
     settled_flag: boolean;
     invoice_id: string | null;
     approved_at: string | null;
@@ -190,6 +201,7 @@ export interface JobOrder {
     service: JobOrderServiceSummary | null;
     created_at: string;
     updated_at: string;
+    customer?: JobOrderCustomerSummary | null;
     vehicle: Vehicle | null;
     mechanic: { id: number; name: string | null; specialization: string | null; availability_status: string } | null;
     bay: { id: number; name: string; status: string } | null;
