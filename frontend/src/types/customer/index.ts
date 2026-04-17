@@ -22,7 +22,7 @@ export interface CustomerTransaction {
     id: number;
     customer_id: number;
     job_order_id: number | null;
-    type: 'invoice' | 'payment' | 'refund';
+    type: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
     amount: number;
     reference_number: string | null;
     notes: string | null;
@@ -105,6 +105,73 @@ export interface BookingAvailability {
 
 export type JobOrderStatus = 'created' | 'pending_approval' | 'approved' | 'in_progress' | 'completed' | 'settled' | 'cancelled';
 
+export interface JobOrderServiceSummary {
+    id: number;
+    name: string;
+    category: 'maintenance' | 'cleaning' | 'repair' | string | null;
+    duration: string | null;
+    estimated_duration: string | null;
+    includes: string[];
+}
+
+export interface JobOrderReceiptUrl {
+    job_order_id: number;
+    transaction_id: number;
+    payment_url: string;
+    xendit_status: 'PENDING' | 'PAID' | 'EXPIRED' | null;
+    paid_at: string | null;
+}
+
+export interface BillingSummaryLastPayment {
+    id: number;
+    job_order_id: number | null;
+    amount: number;
+    type: CustomerTransaction['type'];
+    payment_method: string | null;
+    notes: string | null;
+    paid_at: string | null;
+    created_at: string;
+}
+
+export interface CustomerBillingSummary {
+    outstanding_balance: number;
+    pending_count: number;
+    total_paid: number;
+    paid_count: number;
+    total_transactions: number;
+    last_payment: BillingSummaryLastPayment | null;
+}
+
+export interface CustomerBillingReceiptLineItem {
+    label: string;
+    amount: number;
+}
+
+export interface CustomerBillingReceipt {
+    transaction_id: number;
+    transaction_type: CustomerTransaction['type'];
+    job_order_id: number | null;
+    job_order_no: string | null;
+    paid_at: string | null;
+    created_at: string;
+    payment_method: string | null;
+    amount_paid: number;
+    notes: string | null;
+    reference_number: string | null;
+    booking_date: string | null;
+    booking_time: string | null;
+    arrival_date: string | null;
+    arrival_time: string | null;
+    customer_name: string;
+    customer_phone: string | null;
+    vehicle_make: string | null;
+    vehicle_model: string | null;
+    vehicle_plate: string | null;
+    branch_name: string;
+    branch_address: string;
+    line_items: CustomerBillingReceiptLineItem[];
+}
+
 export interface JobOrder {
     id: number;
     jo_number: string;
@@ -114,12 +181,13 @@ export interface JobOrder {
     service_fee: number;
     total_cost: number | null;
     settled_flag: boolean;
-    invoice_id: number | null;
+    invoice_id: string | null;
     approved_at: string | null;
     notes: string | null;
     arrival_date: string | null;
     arrival_time: string | null;
-    service: { id: number; name: string } | null;
+    reservation_expires_at: string | null;
+    service: JobOrderServiceSummary | null;
     created_at: string;
     updated_at: string;
     vehicle: Vehicle | null;

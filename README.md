@@ -93,6 +93,23 @@ php artisan migrate
 php artisan db:seed
 ```
 
+### Xendit Security Checklist
+
+- Set `XENDIT_SECRET_KEY` to a valid Xendit **secret** API key (never `xnd_public_*`).
+- Keep `XENDIT_WEBHOOK_TOKEN` present in `backend/.env` and ensure it exactly matches the webhook token configured in your Xendit dashboard.
+- If Xendit credentials are exposed, rotate `XENDIT_SECRET_KEY` and `XENDIT_WEBHOOK_TOKEN` in Xendit first, then update `backend/.env`.
+- If you update env values after the app is already booted, refresh Laravel config:
+
+If keys are missing, placeholders, or mis-typed, payment endpoints will return `503` until configuration is corrected.
+
+```bash
+cd backend
+php artisan config:clear
+
+# Run this too in environments that use cached config.
+php artisan config:cache
+```
+
 Seeded demo access after running `php artisan db:seed`:
 
 | Role       | Email                         | Password        | Dashboard         |

@@ -19,6 +19,7 @@ use App\Models\CustomerTransaction;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 class CustomerService implements CustomerServiceInterface
@@ -267,6 +268,114 @@ class CustomerService implements CustomerServiceInterface
         $this->customerRepository->findByIdOrFail($customerId);
 
         return $this->customerRepository->getTransactions($customerId, $filters, $perPage);
+    }
+
+    public function updateTransaction(
+        int $customerId,
+        int $transactionId,
+        array $data,
+        int $updatedBy,
+        ?string $ip = null,
+    ): CustomerTransaction {
+        return DB::transaction(function () use ($customerId, $transactionId, $data, $updatedBy, $ip) {
+            if ($data === []) {
+                throw new \InvalidArgumentException('No transaction fields were provided for update.');
+            }
+
+            $this->customerRepository->findByIdOrFail($customerId);
+
+            $transaction = $this->customerRepository->findTransactionForCustomer($customerId, $transactionId);
+
+            if (! $transaction) {
+                $exception = new ModelNotFoundException;
+                $exception->setModel(CustomerTransaction::class, [$transactionId]);
+
+                throw $exception;
+            }
+
+            $currentType = $transaction->type?->value ?? (string) $transaction->type;
+            $typeChangeRequested = array_key_exists('type', $data)
+                && (string) $data['type'] !== $currentType;
+            $amountChangeRequested = array_key_exists('amount', $data)
+                && round((float) $data['amount'], 2) !== round((float) $transaction->amount, 2);
+
+            $isPaid = strtoupper((string) ($transaction->xendit_status ?? '')) === 'PAID'
+                || $transaction->paid_at !== null;
+            $isPaymentLinked = $transaction->xendit_invoice_id !== null || $transaction->external_id !== null;
+
+            if (($typeChangeRequested || $amountChangeRequested) && ($isPaid || $isPaymentLinked)) {
+                throw new \InvalidArgumentException('Amount and type cannot be updated for paid or payment-linked transactions.');
+            }
+
+            $payload = [];
+
+            if (array_key_exists('type', $data)) {
+                $payload['type'] = (string) $data['type'];
+            }
+
+            if (array_key_exists('amount', $data)) {
+                $payload['amount'] = round((float) $data['amount'], 2);
+            }
+
+            if (array_key_exists('reference_number', $data)) {
+                $payload['reference_number'] = $this->optionalStringOrNull($data['reference_number']);
+            }
+
+            if (array_key_exists('notes', $data)) {
+                $payload['notes'] = $this->optionalStringOrNull($data['notes']);
+            }
+
+            if ($payload === []) {
+                throw new \InvalidArgumentException('No transaction fields were provided for update.');
+            }
+
+            $oldData = [
+                'type' => $currentType,
+                'amount' => (float) $transaction->amount,
+                'reference_number' => $transaction->reference_number,
+                'notes' => $transaction->notes,
+            ];
+
+            $updatedTransaction = $this->customerRepository->updateTransaction($customerId, $transactionId, $payload);
+
+            $this->logAudit(
+                $customerId,
+                $updatedBy,
+                'update',
+                'transaction',
+                $oldData,
+                [
+                    'type' => $updatedTransaction->type?->value ?? (string) $updatedTransaction->type,
+                    'amount' => (float) $updatedTransaction->amount,
+                    'reference_number' => $updatedTransaction->reference_number,
+                    'notes' => $updatedTransaction->notes,
+                ],
+                $ip,
+            );
+
+            return $updatedTransaction;
+        });
+    }
+
+    public function getBillingSummary(int $customerId): array
+    {
+        $this->customerRepository->findByIdOrFail($customerId);
+
+        return $this->customerRepository->getBillingSummary($customerId);
+    }
+
+    public function getBillingReceipts(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $this->customerRepository->findByIdOrFail($customerId);
+
+        return $this->customerRepository->getBillingReceipts($customerId, $filters, $perPage);
+    }
+
+    public function getBillingReceiptDetail(int $customerId, int $transactionId): ?CustomerTransaction
+    {
+        $this->customerRepository->findByIdOrFail($customerId);
+
+        return $this->customerRepository->getBillingReceiptDetail($customerId, $transactionId);
     }
 
     public function linkTransaction(int $customerId, array $data): CustomerTransaction

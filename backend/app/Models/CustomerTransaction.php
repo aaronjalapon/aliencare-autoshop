@@ -19,6 +19,7 @@ class CustomerTransaction extends Model
         'reference_number',
         'notes',
         'external_id',
+        'batch_external_id',
         'xendit_invoice_id',
         'payment_url',
         'payment_method',

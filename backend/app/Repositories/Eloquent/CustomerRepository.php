@@ -6,11 +6,14 @@ namespace App\Repositories\Eloquent;
 
 use App\Contracts\Repositories\CustomerRepositoryInterface;
 use App\Enums\AccountStatus;
+use App\Enums\CustomerTransactionType;
 use App\Models\Customer;
 use App\Models\CustomerAuditLog;
 use App\Models\CustomerTransaction;
 use App\Repositories\BaseRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class CustomerRepository extends BaseRepository implements CustomerRepositoryInterface
 {
@@ -131,11 +134,213 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
     {
         $query = CustomerTransaction::where('customer_id', $customerId);
 
+        if (isset($filters['payment_state'])) {
+            $paymentState = (string) $filters['payment_state'];
+
+            if ($paymentState === 'paid') {
+                $query->where(function (Builder $paidQuery): void {
+                    $paidQuery->where(function (Builder $invoicePaidQuery): void {
+                        $invoicePaidQuery->whereIn('type', [
+                            CustomerTransactionType::Invoice->value,
+                            CustomerTransactionType::ReservationFee->value,
+                        ])->where('xendit_status', 'PAID');
+                    })->orWhere(function (Builder $paymentQuery): void {
+                        $paymentQuery->where('type', CustomerTransactionType::Payment->value)
+                            ->where(function (Builder $paymentStatusQuery): void {
+                                $paymentStatusQuery->whereNull('xendit_status')
+                                    ->orWhere('xendit_status', 'PAID')
+                                    ->orWhereNotNull('paid_at');
+                            });
+                    });
+                });
+            }
+
+            if ($paymentState === 'pending') {
+                $query->whereIn('type', [
+                    CustomerTransactionType::Invoice->value,
+                    CustomerTransactionType::ReservationFee->value,
+                ])->where(function (Builder $statusQuery): void {
+                    $statusQuery->whereNull('xendit_status')
+                        ->orWhere('xendit_status', '!=', 'PAID');
+                });
+            }
+        }
+
         if (isset($filters['type'])) {
             $query->where('type', $filters['type']);
         }
 
+        if (isset($filters['search'])) {
+            $search = (string) $filters['search'];
+
+            $query->where(function (Builder $searchQuery) use ($search): void {
+                $searchQuery->where('notes', 'like', "%{$search}%")
+                    ->orWhere('reference_number', 'like', "%{$search}%")
+                    ->orWhere('external_id', 'like', "%{$search}%")
+                    ->orWhereHas('jobOrder', function (Builder $jobOrderQuery) use ($search): void {
+                        $jobOrderQuery->where('jo_number', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if (isset($filters['from_date'])) {
+            $fromDate = (string) $filters['from_date'];
+
+            $query->where(function (Builder $dateQuery) use ($fromDate): void {
+                $dateQuery->whereDate('paid_at', '>=', $fromDate)
+                    ->orWhere(function (Builder $fallbackDateQuery) use ($fromDate): void {
+                        $fallbackDateQuery->whereNull('paid_at')
+                            ->whereDate('created_at', '>=', $fromDate);
+                    });
+            });
+        }
+
+        if (isset($filters['to_date'])) {
+            $toDate = (string) $filters['to_date'];
+
+            $query->where(function (Builder $dateQuery) use ($toDate): void {
+                $dateQuery->whereDate('paid_at', '<=', $toDate)
+                    ->orWhere(function (Builder $fallbackDateQuery) use ($toDate): void {
+                        $fallbackDateQuery->whereNull('paid_at')
+                            ->whereDate('created_at', '<=', $toDate);
+                    });
+            });
+        }
+
+        if (isset($filters['payment_method'])) {
+            $query->where('payment_method', (string) $filters['payment_method']);
+        }
+
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
+    }
+
+    public function findTransactionForCustomer(int $customerId, int $transactionId): ?CustomerTransaction
+    {
+        return CustomerTransaction::query()
+            ->where('customer_id', $customerId)
+            ->whereKey($transactionId)
+            ->first();
+    }
+
+    public function updateTransaction(int $customerId, int $transactionId, array $data): CustomerTransaction
+    {
+        $transaction = CustomerTransaction::query()
+            ->where('customer_id', $customerId)
+            ->whereKey($transactionId)
+            ->firstOrFail();
+
+        $transaction->update($data);
+
+        return $transaction->fresh();
+    }
+
+    public function getBillingSummary(int $customerId): array
+    {
+        $pendingQuery = CustomerTransaction::query()
+            ->where('customer_id', $customerId)
+            ->whereIn('type', [
+                CustomerTransactionType::Invoice->value,
+                CustomerTransactionType::ReservationFee->value,
+            ])
+            ->where(function (Builder $statusQuery): void {
+                $statusQuery->whereNull('xendit_status')
+                    ->orWhere('xendit_status', '!=', 'PAID');
+            });
+
+        $paidQuery = $this->billingReceiptBaseQuery($customerId);
+
+        $lastPayment = (clone $paidQuery)
+            ->orderByRaw('COALESCE(paid_at, created_at) DESC')
+            ->first();
+
+        return [
+            'outstanding_balance' => (float) ((clone $pendingQuery)->sum(DB::raw('ABS(amount)'))),
+            'pending_count' => (clone $pendingQuery)->count(),
+            'total_paid' => (float) ((clone $paidQuery)->sum(DB::raw('ABS(amount)'))),
+            'paid_count' => (clone $paidQuery)->count(),
+            'total_transactions' => CustomerTransaction::query()->where('customer_id', $customerId)->count(),
+            'last_payment' => $lastPayment ? [
+                'id' => $lastPayment->id,
+                'job_order_id' => $lastPayment->job_order_id,
+                'amount' => abs((float) $lastPayment->amount),
+                'type' => $lastPayment->type?->value ?? (string) $lastPayment->type,
+                'payment_method' => $lastPayment->payment_method,
+                'notes' => $lastPayment->notes,
+                'paid_at' => $lastPayment->paid_at?->toISOString(),
+                'created_at' => $lastPayment->created_at?->toISOString(),
+            ] : null,
+        ];
+    }
+
+    public function getBillingReceipts(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->billingReceiptBaseQuery($customerId)
+            ->with([
+                'customer',
+                'jobOrder.service',
+                'jobOrder.items.inventoryItem',
+                'jobOrder.vehicle',
+                'jobOrder.customer',
+            ]);
+
+        if (isset($filters['search'])) {
+            $search = (string) $filters['search'];
+
+            $query->where(function (Builder $searchQuery) use ($search): void {
+                $searchQuery->where('notes', 'like', "%{$search}%")
+                    ->orWhere('reference_number', 'like', "%{$search}%")
+                    ->orWhere('external_id', 'like', "%{$search}%")
+                    ->orWhereHas('jobOrder', function (Builder $jobOrderQuery) use ($search): void {
+                        $jobOrderQuery->where('jo_number', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if (isset($filters['from_date'])) {
+            $fromDate = (string) $filters['from_date'];
+
+            $query->where(function (Builder $dateQuery) use ($fromDate): void {
+                $dateQuery->whereDate('paid_at', '>=', $fromDate)
+                    ->orWhere(function (Builder $fallbackDateQuery) use ($fromDate): void {
+                        $fallbackDateQuery->whereNull('paid_at')
+                            ->whereDate('created_at', '>=', $fromDate);
+                    });
+            });
+        }
+
+        if (isset($filters['to_date'])) {
+            $toDate = (string) $filters['to_date'];
+
+            $query->where(function (Builder $dateQuery) use ($toDate): void {
+                $dateQuery->whereDate('paid_at', '<=', $toDate)
+                    ->orWhere(function (Builder $fallbackDateQuery) use ($toDate): void {
+                        $fallbackDateQuery->whereNull('paid_at')
+                            ->whereDate('created_at', '<=', $toDate);
+                    });
+            });
+        }
+
+        if (isset($filters['payment_method'])) {
+            $query->where('payment_method', $filters['payment_method']);
+        }
+
+        return $query
+            ->orderByRaw('COALESCE(paid_at, created_at) DESC')
+            ->paginate($perPage);
+    }
+
+    public function getBillingReceiptDetail(int $customerId, int $transactionId): ?CustomerTransaction
+    {
+        return $this->billingReceiptBaseQuery($customerId)
+            ->with([
+                'customer',
+                'jobOrder.service',
+                'jobOrder.items.inventoryItem',
+                'jobOrder.vehicle',
+                'jobOrder.customer',
+            ])
+            ->whereKey($transactionId)
+            ->first();
     }
 
     public function linkTransaction(int $customerId, array $data): CustomerTransaction
@@ -151,5 +356,32 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
             ->where('account_status', AccountStatus::Pending)
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
+    }
+
+    private function billingReceiptBaseQuery(int $customerId): Builder
+    {
+        return CustomerTransaction::query()
+            ->where('customer_id', $customerId)
+            ->where(function (Builder $query): void {
+                $query
+                    ->where(function (Builder $invoiceQuery): void {
+                        $invoiceQuery
+                            ->whereIn('type', [
+                                CustomerTransactionType::Invoice->value,
+                                CustomerTransactionType::ReservationFee->value,
+                            ])
+                            ->where('xendit_status', 'PAID');
+                    })
+                    ->orWhere(function (Builder $paymentQuery): void {
+                        $paymentQuery
+                            ->where('type', CustomerTransactionType::Payment->value)
+                            ->where(function (Builder $statusQuery): void {
+                                $statusQuery
+                                    ->whereNull('xendit_status')
+                                    ->orWhere('xendit_status', 'PAID')
+                                    ->orWhereNotNull('paid_at');
+                            });
+                    });
+            });
     }
 }

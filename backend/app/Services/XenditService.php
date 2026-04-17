@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\PaymentGatewayException;
 use App\Enums\CustomerTransactionType;
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
 use App\Models\Reservation;
-use RuntimeException;
+use Illuminate\Support\Facades\Log;
 use Xendit\Configuration;
 use Xendit\Invoice\CreateInvoiceRequest;
 use Xendit\Invoice\InvoiceApi;
@@ -19,10 +20,26 @@ class XenditService
 
     public function __construct()
     {
-        $this->withoutDeprecationWarnings(function (): void {
-            Configuration::setXenditKey((string) config('xendit.secret_key'));
-            $this->invoiceApi = new InvoiceApi;
-        });
+        $secretKey = $this->resolveSecretKey();
+
+        try {
+            $this->withoutDeprecationWarnings(function () use ($secretKey): void {
+                Configuration::setXenditKey($secretKey);
+                $this->invoiceApi = new InvoiceApi();
+            });
+        } catch (\Throwable $e) {
+            Log::error('Xendit client initialization failed.', [
+                'exception' => $e::class,
+                'provider_message' => $e->getMessage(),
+            ]);
+
+            throw new PaymentGatewayException(
+                message: 'Online payment is temporarily unavailable. Please try again later.',
+                errorCode: 'xendit_client_initialization_failed',
+                statusCode: 503,
+                previous: $e,
+            );
+        }
     }
 
     /**
@@ -31,7 +48,7 @@ class XenditService
      *
      * @return string The Xendit hosted-payment URL
      *
-     * @throws RuntimeException When the Xendit API call fails
+    * @throws PaymentGatewayException When the Xendit API call fails
      */
     public function createInvoice(CustomerTransaction $transaction, Customer $customer): string
     {
@@ -55,7 +72,19 @@ class XenditService
                 return $this->invoiceApi->createInvoice($createRequest);
             });
         } catch (\Throwable $e) {
-            throw new RuntimeException('Xendit invoice creation failed: '.$e->getMessage(), 0, $e);
+            Log::error('Xendit invoice creation failed for booking payment.', [
+                'transaction_id' => $transaction->id,
+                'customer_id' => $customer->id,
+                'exception' => $e::class,
+                'provider_message' => $e->getMessage(),
+            ]);
+
+            throw new PaymentGatewayException(
+                message: 'Unable to initialize online payment right now. Please try again later.',
+                errorCode: 'xendit_invoice_creation_failed',
+                statusCode: 503,
+                previous: $e,
+            );
         }
 
         $paymentUrl = $response->getInvoiceUrl();
@@ -93,7 +122,7 @@ class XenditService
      *
      * @return string The Xendit hosted-payment URL
      *
-     * @throws RuntimeException When the Xendit API call fails
+    * @throws PaymentGatewayException When the Xendit API call fails
      */
     public function createReservationFeeInvoice(Reservation $reservation, Customer $customer): string
     {
@@ -126,7 +155,21 @@ class XenditService
             });
         } catch (\Throwable $e) {
             $transaction->delete();
-            throw new RuntimeException('Xendit invoice creation failed: '.$e->getMessage(), 0, $e);
+
+            Log::error('Xendit invoice creation failed for reservation fee.', [
+                'reservation_id' => $reservation->id,
+                'customer_id' => $customer->id,
+                'transaction_id' => $transaction->id,
+                'exception' => $e::class,
+                'provider_message' => $e->getMessage(),
+            ]);
+
+            throw new PaymentGatewayException(
+                message: 'Unable to initialize online payment right now. Please try again later.',
+                errorCode: 'xendit_invoice_creation_failed',
+                statusCode: 503,
+                previous: $e,
+            );
         }
 
         $paymentUrl = $response->getInvoiceUrl();
@@ -142,6 +185,185 @@ class XenditService
         $reservation->update(['fee_transaction_id' => $transaction->id]);
 
         return $paymentUrl;
+    }
+
+    /**
+     * Create a single Xendit invoice covering multiple pending transactions.
+     * Tags every included transaction with a shared batch_external_id so the
+     * webhook can settle them all at once.
+     *
+     * @param  \Illuminate\Support\Collection<int, CustomerTransaction>  $transactions
+     * @return string The Xendit hosted-payment URL
+     *
+    * @throws PaymentGatewayException When the Xendit API call fails
+     */
+    public function createBulkInvoice(\Illuminate\Support\Collection $transactions, Customer $customer): string
+    {
+        $totalAmount = $transactions->sum(fn (CustomerTransaction $t) => (float) $t->amount);
+        $batchExternalId = 'BATCH-'.$customer->id.'-'.time();
+
+        $count = $transactions->count();
+        $description = "Bulk payment for {$count} pending transaction".($count > 1 ? 's' : '');
+
+        $requestData = [
+            'external_id' => $batchExternalId,
+            'amount' => $totalAmount,
+            'payer_email' => $customer->email,
+            'description' => $description,
+            'invoice_duration' => 86400, // 24 hours
+            'success_redirect_url' => (string) config('xendit.success_redirect_url'),
+            'failure_redirect_url' => (string) config('xendit.failure_redirect_url'),
+            'currency' => 'PHP',
+        ];
+
+        try {
+            $response = $this->withoutDeprecationWarnings(function () use ($requestData) {
+                $createRequest = new CreateInvoiceRequest($requestData);
+
+                return $this->invoiceApi->createInvoice($createRequest);
+            });
+        } catch (\Throwable $e) {
+            Log::error('Xendit bulk invoice creation failed.', [
+                'customer_id' => $customer->id,
+                'transaction_count' => $transactions->count(),
+                'exception' => $e::class,
+                'provider_message' => $e->getMessage(),
+            ]);
+
+            throw new PaymentGatewayException(
+                message: 'Unable to initialize online payment right now. Please try again later.',
+                errorCode: 'xendit_bulk_invoice_creation_failed',
+                statusCode: 503,
+                previous: $e,
+            );
+        }
+
+        $paymentUrl = $response->getInvoiceUrl();
+        $xenditInvoiceId = $response->getId();
+
+        // Tag every transaction with the batch identifier
+        foreach ($transactions as $transaction) {
+            $transaction->update([
+                'batch_external_id' => $batchExternalId,
+                'xendit_invoice_id' => $xenditInvoiceId,
+                'payment_url' => $paymentUrl,
+                'xendit_status' => 'PENDING',
+            ]);
+        }
+
+        return $paymentUrl;
+    }
+
+    /**
+     * Query the Xendit API for invoice details needed by sync flows.
+     *
+     * @return array{status: string, payment_method: string|null}|null
+     */
+    public function getInvoiceSnapshot(string $xenditInvoiceId): ?array
+    {
+        try {
+            $invoice = $this->withoutDeprecationWarnings(function () use ($xenditInvoiceId) {
+                return $this->invoiceApi->getInvoiceById($xenditInvoiceId);
+            });
+
+            $status = $this->normalizeInvoiceEnumValue($invoice->getStatus());
+
+            if (! $status) {
+                return null;
+            }
+
+            return [
+                'status' => $status,
+                'payment_method' => $this->normalizeInvoiceEnumValue($invoice->getPaymentMethod()),
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Query the Xendit API for the current status of an invoice.
+     *
+     * @return string|null The invoice status (e.g. PENDING, PAID, EXPIRED) or null on failure
+     */
+    public function getInvoiceStatus(string $xenditInvoiceId): ?string
+    {
+        return $this->getInvoiceSnapshot($xenditInvoiceId)['status'] ?? null;
+    }
+
+    private function normalizeInvoiceEnumValue(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            return $trimmed !== '' ? $trimmed : null;
+        }
+
+        if (is_object($value)) {
+            if (method_exists($value, 'getValue')) {
+                $enumValue = $value->getValue();
+
+                if (is_string($enumValue)) {
+                    $trimmed = trim($enumValue);
+
+                    return $trimmed !== '' ? $trimmed : null;
+                }
+            }
+
+            if (method_exists($value, '__toString')) {
+                $trimmed = trim((string) $value);
+
+                return $trimmed !== '' ? $trimmed : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate Xendit key configuration before initializing the SDK client.
+     */
+    private function resolveSecretKey(): string
+    {
+        $secretKey = trim((string) config('xendit.secret_key'));
+
+        if ($secretKey === '' || $this->looksLikePlaceholder($secretKey)) {
+            Log::warning('Xendit secret key is missing or left as a placeholder.');
+
+            throw new PaymentGatewayException(
+                message: 'Online payment is temporarily unavailable. Please contact support.',
+                errorCode: 'xendit_configuration_invalid',
+                statusCode: 503,
+            );
+        }
+
+        if ($this->looksLikePublicKey($secretKey)) {
+            Log::warning('Xendit secret key appears to be a public key; refusing to initialize payment client.');
+
+            throw new PaymentGatewayException(
+                message: 'Online payment is temporarily unavailable. Please contact support.',
+                errorCode: 'xendit_configuration_invalid',
+                statusCode: 503,
+            );
+        }
+
+        return $secretKey;
+    }
+
+    private function looksLikePlaceholder(string $key): bool
+    {
+        $normalized = strtolower(trim($key));
+
+        return str_contains($normalized, 'rotate_in_xendit')
+            || str_contains($normalized, 'set_here')
+            || str_contains($normalized, 'your_xendit_secret_key');
+    }
+
+    private function looksLikePublicKey(string $key): bool
+    {
+        $normalized = strtolower(trim($key));
+
+        return str_starts_with($normalized, 'xnd_public_');
     }
 
     /**

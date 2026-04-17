@@ -28,6 +28,7 @@ class JobOrderResource extends JsonResource
             'notes' => $this->notes,
             'arrival_date' => $this->arrival_date?->format('Y-m-d'),
             'arrival_time' => $this->arrival_time,
+            'reservation_expires_at' => $this->reservation_expires_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
 
@@ -36,6 +37,10 @@ class JobOrderResource extends JsonResource
                 return [
                     'id' => $this->service->id,
                     'name' => $this->service->name,
+                    'category' => $this->service->category?->value,
+                    'duration' => $this->service->duration,
+                    'estimated_duration' => $this->service->estimated_duration,
+                    'includes' => $this->service->includes ?? [],
                 ];
             }),
             'customer' => new CustomerResource($this->whenLoaded('customer')),

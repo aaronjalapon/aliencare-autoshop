@@ -41,6 +41,7 @@ use App\Services\VehicleService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -95,6 +96,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->warnIfXenditConfigLooksInvalid();
+
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(200)->by($request->user()?->id ?: $request->ip());
         });
@@ -111,12 +114,37 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('approve-vehicles', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('view-audit-logs', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('link-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('update-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
         Gate::define('manage-booking-slots', fn (User $user): bool => $this->canManageBookingSlots($user));
     }
 
     private function canManageBookingSlots(User $user): bool
     {
         return $this->canAccessSensitiveEndpoints($user) && $user->role === UserRole::Admin;
+    }
+
+    private function warnIfXenditConfigLooksInvalid(): void
+    {
+        $secretKey = trim((string) config('xendit.secret_key', ''));
+
+        if ($secretKey === '' || $this->looksLikePlaceholderXenditSecret($secretKey)) {
+            Log::warning('Xendit secret key is missing or a placeholder. Online payment endpoints will return 503 until fixed.');
+
+            return;
+        }
+
+        if (str_starts_with(strtolower($secretKey), 'xnd_public_')) {
+            Log::warning('Xendit secret key appears to be a public key. Use XENDIT_SECRET_KEY for backend API requests.');
+        }
+    }
+
+    private function looksLikePlaceholderXenditSecret(string $secretKey): bool
+    {
+        $normalized = strtolower(trim($secretKey));
+
+        return str_contains($normalized, 'rotate_in_xendit')
+            || str_contains($normalized, 'set_here')
+            || str_contains($normalized, 'your_xendit_secret_key');
     }
 
     private function canAccessSensitiveEndpoints(User $user): bool
