@@ -118,6 +118,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-booking-slots', fn (User $user): bool => $this->canManageBookingSlots($user));
         Gate::define('manage-services', fn (User $user): bool => $this->canManageServices($user));
         Gate::define('manage-job-orders', fn (User $user): bool => $this->canManageJobOrders($user));
+        Gate::define('manage-pos', fn (User $user): bool => $this->canManagePos($user));
     }
 
     private function canManageBookingSlots(User $user): bool
@@ -136,6 +137,16 @@ class AppServiceProvider extends ServiceProvider
     }
 
     private function canManageJobOrders(User $user): bool
+    {
+        if (! $this->canAccessSensitiveEndpoints($user)) {
+            return false;
+        }
+
+        return in_array($user->role, [UserRole::Admin, UserRole::FrontDesk], true)
+            || in_array($user->role, [UserRole::Admin->value, UserRole::FrontDesk->value], true);
+    }
+
+    private function canManagePos(User $user): bool
     {
         if (! $this->canAccessSensitiveEndpoints($user)) {
             return false;

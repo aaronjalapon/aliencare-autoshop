@@ -2,14 +2,21 @@
 export interface InventoryItem {
     id: number;
     item_id: number;
+    sku: string | null;
     item_name: string;
-    description: string;
+    description: string | null;
     category: string;
     stock: number;
+    available_stock?: number;
+    reserved_stock?: number;
     reorder_level: number;
     unit_price: number;
-    supplier: string;
-    location: string;
+    supplier: string | null;
+    location: string | null;
+    status: 'active' | 'inactive' | 'discontinued' | string;
+    is_low_stock?: boolean;
+    stock_status?: string | null;
+    total_value?: number;
     created_at: string;
     updated_at: string;
 }

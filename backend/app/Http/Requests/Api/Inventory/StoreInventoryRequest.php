@@ -27,6 +27,7 @@ class StoreInventoryRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'sku' => ['nullable', 'string', 'max:100', 'unique:inventories,sku'],
             'item_name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'category' => ['required', 'string', 'max:100'],
@@ -47,6 +48,8 @@ class StoreInventoryRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'sku.max' => 'SKU cannot exceed 100 characters.',
+            'sku.unique' => 'SKU is already in use.',
             'item_name.required' => 'Item name is required.',
             'item_name.max' => 'Item name cannot exceed 255 characters.',
             'category.required' => 'Category is required.',
@@ -68,6 +71,7 @@ class StoreInventoryRequest extends FormRequest
     public function attributes(): array
     {
         return [
+            'sku' => 'SKU',
             'item_name' => 'item name',
             'reorder_level' => 'reorder level',
             'unit_price' => 'unit price',

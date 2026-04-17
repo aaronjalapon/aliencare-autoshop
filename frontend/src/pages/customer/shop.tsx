@@ -69,7 +69,7 @@ interface CartItem {
 const itemToProduct = (item: InventoryItem): Product => ({
     id: item.id,
     name: item.item_name,
-    description: item.description,
+    description: item.description ?? '',
     price: item.unit_price,
     category: item.category,
     inStock: item.stock > 0,

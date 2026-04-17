@@ -202,6 +202,47 @@ class InventoryApiTest extends TestCase
             ->assertJsonValidationErrors(['unit_price', 'stock']);
     }
 
+    public function test_store_persists_sku_when_provided(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v1/inventory', [
+                'sku' => 'SKU-TEST-001',
+                'item_name' => 'SKU Test Part',
+                'category' => 'Engine',
+                'stock' => 8,
+                'reorder_level' => 3,
+                'unit_price' => 125.50,
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.sku', 'SKU-TEST-001');
+
+        $this->assertDatabaseHas('inventories', [
+            'sku' => 'SKU-TEST-001',
+            'item_name' => 'SKU Test Part',
+        ]);
+    }
+
+    public function test_store_validates_sku_is_unique(): void
+    {
+        Inventory::factory()->create([
+            'sku' => 'SKU-DUPLICATE-001',
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v1/inventory', [
+                'sku' => 'SKU-DUPLICATE-001',
+                'item_name' => 'Duplicate SKU Part',
+                'category' => 'Engine',
+                'stock' => 4,
+                'reorder_level' => 2,
+                'unit_price' => 80,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['sku']);
+    }
+
     // SHOW ENDPOINT TESTS
 
     public function test_show_returns_specific_inventory_item(): void

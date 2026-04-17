@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\MechanicController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PosController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\ServiceCatalogController;
@@ -270,6 +271,17 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('shop')->name('shop.')->group(function () {
         Route::post('/checkout', [ShopController::class, 'checkout'])->name('checkout');
         Route::post('/pay-at-shop', [ShopController::class, 'payAtShop'])->name('pay-at-shop');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | POS Routes (frontdesk/admin)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('pos')->name('pos.')->group(function () {
+        Route::get('/transactions', [PosController::class, 'transactions'])->name('transactions');
+        Route::post('/checkout', [PosController::class, 'checkout'])->name('checkout');
     });
 
     /*

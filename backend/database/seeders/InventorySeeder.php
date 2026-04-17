@@ -21,6 +21,7 @@ class InventorySeeder extends Seeder
         // Create sample inventory items
         $inventoryItems = [
             [
+                'sku' => 'BRK-PAD-001',
                 'item_name' => 'Brake Pads - Front Set',
                 'description' => 'High-performance ceramic brake pads for front wheels',
                 'category' => 'Brakes',
@@ -32,6 +33,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'ENG-OIL-5W30',
                 'item_name' => 'Engine Oil 5W-30',
                 'description' => 'Synthetic motor oil 5W-30, 5-liter container',
                 'category' => 'Oils & Fluids',
@@ -43,6 +45,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'BAT-12V-75AH',
                 'item_name' => 'Car Battery 12V 75AH',
                 'description' => 'Lead-acid car battery with 75AH capacity',
                 'category' => 'Electrical',
@@ -54,6 +57,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'TIRE-205-65R16',
                 'item_name' => 'All-Season Tire 205/65R16',
                 'description' => 'All-season passenger tire 205/65R16',
                 'category' => 'Tires',
@@ -65,6 +69,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'OIL-FLTR-5W30',
                 'item_name' => 'Oil Filter - 5W30 Compatible',
                 'description' => 'High-efficiency oil filter compatible with 5W30 oil',
                 'category' => 'Filters',
@@ -76,6 +81,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'SPARK-NGK-SET4',
                 'item_name' => 'NGK Spark Plugs (Set of 4)',
                 'description' => 'NGK Iridium spark plugs, set of 4',
                 'category' => 'Engine',
@@ -87,6 +93,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'AIR-FLTR-STD',
                 'item_name' => 'Air Filter - Standard',
                 'description' => 'Standard air filter for most passenger vehicles',
                 'category' => 'Filters',
@@ -98,6 +105,7 @@ class InventorySeeder extends Seeder
                 'status' => 'active',
             ],
             [
+                'sku' => 'WIPER-24IN-001',
                 'item_name' => 'Windshield Wiper Blade 24"',
                 'description' => '24-inch windshield wiper blade',
                 'category' => 'Electrical',
