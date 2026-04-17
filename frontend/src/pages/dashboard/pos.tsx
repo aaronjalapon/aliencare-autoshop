@@ -4,9 +4,9 @@ import { ApiError } from '@/services/api';
 import { inventoryService, type NewInventoryItem } from '@/services/inventoryService';
 import { frontdeskJobOrderService } from '@/services/jobOrderService';
 import { posService, type PosPaymentMode } from '@/services/posService';
+import { type BreadcrumbItem } from '@/types';
 import type { CustomerProfile, CustomerTransaction } from '@/types/customer';
 import type { InventoryItem } from '@/types/inventory';
-import { type BreadcrumbItem } from '@/types';
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, PencilLine, Plus, ReceiptText, Search, ShoppingCart, Trash2, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -268,10 +268,7 @@ export default function PointOfSale() {
     }, [filteredProducts, selectedId]);
 
     const selectedProduct = useMemo(() => products.find((product) => product.id === selectedId) ?? null, [products, selectedId]);
-    const selectedCustomer = useMemo(
-        () => customers.find((customer) => customer.id === selectedCustomerId) ?? null,
-        [customers, selectedCustomerId],
-    );
+    const selectedCustomer = useMemo(() => customers.find((customer) => customer.id === selectedCustomerId) ?? null, [customers, selectedCustomerId]);
 
     const totals = useMemo(() => {
         const lowStock = products.filter((product) => product.stock <= product.minStock).length;
@@ -623,8 +620,10 @@ export default function PointOfSale() {
                                 </div>
 
                                 <div className="flex flex-wrap gap-2">
-                                    {[{ key: 'all', label: 'All' }, ...categoryOptions.map((value) => ({ key: value, label: categoryLabel(value) }))].map(
-                                        (item) => (
+                                    {[
+                                        { key: 'all', label: 'All' },
+                                        ...categoryOptions.map((value) => ({ key: value, label: categoryLabel(value) })),
+                                    ].map((item) => (
                                         <button
                                             key={item.key}
                                             onClick={() => setCategory(item.key)}
@@ -636,8 +635,7 @@ export default function PointOfSale() {
                                         >
                                             {item.label}
                                         </button>
-                                        ),
-                                    )}
+                                    ))}
                                 </div>
                             </div>
 
@@ -906,7 +904,8 @@ export default function PointOfSale() {
                                         </>
                                     ) : (
                                         <>
-                                            <CheckCircle2 className="h-4 w-4" /> {paymentMode === 'online' ? 'Create Payment Link' : 'Charge Customer'}
+                                            <CheckCircle2 className="h-4 w-4" />{' '}
+                                            {paymentMode === 'online' ? 'Create Payment Link' : 'Charge Customer'}
                                         </>
                                     )}
                                 </button>
@@ -944,7 +943,9 @@ export default function PointOfSale() {
                                         {recentTransactions.map((transaction) => (
                                             <div key={transaction.id} className="rounded-md border border-[#2a2a2e] px-2.5 py-2 text-xs">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <p className="font-semibold text-foreground">{transaction.reference_number ?? `Transaction #${transaction.id}`}</p>
+                                                    <p className="font-semibold text-foreground">
+                                                        {transaction.reference_number ?? `Transaction #${transaction.id}`}
+                                                    </p>
                                                     <p className="font-semibold text-[#d4af37]">{formatPeso(Number(transaction.amount))}</p>
                                                 </div>
                                                 <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
