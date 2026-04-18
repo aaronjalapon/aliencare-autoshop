@@ -10,6 +10,7 @@ use App\Models\Inventory;
 use App\Models\User;
 use App\Services\XenditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class PosCheckoutApiTest extends TestCase
@@ -121,6 +122,76 @@ class PosCheckoutApiTest extends TestCase
             'item_id' => $item->item_id,
             'stock' => 6,
         ]);
+    }
+
+    public function test_cash_checkout_succeeds_even_with_invalid_xendit_configuration(): void
+    {
+        Config::set('xendit.secret_key', 'ROTATE_IN_XENDIT_DASHBOARD_AND_SET_HERE');
+
+        $customer = Customer::factory()->create();
+        $item = Inventory::factory()->create([
+            'sku' => 'POS-CASH-CONFIG-001',
+            'stock' => 10,
+            'unit_price' => 120,
+        ]);
+
+        $response = $this->actingAs($this->frontdeskUser)
+            ->postJson('/api/v1/pos/checkout', [
+                'customer_id' => $customer->id,
+                'payment_mode' => 'cash',
+                'cart' => [
+                    ['item_id' => $item->item_id, 'quantity' => 2],
+                ],
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.checkout.payment_mode', 'cash')
+            ->assertJsonPath('data.checkout.total', 240)
+            ->assertJsonPath('data.checkout.payment_url', null);
+
+        $this->assertDatabaseHas('inventories', [
+            'item_id' => $item->item_id,
+            'stock' => 8,
+        ]);
+
+        $this->assertDatabaseHas('customer_transactions', [
+            'customer_id' => $customer->id,
+            'payment_method' => 'cash',
+            'amount' => 240,
+        ]);
+    }
+
+    public function test_online_checkout_returns_503_when_xendit_configuration_is_invalid(): void
+    {
+        Config::set('xendit.secret_key', 'ROTATE_IN_XENDIT_DASHBOARD_AND_SET_HERE');
+
+        $customer = Customer::factory()->create();
+        $item = Inventory::factory()->create([
+            'sku' => 'POS-ONLINE-CONFIG-001',
+            'stock' => 7,
+            'unit_price' => 300,
+        ]);
+
+        $response = $this->actingAs($this->frontdeskUser)
+            ->postJson('/api/v1/pos/checkout', [
+                'customer_id' => $customer->id,
+                'payment_mode' => 'online',
+                'cart' => [
+                    ['item_id' => $item->item_id, 'quantity' => 2],
+                ],
+            ]);
+
+        $response->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error', 'xendit_configuration_invalid');
+
+        $this->assertDatabaseHas('inventories', [
+            'item_id' => $item->item_id,
+            'stock' => 7,
+        ]);
+        $this->assertDatabaseCount('customer_transactions', 0);
+        $this->assertDatabaseCount('stock_transactions', 0);
     }
 
     public function test_checkout_rolls_back_all_updates_when_any_item_lacks_stock(): void
