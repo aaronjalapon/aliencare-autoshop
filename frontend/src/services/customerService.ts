@@ -18,6 +18,8 @@ import { api, ApiResponse, PaginatedResponse } from './api';
 export interface CustomerTransactionFilters {
     type?: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
     payment_state?: 'paid' | 'pending';
+    job_order_id?: number;
+    reference_number?: string;
     search?: string;
     from_date?: string;
     to_date?: string;
@@ -30,6 +32,7 @@ export interface CreateCustomerTransactionData {
     type: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
     amount: number;
     job_order_id?: number | null;
+    payment_method?: string | null;
     reference_number?: string | null;
     notes?: string | null;
 }
@@ -37,6 +40,7 @@ export interface CreateCustomerTransactionData {
 export interface UpdateCustomerTransactionData {
     type?: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
     amount?: number;
+    payment_method?: string | null;
     reference_number?: string | null;
     notes?: string | null;
 }
@@ -169,6 +173,8 @@ class CustomerService {
 
         if (filters.type) params.type = filters.type;
         if (filters.payment_state) params.payment_state = filters.payment_state;
+        if (filters.job_order_id) params.job_order_id = filters.job_order_id;
+        if (filters.reference_number) params.reference_number = filters.reference_number;
         if (filters.search) params.search = filters.search;
         if (filters.from_date) params.from_date = filters.from_date;
         if (filters.to_date) params.to_date = filters.to_date;
@@ -184,6 +190,8 @@ class CustomerService {
 
         if (filters.type) params.type = filters.type;
         if (filters.payment_state) params.payment_state = filters.payment_state;
+        if (filters.job_order_id) params.job_order_id = filters.job_order_id;
+        if (filters.reference_number) params.reference_number = filters.reference_number;
         if (filters.search) params.search = filters.search;
         if (filters.from_date) params.from_date = filters.from_date;
         if (filters.to_date) params.to_date = filters.to_date;
@@ -210,7 +218,9 @@ class CustomerService {
         return api.get<ApiResponse<CustomerBillingSummary>>('/v1/customer/billing/summary');
     }
 
-    async getMyBillingReceipts(filters: CustomerBillingReceiptFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>> {
+    async getMyBillingReceipts(
+        filters: CustomerBillingReceiptFilters = {},
+    ): Promise<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>> {
         const params: Record<string, string | number> = {};
 
         if (filters.search) params.search = filters.search;

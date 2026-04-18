@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\BayController;
+use App\Http\Controllers\Api\BillingQueueController;
 use App\Http\Controllers\Api\BookingSlotSettingsController;
 use App\Http\Controllers\Api\CustomerBookingController;
 use App\Http\Controllers\Api\CustomerController;
@@ -173,6 +174,10 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('transactions')->name('transactions.')->group(function () {
         Route::get('/', [TransactionController::class, 'index'])->name('index');
         Route::get('/{id}', [TransactionController::class, 'show'])->name('show');
+    });
+
+    Route::prefix('billing')->name('billing.')->group(function () {
+        Route::get('/queue', [BillingQueueController::class, 'index'])->name('queue');
     });
 
     Route::prefix('archives')->name('archives.')->group(function () {

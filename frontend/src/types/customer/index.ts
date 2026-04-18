@@ -114,6 +114,19 @@ export interface JobOrderServiceSummary {
     includes: string[];
 }
 
+export interface JobOrderItem {
+    id: number;
+    job_order_id: number;
+    item_type: 'part' | 'service' | string;
+    item_id: number | null;
+    description: string | null;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface JobOrderCustomerSummary {
     id: number;
     first_name: string;
@@ -205,4 +218,36 @@ export interface JobOrder {
     vehicle: Vehicle | null;
     mechanic: { id: number; name: string | null; specialization: string | null; availability_status: string } | null;
     bay: { id: number; name: string; status: string } | null;
+    items?: JobOrderItem[];
+}
+
+export type BillingQueueSource = 'online_booking' | 'walk_in';
+export type BillingQueueKind = 'service' | 'retail';
+export type BillingQueueStatus = 'pending' | 'partial' | 'paid';
+
+export interface BillingQueueItem {
+    entity_type: 'job_order' | 'pos_transaction';
+    entity_id: number;
+    customer_id: number;
+    customer_name: string;
+    customer_phone: string | null;
+    source: BillingQueueSource;
+    kind: BillingQueueKind;
+    invoice_no: string;
+    job_order_id: number | null;
+    job_order_no: string | null;
+    pos_reference: string | null;
+    vehicle_make: string | null;
+    vehicle_model: string | null;
+    vehicle_year: number | null;
+    plate_number: string | null;
+    service_advisor: string | null;
+    payment_terms: string | null;
+    notes: string | null;
+    created_at: string;
+    due_at: string | null;
+    subtotal: number;
+    paid_total: number;
+    balance: number;
+    status: BillingQueueStatus;
 }

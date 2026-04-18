@@ -6,6 +6,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
+use App\Models\JobOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -55,6 +56,7 @@ class CustomerTransactionCrudApiTest extends TestCase
         $payload = [
             'type' => 'invoice',
             'amount' => 1750.5,
+            'payment_method' => 'cash',
             'reference_number' => 'INV-2026-1001',
             'notes' => 'Manual invoice from frontdesk',
         ];
@@ -66,12 +68,14 @@ class CustomerTransactionCrudApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.customer_id', $this->managedCustomer->id)
             ->assertJsonPath('data.type', 'invoice')
+            ->assertJsonPath('data.payment_method', 'cash')
             ->assertJsonPath('data.reference_number', 'INV-2026-1001')
             ->assertJsonPath('data.notes', 'Manual invoice from frontdesk');
 
         $this->assertDatabaseHas('customer_transactions', [
             'customer_id' => $this->managedCustomer->id,
             'type' => 'invoice',
+            'payment_method' => 'cash',
             'reference_number' => 'INV-2026-1001',
             'notes' => 'Manual invoice from frontdesk',
         ]);
@@ -89,6 +93,7 @@ class CustomerTransactionCrudApiTest extends TestCase
         $payload = [
             'type' => 'payment',
             'amount' => 1000,
+            'payment_method' => 'gcash',
             'reference_number' => 'PMT-2026-2001',
             'notes' => 'Updated by frontdesk',
         ];
@@ -99,6 +104,7 @@ class CustomerTransactionCrudApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.type', 'payment')
+            ->assertJsonPath('data.payment_method', 'gcash')
             ->assertJsonPath('data.reference_number', 'PMT-2026-2001')
             ->assertJsonPath('data.notes', 'Updated by frontdesk');
 
@@ -106,9 +112,45 @@ class CustomerTransactionCrudApiTest extends TestCase
             'id' => $transaction->id,
             'type' => 'payment',
             'amount' => 1000,
+            'payment_method' => 'gcash',
             'reference_number' => 'PMT-2026-2001',
             'notes' => 'Updated by frontdesk',
         ]);
+    }
+
+    public function test_transactions_endpoint_supports_job_order_and_reference_filters(): void
+    {
+        $jobOrder = JobOrder::factory()->create([
+            'customer_id' => $this->managedCustomer->id,
+            'status' => 'completed',
+        ]);
+
+        $target = CustomerTransaction::create([
+            'customer_id' => $this->managedCustomer->id,
+            'job_order_id' => $jobOrder->id,
+            'type' => 'invoice',
+            'amount' => 1800,
+            'reference_number' => 'INV-FILTER-001',
+            'notes' => 'Target transaction',
+        ]);
+
+        CustomerTransaction::create([
+            'customer_id' => $this->managedCustomer->id,
+            'type' => 'invoice',
+            'amount' => 2200,
+            'reference_number' => 'INV-FILTER-002',
+            'notes' => 'Non-matching transaction',
+        ]);
+
+        $response = $this->actingAs($this->frontDeskUser)
+            ->getJson('/api/v1/customers/'.$this->managedCustomer->id.'/transactions?job_order_id='.$jobOrder->id.'&reference_number=INV-FILTER-001');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $transactions = $response->json('data.data');
+        $this->assertCount(1, $transactions);
+        $this->assertSame($target->id, $transactions[0]['id']);
     }
 
     public function test_paid_or_linked_transactions_reject_amount_or_type_updates(): void

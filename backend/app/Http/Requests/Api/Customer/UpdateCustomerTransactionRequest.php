@@ -18,6 +18,7 @@ class UpdateCustomerTransactionRequest extends FormRequest
         return [
             'type' => ['sometimes', 'string', 'in:invoice,payment,refund,reservation_fee'],
             'amount' => ['sometimes', 'numeric', 'min:0'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:500'],
         ];

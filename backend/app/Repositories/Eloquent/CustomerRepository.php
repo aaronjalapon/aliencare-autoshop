@@ -170,6 +170,14 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
             $query->where('type', $filters['type']);
         }
 
+        if (isset($filters['job_order_id'])) {
+            $query->where('job_order_id', (int) $filters['job_order_id']);
+        }
+
+        if (isset($filters['reference_number'])) {
+            $query->where('reference_number', (string) $filters['reference_number']);
+        }
+
         if (isset($filters['search'])) {
             $search = (string) $filters['search'];
 

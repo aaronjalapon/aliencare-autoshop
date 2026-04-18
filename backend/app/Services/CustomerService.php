@@ -317,6 +317,10 @@ class CustomerService implements CustomerServiceInterface
                 $payload['amount'] = round((float) $data['amount'], 2);
             }
 
+            if (array_key_exists('payment_method', $data)) {
+                $payload['payment_method'] = $this->optionalStringOrNull($data['payment_method']);
+            }
+
             if (array_key_exists('reference_number', $data)) {
                 $payload['reference_number'] = $this->optionalStringOrNull($data['reference_number']);
             }
@@ -332,6 +336,7 @@ class CustomerService implements CustomerServiceInterface
             $oldData = [
                 'type' => $currentType,
                 'amount' => (float) $transaction->amount,
+                'payment_method' => $transaction->payment_method,
                 'reference_number' => $transaction->reference_number,
                 'notes' => $transaction->notes,
             ];
@@ -347,6 +352,7 @@ class CustomerService implements CustomerServiceInterface
                 [
                     'type' => $updatedTransaction->type?->value ?? (string) $updatedTransaction->type,
                     'amount' => (float) $updatedTransaction->amount,
+                    'payment_method' => $updatedTransaction->payment_method,
                     'reference_number' => $updatedTransaction->reference_number,
                     'notes' => $updatedTransaction->notes,
                 ],
