@@ -372,8 +372,7 @@ export default function Billing() {
                 reference_number: ticket.pos_reference ?? undefined,
             });
 
-            const jobOrderPromise =
-                ticket.job_order_id !== null ? frontdeskJobOrderService.getJobOrder(ticket.job_order_id) : Promise.resolve(null);
+            const jobOrderPromise = ticket.job_order_id !== null ? frontdeskJobOrderService.getJobOrder(ticket.job_order_id) : Promise.resolve(null);
 
             const [transactionResult, jobOrderResult] = await Promise.allSettled([transactionPromise, jobOrderPromise]);
 
@@ -417,8 +416,7 @@ export default function Billing() {
             .filter((ticket) => ticket.status !== 'paid' && ticket.source === 'online_booking')
             .reduce((sum, ticket) => sum + ticket.balance, 0);
         const walkInOpenTickets = queueTickets.filter((ticket) => ticket.status !== 'paid' && ticket.source === 'walk_in').length;
-        const averageTicketValue =
-            queueTickets.length > 0 ? queueTickets.reduce((sum, ticket) => sum + ticket.subtotal, 0) / queueTickets.length : 0;
+        const averageTicketValue = queueTickets.length > 0 ? queueTickets.reduce((sum, ticket) => sum + ticket.subtotal, 0) / queueTickets.length : 0;
 
         const today = new Date().toISOString().slice(0, 10);
         const settledToday = queueTickets
@@ -693,8 +691,8 @@ export default function Billing() {
                                 }
                                 className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {isSendingPaymentLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />} Send
-                                Payment Link
+                                {isSendingPaymentLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />} Send Payment
+                                Link
                             </button>
                             <button
                                 onClick={openRecordPaymentModal}
@@ -859,10 +857,14 @@ export default function Billing() {
 
                                                     <div className="mb-2 lg:mb-0">
                                                         <p className="text-sm">{reference}</p>
-                                                        <p className="text-xs text-muted-foreground">Due {formatDateTime(ticket.due_at ?? ticket.created_at)}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Due {formatDateTime(ticket.due_at ?? ticket.created_at)}
+                                                        </p>
                                                     </div>
 
-                                                    <div className="mb-2 text-sm font-semibold text-[#d4af37] lg:mb-0">{formatPeso(ticket.subtotal)}</div>
+                                                    <div className="mb-2 text-sm font-semibold text-[#d4af37] lg:mb-0">
+                                                        {formatPeso(ticket.subtotal)}
+                                                    </div>
 
                                                     <div className="mb-2 text-sm font-semibold lg:mb-0">{formatPeso(ticket.balance)}</div>
 
@@ -911,7 +913,9 @@ export default function Billing() {
                                     <div>
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
-                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{selectedTicket.invoice_no}</p>
+                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                                    {selectedTicket.invoice_no}
+                                                </p>
                                                 <h2 className="mt-1 text-xl font-bold">{selectedTicket.customer_name}</h2>
                                                 <p className="mt-1 text-sm text-muted-foreground">
                                                     {selectedTicket.job_order_no ?? selectedTicket.pos_reference ?? 'Reference pending'}
@@ -998,13 +1002,15 @@ export default function Billing() {
                                                     const canEditAmount = !transactionLockedForAmount(transaction);
 
                                                     return (
-                                                        <div key={transaction.id} className="rounded-md border border-[#2a2a2e] bg-[#090a0d] px-3 py-2">
+                                                        <div
+                                                            key={transaction.id}
+                                                            className="rounded-md border border-[#2a2a2e] bg-[#090a0d] px-3 py-2"
+                                                        >
                                                             <div className="flex items-center justify-between gap-2">
                                                                 <div>
                                                                     <p className="font-medium">{transactionTitle(transaction)}</p>
                                                                     <p className="mt-1 text-xs text-muted-foreground">
-                                                                        {formatDateTime(transaction.paid_at ?? transaction.created_at)} ·
-                                                                        {' '}
+                                                                        {formatDateTime(transaction.paid_at ?? transaction.created_at)} ·{' '}
                                                                         {paymentMethodLabel(transaction.payment_method)}
                                                                     </p>
                                                                 </div>

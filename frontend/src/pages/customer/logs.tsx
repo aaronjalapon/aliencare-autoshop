@@ -150,9 +150,7 @@ export default function CustomerLogs() {
                             <TrendingUp className="h-4 w-4 text-[#d4af37]" />
                         </div>
                         <p className="mt-2 text-2xl font-bold">{loading ? '—' : pagination.total}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            Showing {logs.length} on this page
-                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Showing {logs.length} on this page</p>
                     </div>
                     <div className="profile-card rounded-xl p-4">
                         <div className="flex items-center justify-between">
@@ -223,7 +221,8 @@ export default function CustomerLogs() {
                                 const ts = TYPE_STYLES[log.type] ?? TYPE_STYLES['invoice'];
                                 const isDebit = isPaidOutTransaction(log);
                                 const status = getStatus(log);
-                                const typeLabel = log.type === 'reservation_fee' ? 'Reservation Fee' : log.type.charAt(0).toUpperCase() + log.type.slice(1);
+                                const typeLabel =
+                                    log.type === 'reservation_fee' ? 'Reservation Fee' : log.type.charAt(0).toUpperCase() + log.type.slice(1);
                                 return (
                                     <div
                                         key={log.id}

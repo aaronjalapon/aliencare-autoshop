@@ -28,14 +28,14 @@ class BillingQueueController extends Controller
             SELECT 1 FROM reservations r WHERE r.job_order_id = job_orders.id
         ) THEN 'online_booking' ELSE 'walk_in' END";
 
-        $serviceSubtotalExpr = "(
+        $serviceSubtotalExpr = '(
             COALESCE(job_orders.service_fee, 0)
             + COALESCE((
                 SELECT SUM(joi.total_price)
                 FROM job_order_items joi
                 WHERE joi.job_order_id = job_orders.id
             ), 0)
-        )";
+        )';
 
         $servicePaidExpr = "COALESCE((
             SELECT SUM(ABS(ct.amount))
