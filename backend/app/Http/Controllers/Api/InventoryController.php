@@ -19,6 +19,7 @@ use App\Http\Resources\InventoryResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class InventoryController extends Controller
 {
@@ -33,6 +34,8 @@ class InventoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         $filters = [
             'category' => $request->input('category'),
             'low_stock' => $request->boolean('low_stock'),
@@ -58,6 +61,8 @@ class InventoryController extends Controller
      */
     public function store(StoreInventoryRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $data = $request->validated();
             $initialStock = $data['stock'] ?? 0;
@@ -97,6 +102,8 @@ class InventoryController extends Controller
      */
     public function show(int $id): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $inventory = $this->inventoryRepository->findByIdOrFail($id);
 
@@ -117,6 +124,8 @@ class InventoryController extends Controller
      */
     public function update(UpdateInventoryRequest $request, int $id): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $inventory = $this->inventoryRepository->update($id, $request->validated());
 
@@ -138,6 +147,8 @@ class InventoryController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $this->inventoryRepository->delete($id);
 
@@ -158,6 +169,8 @@ class InventoryController extends Controller
      */
     public function checkStockLevels(int $itemId, Request $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $requestedQuantity = (int) $request->get('requested_quantity', 1);
 
@@ -183,6 +196,8 @@ class InventoryController extends Controller
      */
     public function addStock(AddStockRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $result = $this->inventoryService->adjustStock(
                 $request->input('item_id'),
@@ -221,6 +236,8 @@ class InventoryController extends Controller
      */
     public function deductStock(DeductStockRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $result = $this->inventoryService->adjustStock(
                 $request->input('item_id'),
@@ -264,6 +281,8 @@ class InventoryController extends Controller
      */
     public function logReturnDamage(LogReturnDamageRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $transactionType = $request->input('transaction_type');
             $quantity = (int) $request->input('quantity');
@@ -313,6 +332,8 @@ class InventoryController extends Controller
      */
     public function generateLowStockAlerts(): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $result = $this->alertService->generateLowStockAlerts();
 
@@ -327,5 +348,10 @@ class InventoryController extends Controller
                 'message' => 'Failed to generate alerts: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    private function authorizeManageInventory(): void
+    {
+        Gate::authorize('manage-inventory');
     }
 }

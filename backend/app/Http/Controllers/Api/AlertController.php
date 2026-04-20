@@ -11,6 +11,7 @@ use App\Http\Resources\AlertResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class AlertController extends Controller
 {
@@ -23,6 +24,8 @@ class AlertController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $filters = [
                 'acknowledged' => $request->has('acknowledged')
@@ -57,6 +60,8 @@ class AlertController extends Controller
      */
     public function generateLowStockAlerts(): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $result = $this->alertService->generateLowStockAlerts();
 
@@ -82,6 +87,8 @@ class AlertController extends Controller
      */
     public function getAlertStatistics(): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $statistics = $this->alertService->getAlertStatistics();
 
@@ -102,6 +109,8 @@ class AlertController extends Controller
      */
     public function acknowledge(Request $request, int $id): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $alert = $this->alertService->acknowledgeAlert(
                 $id,
@@ -127,6 +136,8 @@ class AlertController extends Controller
      */
     public function bulkAcknowledge(BulkAcknowledgeRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $result = $this->alertService->bulkAcknowledgeAlerts(
                 $request->input('alert_ids'),
@@ -154,6 +165,8 @@ class AlertController extends Controller
      */
     public function cleanup(Request $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $daysOld = (int) $request->get('days_old', 30);
 
@@ -172,5 +185,10 @@ class AlertController extends Controller
                 'message' => 'Failed to cleanup alerts: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    private function authorizeManageInventory(): void
+    {
+        Gate::authorize('manage-inventory');
     }
 }

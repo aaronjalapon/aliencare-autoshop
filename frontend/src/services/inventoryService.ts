@@ -79,6 +79,10 @@ export interface StockOperation {
     notes?: string;
 }
 
+export interface ReturnDamageOperation extends StockOperation {
+    transaction_type: 'return' | 'damage';
+}
+
 export interface NewInventoryItem {
     sku?: string;
     item_id?: number; // Optional since it's auto-generated
@@ -123,7 +127,7 @@ class InventoryService {
     }
 
     // Delete inventory item
-    async deleteInventoryItem(itemId: string): Promise<ApiResponse<{ message: string }>> {
+    async deleteInventoryItem(itemId: number | string): Promise<ApiResponse<{ message: string }>> {
         return api.delete<ApiResponse<{ message: string }>>(`/v1/inventory/${itemId}`);
     }
 
@@ -145,9 +149,7 @@ class InventoryService {
     }
 
     // Log return/damage
-    async logReturnDamage(
-        operation: StockOperation & { type: 'return' | 'damage' },
-    ): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
+    async logReturnDamage(operation: ReturnDamageOperation): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
         return api.post<ApiResponse<{ message: string; transaction: StockTransaction }>>('/v1/inventory/log-return-damage', operation);
     }
 

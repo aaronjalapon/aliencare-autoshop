@@ -4,7 +4,7 @@
  */
 
 import { ApiResponse, PaginatedResponse } from '@/services/api';
-import { InventoryFilters, inventoryService, NewInventoryItem, StockOperation } from '@/services/inventoryService';
+import { InventoryFilters, inventoryService, NewInventoryItem, ReturnDamageOperation, StockOperation } from '@/services/inventoryService';
 import { DashboardAnalytics, InventoryItem, StockTransaction } from '@/types/inventory';
 import { dispatchInventoryUpdate, dispatchStockTransaction, inventoryEvents } from '@/utils/inventoryEvents';
 import { useCallback, useEffect, useState } from 'react';
@@ -80,6 +80,27 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         [fetchInventory],
     );
 
+    const logReturnDamage = useCallback(
+        async (operation: ReturnDamageOperation) => {
+            try {
+                await inventoryService.logReturnDamage(operation);
+                await fetchInventory();
+
+                const transactionDelta = operation.transaction_type === 'return' ? operation.quantity : -operation.quantity;
+                dispatchStockTransaction(operation.item_id, operation.transaction_type, transactionDelta, {
+                    reference_number: operation.reference_number,
+                    notes: operation.notes,
+                });
+
+                return true;
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to log return/damage transaction');
+                return false;
+            }
+        },
+        [fetchInventory],
+    );
+
     const createItem = useCallback(
         async (item: NewInventoryItem) => {
             try {
@@ -128,6 +149,23 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         [fetchInventory],
     );
 
+    const deleteItem = useCallback(
+        async (itemId: number) => {
+            try {
+                await inventoryService.deleteInventoryItem(itemId);
+                await fetchInventory();
+
+                dispatchInventoryUpdate(itemId, 'deleted');
+
+                return true;
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to discontinue item');
+                return false;
+            }
+        },
+        [fetchInventory],
+    );
+
     return {
         data,
         loading,
@@ -137,8 +175,10 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         refresh: fetchInventory,
         addStock,
         deductStock,
+        logReturnDamage,
         createItem,
         updateItem,
+        deleteItem,
         clearError: () => setError(null),
     };
 }

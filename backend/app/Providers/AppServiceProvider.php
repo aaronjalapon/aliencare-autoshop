@@ -102,10 +102,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(200)->by($request->user()?->id ?: $request->ip());
         });
 
-        Gate::define('view-archives', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
-        Gate::define('view-transactions', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
-        Gate::define('view-reports', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
-        Gate::define('generate-reports', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
+        Gate::define('view-archives', fn (User $user): bool => $this->canManageInventoryWorkspace($user));
+        Gate::define('view-transactions', fn (User $user): bool => $this->canManageInventoryWorkspace($user));
+        Gate::define('view-reports', fn (User $user): bool => $this->canManageInventoryWorkspace($user));
+        Gate::define('generate-reports', fn (User $user): bool => $this->canManageInventoryWorkspace($user));
+        Gate::define('manage-inventory', fn (User $user): bool => $this->canManageInventoryWorkspace($user));
 
         // CIM gates
         Gate::define('approve-customers', fn (User $user): bool => $this->canAccessSensitiveEndpoints($user));
@@ -147,6 +148,16 @@ class AppServiceProvider extends ServiceProvider
     }
 
     private function canManagePos(User $user): bool
+    {
+        if (! $this->canAccessSensitiveEndpoints($user)) {
+            return false;
+        }
+
+        return in_array($user->role, [UserRole::Admin, UserRole::FrontDesk], true)
+            || in_array($user->role, [UserRole::Admin->value, UserRole::FrontDesk->value], true);
+    }
+
+    private function canManageInventoryWorkspace(User $user): bool
     {
         if (! $this->canAccessSensitiveEndpoints($user)) {
             return false;
