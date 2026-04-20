@@ -19,6 +19,7 @@ class LinkTransactionRequest extends FormRequest
             'type' => ['required', 'string', 'in:invoice,payment,refund'],
             'amount' => ['required', 'numeric', 'min:0'],
             'job_order_id' => ['nullable', 'integer', 'exists:job_orders,id'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
             'reference_number' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:500'],
         ];

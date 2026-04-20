@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\BayController;
+use App\Http\Controllers\Api\BillingQueueController;
 use App\Http\Controllers\Api\BookingSlotSettingsController;
 use App\Http\Controllers\Api\CustomerBookingController;
 use App\Http\Controllers\Api\CustomerController;
@@ -127,10 +128,10 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->name('index');
         Route::post('/', [InventoryController::class, 'store'])->name('store');
-        Route::get('/{id}', [InventoryController::class, 'show'])->name('show');
-        Route::put('/{id}', [InventoryController::class, 'update'])->name('update');
-        Route::delete('/{id}', [InventoryController::class, 'destroy'])->name('destroy');
-        Route::get('/{itemId}/stock-status', [InventoryController::class, 'checkStockLevels'])->name('stock-status');
+        Route::get('/{id}', [InventoryController::class, 'show'])->whereNumber('id')->name('show');
+        Route::put('/{id}', [InventoryController::class, 'update'])->whereNumber('id')->name('update');
+        Route::delete('/{id}', [InventoryController::class, 'destroy'])->whereNumber('id')->name('destroy');
+        Route::get('/{itemId}/stock-status', [InventoryController::class, 'checkStockLevels'])->whereNumber('itemId')->name('stock-status');
         Route::post('/add-stock', [InventoryController::class, 'addStock'])->name('add-stock');
         Route::post('/deduct-stock', [InventoryController::class, 'deductStock'])->name('deduct-stock');
         Route::post('/log-return-damage', [InventoryController::class, 'logReturnDamage'])->name('log-return-damage');
@@ -140,14 +141,14 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('reservations')->name('reservations.')->group(function () {
         Route::get('/', [ReservationController::class, 'index'])->name('index');
         Route::get('/summary', [ReservationController::class, 'getActiveReservationsSummary'])->name('summary');
-        Route::get('/{id}', [ReservationController::class, 'show'])->name('show');
+        Route::get('/{id}', [ReservationController::class, 'show'])->whereNumber('id')->name('show');
         Route::post('/reserve', [ReservationController::class, 'reservePartsForJob'])->name('reserve');
         Route::post('/reserve-multiple', [ReservationController::class, 'reserveMultiplePartsForJob'])->name('reserve-multiple');
-        Route::post('/{id}/pay-fee', [ReservationController::class, 'initiateFeePay'])->name('pay-fee');
-        Route::put('/{id}/approve', [ReservationController::class, 'approveReservation'])->name('approve');
-        Route::put('/{id}/reject', [ReservationController::class, 'rejectReservation'])->name('reject');
-        Route::put('/{id}/complete', [ReservationController::class, 'completeReservation'])->name('complete');
-        Route::put('/{id}/cancel', [ReservationController::class, 'cancelReservation'])->name('cancel');
+        Route::post('/{id}/pay-fee', [ReservationController::class, 'initiateFeePay'])->whereNumber('id')->name('pay-fee');
+        Route::put('/{id}/approve', [ReservationController::class, 'approveReservation'])->whereNumber('id')->name('approve');
+        Route::put('/{id}/reject', [ReservationController::class, 'rejectReservation'])->whereNumber('id')->name('reject');
+        Route::put('/{id}/complete', [ReservationController::class, 'completeReservation'])->whereNumber('id')->name('complete');
+        Route::put('/{id}/cancel', [ReservationController::class, 'cancelReservation'])->whereNumber('id')->name('cancel');
     });
 
     Route::prefix('reports')->name('reports.')->group(function () {
@@ -173,6 +174,10 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('transactions')->name('transactions.')->group(function () {
         Route::get('/', [TransactionController::class, 'index'])->name('index');
         Route::get('/{id}', [TransactionController::class, 'show'])->name('show');
+    });
+
+    Route::prefix('billing')->name('billing.')->group(function () {
+        Route::get('/queue', [BillingQueueController::class, 'index'])->name('queue');
     });
 
     Route::prefix('archives')->name('archives.')->group(function () {

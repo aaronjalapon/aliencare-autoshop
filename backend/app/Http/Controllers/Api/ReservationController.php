@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Contracts\Services\ReservationServiceInterface;
+use App\Enums\UserRole;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InventoryNotFoundException;
 use App\Exceptions\ReservationNotFoundException;
@@ -20,6 +21,7 @@ use App\Http\Resources\ReservationResource;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class ReservationController extends Controller
 {
@@ -32,6 +34,12 @@ class ReservationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $mine = $request->boolean('mine');
+
+        if (! $mine) {
+            $this->authorizeManageInventory();
+        }
+
         $filters = [
             'status' => $request->input('status'),
             'job_order_number' => $request->input('job_order'),
@@ -39,11 +47,9 @@ class ReservationController extends Controller
         ];
 
         // When `mine=1` is passed, scope to the authenticated customer's reservations.
-        if ($request->boolean('mine')) {
+        if ($mine) {
             $customer = Customer::where('email', $request->user()?->email)->first();
-            if ($customer) {
-                $filters['customer_id'] = $customer->id;
-            }
+            $filters['customer_id'] = $customer?->id ?? -1;
         }
 
         // Remove null values
@@ -65,6 +71,8 @@ class ReservationController extends Controller
      */
     public function show(int $id): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $reservation = $this->reservationService->getReservation($id);
 
@@ -85,6 +93,8 @@ class ReservationController extends Controller
      */
     public function reservePartsForJob(ReservePartsRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
             $customer = Customer::where('email', $request->user()?->email)->first();
@@ -121,6 +131,8 @@ class ReservationController extends Controller
      */
     public function approveReservation(int $reservationId, ApproveReservationRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
 
@@ -157,6 +169,8 @@ class ReservationController extends Controller
      */
     public function rejectReservation(int $reservationId, RejectReservationRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
 
@@ -189,6 +203,8 @@ class ReservationController extends Controller
      */
     public function completeReservation(int $reservationId, CompleteReservationRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
 
@@ -220,6 +236,8 @@ class ReservationController extends Controller
      */
     public function cancelReservation(int $reservationId, CancelReservationRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
 
@@ -252,6 +270,8 @@ class ReservationController extends Controller
      */
     public function getActiveReservationsSummary(): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $summary = $this->reservationService->getActiveReservationsSummary();
 
@@ -272,6 +292,8 @@ class ReservationController extends Controller
      */
     public function reserveMultiplePartsForJob(ReserveMultiplePartsRequest $request): JsonResponse
     {
+        $this->authorizeManageInventory();
+
         try {
             $actorName = (string) ($request->user()?->name ?? 'System');
 
@@ -304,6 +326,13 @@ class ReservationController extends Controller
      */
     public function initiateFeePay(Request $request, int $id): JsonResponse
     {
+        if ($request->user()?->role !== UserRole::Customer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only customer accounts can initiate reservation fee payments.',
+            ], 403);
+        }
+
         $customer = Customer::where('email', $request->user()?->email)->first();
 
         if (! $customer) {
@@ -336,5 +365,10 @@ class ReservationController extends Controller
                 'message' => 'Payment initiation failed: '.$e->getMessage(),
             ], 502);
         }
+    }
+
+    private function authorizeManageInventory(): void
+    {
+        Gate::authorize('manage-inventory');
     }
 }

@@ -17,10 +17,13 @@ class ReservationReportApiTest extends TestCase
 
     private User $user;
 
+    private User $customerUser;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['role' => 'frontdesk']);
+        $this->customerUser = User::factory()->create(['role' => 'customer']);
     }
 
     // RESERVATION INDEX TESTS
@@ -48,6 +51,63 @@ class ReservationReportApiTest extends TestCase
         $response = $this->getJson('/api/v1/reservations');
 
         $response->assertStatus(401);
+    }
+
+    public function test_customer_can_only_view_owned_reservations_with_mine_filter(): void
+    {
+        $customerProfile = \App\Models\Customer::factory()->create([
+            'email' => $this->customerUser->email,
+        ]);
+
+        Reservation::factory()->create([
+            'customer_id' => $customerProfile->id,
+            'status' => 'pending',
+        ]);
+        Reservation::factory()->create([
+            'customer_id' => null,
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($this->customerUser)
+            ->getJson('/api/v1/reservations?mine=1')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.data');
+    }
+
+    public function test_customer_without_profile_gets_empty_mine_reservations(): void
+    {
+        Reservation::factory()->count(2)->create();
+
+        $this->actingAs($this->customerUser)
+            ->getJson('/api/v1/reservations?mine=1')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data.data');
+    }
+
+    public function test_customer_cannot_access_staff_reservation_management_endpoints(): void
+    {
+        $inventory = Inventory::factory()->create(['stock' => 100]);
+        $reservation = Reservation::factory()->create([
+            'item_id' => $inventory->item_id,
+            'status' => 'pending',
+            'quantity' => 5,
+        ]);
+
+        $this->actingAs($this->customerUser)
+            ->getJson('/api/v1/reservations')
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->postJson('/api/v1/reservations/reserve', [
+                'item_id' => $inventory->item_id,
+                'quantity' => 2,
+                'job_order_number' => 'JOB-CTM-001',
+            ])
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->putJson("/api/v1/reservations/{$reservation->id}/approve")
+            ->assertStatus(403);
     }
 
     public function test_reservation_index_filters_by_status(): void
@@ -398,6 +458,19 @@ class ReservationReportApiTest extends TestCase
         $response = $this->getJson('/api/v1/reports');
 
         $response->assertStatus(401);
+    }
+
+    public function test_customer_cannot_access_inventory_report_endpoints(): void
+    {
+        $this->actingAs($this->customerUser)
+            ->getJson('/api/v1/reports')
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->postJson('/api/v1/reports/daily-usage', [
+                'date' => '2024-01-15',
+            ])
+            ->assertStatus(403);
     }
 
     public function test_report_index_filters_by_report_type(): void

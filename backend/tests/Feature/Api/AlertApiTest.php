@@ -16,10 +16,13 @@ class AlertApiTest extends TestCase
 
     private User $user;
 
+    private User $customerUser;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['role' => 'frontdesk']);
+        $this->customerUser = User::factory()->create(['role' => 'customer']);
     }
 
     // INDEX ENDPOINT TESTS
@@ -46,6 +49,23 @@ class AlertApiTest extends TestCase
         $response = $this->getJson('/api/v1/alerts');
 
         $response->assertStatus(401);
+    }
+
+    public function test_alert_management_endpoints_forbid_customer_role(): void
+    {
+        $alert = Alert::factory()->create();
+
+        $this->actingAs($this->customerUser)
+            ->getJson('/api/v1/alerts')
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->postJson('/api/v1/alerts/generate-low-stock')
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->putJson("/api/v1/alerts/{$alert->id}/acknowledge")
+            ->assertStatus(403);
     }
 
     public function test_index_filters_by_acknowledged_status(): void

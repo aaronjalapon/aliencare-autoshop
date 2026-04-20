@@ -19,16 +19,18 @@ export interface DailyUsageRequest {
 }
 
 export interface MonthlyProcurementRequest {
-    month: string; // Format: YYYY-MM
+    year: number;
+    month: number;
 }
 
 export interface ReconciliationRequest {
-    date: string;
+    start_date: string;
+    end_date: string;
 }
 
 class ReportsService {
     // Get all reports with pagination and filters
-    async getReports(filters: ReportFilters = {}): Promise<PaginatedResponse<Report>> {
+    async getReports(filters: ReportFilters = {}): Promise<ApiResponse<PaginatedResponse<Report>>> {
         const params: Record<string, string | number> = {};
 
         Object.entries(filters).forEach(([key, value]) => {
@@ -37,7 +39,7 @@ class ReportsService {
             }
         });
 
-        return api.get<PaginatedResponse<Report>>('/v1/reports', params);
+        return api.get<ApiResponse<PaginatedResponse<Report>>>('/v1/reports', params);
     }
 
     // Get single report

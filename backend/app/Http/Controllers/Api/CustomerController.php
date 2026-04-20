@@ -450,6 +450,8 @@ class CustomerController extends Controller
             $filters = array_filter([
                 'type' => $request->input('type'),
                 'payment_state' => $request->input('payment_state'),
+                'job_order_id' => $request->input('job_order_id'),
+                'reference_number' => $request->input('reference_number'),
                 'search' => $request->input('search'),
                 'from_date' => $request->input('from_date'),
                 'to_date' => $request->input('to_date'),
@@ -489,6 +491,8 @@ class CustomerController extends Controller
             $filters = array_filter([
                 'type' => $request->input('type'),
                 'payment_state' => $request->input('payment_state'),
+                'job_order_id' => $request->input('job_order_id'),
+                'reference_number' => $request->input('reference_number'),
                 'search' => $request->input('search'),
                 'from_date' => $request->input('from_date'),
                 'to_date' => $request->input('to_date'),

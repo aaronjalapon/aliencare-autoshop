@@ -81,7 +81,7 @@ class PosController extends Controller
         ]);
     }
 
-    public function checkout(PosCheckoutRequest $request, XenditService $xenditService): JsonResponse
+    public function checkout(PosCheckoutRequest $request): JsonResponse
     {
         Gate::authorize('manage-pos');
 
@@ -160,6 +160,7 @@ class PosController extends Controller
 
             $paymentUrl = null;
             if ($paymentMode === 'online') {
+                $xenditService = app()->make(XenditService::class);
                 $paymentUrl = $xenditService->createInvoice($transaction, $customer);
             }
 

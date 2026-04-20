@@ -15,10 +15,13 @@ class InventoryApiTest extends TestCase
 
     private User $user;
 
+    private User $customerUser;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['role' => 'frontdesk']);
+        $this->customerUser = User::factory()->create(['role' => 'customer']);
     }
 
     // HEALTH CHECK TESTS
@@ -73,6 +76,32 @@ class InventoryApiTest extends TestCase
         $response = $this->getJson('/api/v1/inventory');
 
         $response->assertStatus(401);
+    }
+
+    public function test_inventory_management_endpoints_forbid_customer_role(): void
+    {
+        $inventory = Inventory::factory()->create();
+
+        $this->actingAs($this->customerUser)
+            ->getJson('/api/v1/inventory')
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->postJson('/api/v1/inventory', [
+                'item_name' => 'Forbidden Customer Item',
+                'category' => 'Engine',
+                'stock' => 10,
+                'reorder_level' => 5,
+                'unit_price' => 100,
+            ])
+            ->assertStatus(403);
+
+        $this->actingAs($this->customerUser)
+            ->postJson('/api/v1/inventory/add-stock', [
+                'item_id' => $inventory->item_id,
+                'quantity' => 5,
+            ])
+            ->assertStatus(403);
     }
 
     public function test_index_filters_by_category(): void

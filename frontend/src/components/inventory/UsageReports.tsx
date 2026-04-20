@@ -1,6 +1,7 @@
 import { AlertCircle, Download, FileText, Loader2, Package, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { useUsageReports } from '../../hooks/useUsageReports';
+import { reportsService } from '../../services/reportsService';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -21,6 +22,9 @@ const PesoIcon = ({ className }: { className?: string }) => (
 export function UsageReports() {
     const [reportPeriod, setReportPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
     const [selectedCategory, setSelectedCategory] = useState('all');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generationMessage, setGenerationMessage] = useState<string | null>(null);
+    const [generationError, setGenerationError] = useState<string | null>(null);
 
     const { data, loading, error, refetch } = useUsageReports({
         reportPeriod,
@@ -47,6 +51,45 @@ export function UsageReports() {
         a.download = `usage-report-${reportPeriod}-${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         window.URL.revokeObjectURL(url);
+    };
+
+    const generateReport = async () => {
+        setGenerationError(null);
+        setGenerationMessage(null);
+
+        try {
+            setIsGenerating(true);
+
+            const now = new Date();
+            const todayIso = now.toISOString().split('T')[0];
+
+            if (reportPeriod === 'daily') {
+                await reportsService.generateDailyUsageReport({ date: todayIso });
+                setGenerationMessage('Daily usage report generated successfully.');
+            } else if (reportPeriod === 'monthly') {
+                await reportsService.generateMonthlyProcurementReport({
+                    year: now.getFullYear(),
+                    month: now.getMonth() + 1,
+                });
+                setGenerationMessage('Monthly procurement report generated successfully.');
+            } else {
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(endDate.getDate() - 7);
+
+                await reportsService.generateReconciliationReport({
+                    start_date: startDate.toISOString().split('T')[0],
+                    end_date: endDate.toISOString().split('T')[0],
+                });
+                setGenerationMessage('Weekly reconciliation report generated successfully.');
+            }
+
+            await refetch();
+        } catch (err) {
+            setGenerationError(err instanceof Error ? err.message : 'Failed to generate report.');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     if (loading) {
@@ -146,8 +189,32 @@ export function UsageReports() {
                         <Download className="mr-2 h-4 w-4" />
                         Export CSV
                     </Button>
+                    <Button onClick={generateReport} disabled={isGenerating} variant="outline" className="border-border bg-input text-foreground">
+                        {isGenerating ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Generating...
+                            </>
+                        ) : (
+                            'Generate Report'
+                        )}
+                    </Button>
                 </div>
             </div>
+
+            {generationMessage && (
+                <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{generationMessage}</AlertDescription>
+                </Alert>
+            )}
+
+            {generationError && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{generationError}</AlertDescription>
+                </Alert>
+            )}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <div className="profile-card rounded-xl">

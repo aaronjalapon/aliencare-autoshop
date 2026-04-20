@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, Edit, Loader2, Package, Plus, Search } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, CheckCircle, Edit, Loader2, Package, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useInventoryItems } from '../../hooks/useInventory';
 import { InventoryItem } from '../../types/inventory';
@@ -19,12 +19,19 @@ export function InventoryTable() {
     const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string>('');
     const [stockToAdd, setStockToAdd] = useState('');
+    const [isStockActionDialogOpen, setIsStockActionDialogOpen] = useState(false);
+    const [stockActionType, setStockActionType] = useState<'deduct' | 'return' | 'damage'>('deduct');
+    const [selectedActionPartId, setSelectedActionPartId] = useState<string>('');
+    const [stockActionQuantity, setStockActionQuantity] = useState('');
+    const [stockActionError, setStockActionError] = useState<string | null>(null);
     const [addItemError, setAddItemError] = useState<string | null>(null);
     const [isAddingItem, setIsAddingItem] = useState(false);
     const [isAddingStock, setIsAddingStock] = useState(false);
+    const [isSubmittingStockAction, setIsSubmittingStockAction] = useState(false);
     const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [isUpdatingItem, setIsUpdatingItem] = useState(false);
+    const [isDiscontinuingItemId, setIsDiscontinuingItemId] = useState<number | null>(null);
     const [updateItemError, setUpdateItemError] = useState<string | null>(null);
 
     // New item form state
@@ -46,6 +53,9 @@ export function InventoryTable() {
         error,
         addStock,
         createItem,
+        deleteItem,
+        deductStock,
+        logReturnDamage,
         updateItem,
         updateFilters,
         refresh,
@@ -63,6 +73,7 @@ export function InventoryTable() {
     const filteredParts =
         parts && Array.isArray(parts)
             ? parts.filter((part) => {
+                  const isDiscontinued = part?.status === 'discontinued';
                   const matchesSearch =
                       !searchTerm ||
                       part?.item_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,7 +84,7 @@ export function InventoryTable() {
 
                   const matchesStock = stockFilter === 'all' || (stockFilter === 'low' && part?.stock <= part?.reorder_level);
 
-                  return matchesSearch && matchesCategory && matchesStock;
+                                    return !isDiscontinued && matchesSearch && matchesCategory && matchesStock;
               })
             : [];
 
@@ -140,6 +151,81 @@ export function InventoryTable() {
             // You could show a toast notification here
         } finally {
             setIsAddingStock(false);
+        }
+    };
+
+    const handleStockAction = async () => {
+        setStockActionError(null);
+
+        if (!selectedActionPartId || !stockActionQuantity) {
+            setStockActionError('Please select a part and enter a quantity.');
+            return;
+        }
+
+        const quantity = parseInt(stockActionQuantity);
+
+        if (isNaN(quantity) || quantity <= 0) {
+            setStockActionError('Quantity must be a valid number greater than 0.');
+            return;
+        }
+
+        const itemId = parseInt(selectedActionPartId);
+
+        try {
+            setIsSubmittingStockAction(true);
+
+            let success = false;
+
+            if (stockActionType === 'deduct') {
+                success = await deductStock({
+                    item_id: itemId,
+                    quantity,
+                    reference_number: `SALE-${Date.now()}`,
+                    notes: 'Manual stock deduction',
+                });
+            } else {
+                success = await logReturnDamage({
+                    item_id: itemId,
+                    quantity,
+                    transaction_type: stockActionType,
+                    reference_number: `${stockActionType === 'return' ? 'RET' : 'DMG'}-${Date.now()}`,
+                    notes: stockActionType === 'return' ? 'Manual return log' : 'Manual damage log',
+                });
+            }
+
+            if (success) {
+                setStockActionQuantity('');
+                setSelectedActionPartId('');
+                setStockActionType('deduct');
+                setIsStockActionDialogOpen(false);
+                refresh();
+            }
+        } catch (err) {
+            console.error('Failed to submit stock action:', err);
+            setStockActionError(err instanceof Error ? err.message : 'Failed to submit stock transaction.');
+        } finally {
+            setIsSubmittingStockAction(false);
+        }
+    };
+
+    const handleDiscontinueItem = async (item: InventoryItem) => {
+        const confirmed = window.confirm(`Discontinue ${item.item_name}? This marks the item as discontinued and hides it from active inventory views.`);
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setIsDiscontinuingItemId(item.item_id);
+            const success = await deleteItem(item.item_id);
+
+            if (success) {
+                refresh();
+            }
+        } catch (err) {
+            console.error('Failed to discontinue item:', err);
+        } finally {
+            setIsDiscontinuingItemId(null);
         }
     };
 
@@ -557,6 +643,106 @@ export function InventoryTable() {
                         </DialogContent>
                     </Dialog>
 
+                    <Dialog
+                        open={isStockActionDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsStockActionDialogOpen(open);
+                            if (!open) {
+                                setStockActionError(null);
+                            }
+                        }}
+                    >
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="border-border text-foreground hover:bg-muted">
+                                <ArrowDownCircle className="mr-2 h-4 w-4" />
+                                Log Stock Transaction
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="border-border bg-popover">
+                            <DialogHeader>
+                                <DialogTitle className="text-foreground">Deduct / Return / Damage</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <div>
+                                    <Label htmlFor="stock-action-type" className="text-foreground">
+                                        Transaction Type
+                                    </Label>
+                                    <Select
+                                        value={stockActionType}
+                                        onValueChange={(value: 'deduct' | 'return' | 'damage') => setStockActionType(value)}
+                                    >
+                                        <SelectTrigger id="stock-action-type" className="border-border bg-input text-foreground">
+                                            <SelectValue placeholder="Select action" />
+                                        </SelectTrigger>
+                                        <SelectContent className="border-border bg-popover">
+                                            <SelectItem value="deduct">Deduct (Sale/Usage)</SelectItem>
+                                            <SelectItem value="return">Return</SelectItem>
+                                            <SelectItem value="damage">Damage</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="stock-action-part" className="text-foreground">
+                                        Select Part
+                                    </Label>
+                                    <Select value={selectedActionPartId} onValueChange={setSelectedActionPartId}>
+                                        <SelectTrigger id="stock-action-part" className="border-border bg-input text-foreground">
+                                            <SelectValue placeholder="Choose part" />
+                                        </SelectTrigger>
+                                        <SelectContent className="border-border bg-popover">
+                                            {Array.isArray(parts) &&
+                                                parts
+                                                    .filter((part) => part.status !== 'discontinued')
+                                                    .map((part) => (
+                                                        <SelectItem key={part.id} value={part.item_id.toString()}>
+                                                            {part.item_id} - {part.item_name} (Current: {part.stock})
+                                                        </SelectItem>
+                                                    ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="stock-action-quantity" className="text-foreground">
+                                        Quantity
+                                    </Label>
+                                    <Input
+                                        id="stock-action-quantity"
+                                        type="number"
+                                        min="1"
+                                        value={stockActionQuantity}
+                                        onChange={(e) => setStockActionQuantity(e.target.value)}
+                                        placeholder="Enter quantity"
+                                        className="border-border bg-input text-foreground"
+                                    />
+                                </div>
+
+                                {stockActionError && (
+                                    <Alert variant="destructive">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertDescription>{stockActionError}</AlertDescription>
+                                    </Alert>
+                                )}
+
+                                <Button
+                                    onClick={handleStockAction}
+                                    disabled={isSubmittingStockAction}
+                                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                >
+                                    {isSubmittingStockAction ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Submitting...
+                                        </>
+                                    ) : (
+                                        `Submit ${stockActionType === 'deduct' ? 'Deduction' : stockActionType === 'return' ? 'Return' : 'Damage'} Log`
+                                    )}
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
                     {/* Edit Item Dialog */}
                     <Dialog open={isEditItemDialogOpen} onOpenChange={setIsEditItemDialogOpen}>
                         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border bg-card text-foreground">
@@ -804,14 +990,28 @@ export function InventoryTable() {
                                     <TableCell className="text-foreground">{part.location || 'N/A'}</TableCell>
                                     <TableCell className="text-foreground">{part.supplier || 'N/A'}</TableCell>
                                     <TableCell>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleEditItem(part)}
-                                            className="border-border text-foreground hover:bg-muted"
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleEditItem(part)}
+                                                className="border-border text-foreground hover:bg-muted"
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => handleDiscontinueItem(part)}
+                                                disabled={isDiscontinuingItemId === part.item_id}
+                                            >
+                                                {isDiscontinuingItemId === part.item_id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

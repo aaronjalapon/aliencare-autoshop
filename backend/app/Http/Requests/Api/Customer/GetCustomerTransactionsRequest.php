@@ -18,6 +18,8 @@ class GetCustomerTransactionsRequest extends FormRequest
         return [
             'type' => ['nullable', 'string', 'in:invoice,payment,refund,reservation_fee'],
             'payment_state' => ['nullable', 'string', 'in:paid,pending'],
+            'job_order_id' => ['nullable', 'integer', 'exists:job_orders,id'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
             'search' => ['nullable', 'string', 'max:100'],
             'from_date' => ['nullable', 'date', 'date_format:Y-m-d'],
             'to_date' => ['nullable', 'date', 'date_format:Y-m-d', 'after_or_equal:from_date'],
