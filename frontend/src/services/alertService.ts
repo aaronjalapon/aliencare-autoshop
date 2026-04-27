@@ -1,3 +1,11 @@
+import type { InventoryItemReference } from '@/types/inventory';
+import {
+    AlertCleanupResult,
+    AlertGenerationResult,
+    normalizeAlertGenerationResult,
+    normalizeAlerts,
+    normalizeAlertStatistics,
+} from './inventoryWorkspaceNormalizers';
 import { api, ApiResponse, PaginatedResponse } from './api';
 
 export interface Alert {
@@ -16,14 +24,7 @@ export interface Alert {
     acknowledged_at?: string;
     created_at: string;
     updated_at: string;
-    inventory_item?: {
-        id: number;
-        item_id: number;
-        item_name: string;
-        category: string;
-        current_stock: number;
-        unit_price: string;
-    };
+    inventory?: InventoryItemReference;
 }
 
 export interface AlertStatistics {
@@ -61,27 +62,35 @@ class AlertService {
             }
         });
 
-        return api.get<ApiResponse<PaginatedResponse<Alert>>>('/v1/alerts', params);
+        const response = await api.get<ApiResponse<PaginatedResponse<Alert>>>('/v1/alerts', params);
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                data: normalizeAlerts(response.data?.data),
+            },
+        };
     }
 
     // Get alert statistics and summary
     async getAlertStatistics(): Promise<ApiResponse<AlertStatistics>> {
-        return api.get<ApiResponse<AlertStatistics>>('/v1/alerts/statistics');
+        const response = await api.get<ApiResponse<AlertStatistics>>('/v1/alerts/statistics');
+
+        return {
+            ...response,
+            data: normalizeAlertStatistics(response.data),
+        };
     }
 
     // Generate low stock alerts
-    async generateLowStockAlerts(): Promise<
-        ApiResponse<{
-            alerts_created: number;
-            total_low_stock_items: number;
-        }>
-    > {
-        return api.post<
-            ApiResponse<{
-                alerts_created: number;
-                total_low_stock_items: number;
-            }>
-        >('/v1/alerts/generate-low-stock');
+    async generateLowStockAlerts(): Promise<ApiResponse<AlertGenerationResult>> {
+        const response = await api.post<ApiResponse<AlertGenerationResult>>('/v1/alerts/generate-low-stock');
+
+        return {
+            ...response,
+            data: normalizeAlertGenerationResult(response.data),
+        };
     }
 
     // Acknowledge a specific alert
@@ -103,16 +112,15 @@ class AlertService {
     }
 
     // Cleanup old acknowledged alerts
-    async cleanupAlerts(days: number = 30): Promise<
-        ApiResponse<{
-            deleted_count: number;
-        }>
-    > {
-        return api.delete<
-            ApiResponse<{
-                deleted_count: number;
-            }>
-        >(`/v1/alerts/cleanup?days=${days}`);
+    async cleanupAlerts(days: number = 30): Promise<ApiResponse<AlertCleanupResult>> {
+        const response = await api.delete<ApiResponse<AlertCleanupResult>>(`/v1/alerts/cleanup?days_old=${days}`);
+
+        return {
+            ...response,
+            data: {
+                deleted_count: response.data?.deleted_count ?? 0,
+            },
+        };
     }
 
     // Get unacknowledged alerts only

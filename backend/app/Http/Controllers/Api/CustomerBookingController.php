@@ -101,6 +101,13 @@ class CustomerBookingController extends Controller
      */
     public function store(StoreCustomerBookingRequest $request): JsonResponse
     {
+        if (! Schema::hasColumn('job_orders', 'source')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Booking schema is outdated. Please run database migrations.',
+            ], 503);
+        }
+
         if (! Schema::hasTable('booking_slots')) {
             return response()->json([
                 'success' => false,
@@ -206,6 +213,13 @@ class CustomerBookingController extends Controller
      */
     public function storeWithPayment(StoreCustomerBookingWithPaymentRequest $request, XenditService $xenditService): JsonResponse
     {
+        if (! Schema::hasColumn('job_orders', 'source')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Booking schema is outdated. Please run database migrations.',
+            ], 503);
+        }
+
         if (! Schema::hasTable('booking_slots')) {
             return response()->json([
                 'success' => false,

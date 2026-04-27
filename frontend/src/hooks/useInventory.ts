@@ -3,6 +3,8 @@
  * Provides reactive data fetching with loading states and error handling
  */
 
+import { getApiErrorMessage } from '@/lib/api-error-message';
+import { alertService, type Alert } from '@/services/alertService';
 import { ApiResponse, PaginatedResponse } from '@/services/api';
 import { InventoryFilters, inventoryService, NewInventoryItem, ReturnDamageOperation, StockOperation } from '@/services/inventoryService';
 import { DashboardAnalytics, InventoryItem, StockTransaction } from '@/types/inventory';
@@ -23,7 +25,7 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
             const response = await inventoryService.getInventoryItems(filters);
             setData(response);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch inventory');
+            setError(getApiErrorMessage(err, 'Failed to fetch inventory'));
             console.error('Error fetching inventory:', err);
         } finally {
             setLoading(false);
@@ -42,18 +44,18 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         async (operation: StockOperation) => {
             try {
                 await inventoryService.addStock(operation);
-                await fetchInventory(); // Refresh data
+                await fetchInventory();
 
-                // Dispatch event for real-time updates
                 dispatchStockTransaction(operation.item_id, 'procurement', operation.quantity, {
                     reference_number: operation.reference_number,
                     notes: operation.notes,
                 });
 
-                return true;
+                return { success: true as const };
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to add stock');
-                return false;
+                const errorMessage = getApiErrorMessage(err, 'Failed to add stock');
+                setError(errorMessage);
+                return { success: false as const, error: errorMessage };
             }
         },
         [fetchInventory],
@@ -63,18 +65,18 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         async (operation: StockOperation) => {
             try {
                 await inventoryService.deductStock(operation);
-                await fetchInventory(); // Refresh data
+                await fetchInventory();
 
-                // Dispatch event for real-time updates
                 dispatchStockTransaction(operation.item_id, 'sale', -operation.quantity, {
                     reference_number: operation.reference_number,
                     notes: operation.notes,
                 });
 
-                return true;
+                return { success: true as const };
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to deduct stock');
-                return false;
+                const errorMessage = getApiErrorMessage(err, 'Failed to deduct stock');
+                setError(errorMessage);
+                return { success: false as const, error: errorMessage };
             }
         },
         [fetchInventory],
@@ -92,10 +94,11 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
                     notes: operation.notes,
                 });
 
-                return true;
+                return { success: true as const };
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to log return/damage transaction');
-                return false;
+                const errorMessage = getApiErrorMessage(err, 'Failed to log return or damage transaction');
+                setError(errorMessage);
+                return { success: false as const, error: errorMessage };
             }
         },
         [fetchInventory],
@@ -105,20 +108,19 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         async (item: NewInventoryItem) => {
             try {
                 const response = await inventoryService.createInventoryItem(item);
-                await fetchInventory(); // Refresh data
+                await fetchInventory();
 
-                // Dispatch event for real-time updates
-                if (item.item_id) {
-                    dispatchInventoryUpdate(item.item_id, 'created', {
-                        item_name: item.item_name,
-                        category: item.category,
-                        stock: item.stock,
+                if (response.data.item_id) {
+                    dispatchInventoryUpdate(response.data.item_id, 'created', {
+                        item_name: response.data.item_name,
+                        category: response.data.category,
+                        stock: response.data.stock,
                     });
                 }
 
                 return { success: true, data: response.data };
             } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : 'Failed to create item';
+                const errorMessage = getApiErrorMessage(err, 'Failed to create item');
                 setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
@@ -130,9 +132,8 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
         async (itemId: number, item: Partial<NewInventoryItem>) => {
             try {
                 const response = await inventoryService.updateInventoryItem(itemId, item);
-                await fetchInventory(); // Refresh data
+                await fetchInventory();
 
-                // Dispatch event for real-time updates
                 dispatchInventoryUpdate(itemId, 'updated', {
                     item_name: item.item_name,
                     category: item.category,
@@ -141,7 +142,7 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
 
                 return { success: true, data: response.data };
             } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : 'Failed to update item';
+                const errorMessage = getApiErrorMessage(err, 'Failed to update item');
                 setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
@@ -157,10 +158,11 @@ export function useInventoryItems(initialFilters: InventoryFilters = {}) {
 
                 dispatchInventoryUpdate(itemId, 'deleted');
 
-                return true;
+                return { success: true as const };
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to discontinue item');
-                return false;
+                const errorMessage = getApiErrorMessage(err, 'Failed to discontinue item');
+                setError(errorMessage);
+                return { success: false as const, error: errorMessage };
             }
         },
         [fetchInventory],
@@ -201,7 +203,7 @@ export function useInventoryItem(itemId: string | null) {
             const response = await inventoryService.getInventoryItem(itemId);
             setData(response.data);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch item');
+            setError(getApiErrorMessage(err, 'Failed to fetch item'));
             console.error('Error fetching item:', err);
         } finally {
             setLoading(false);
@@ -223,7 +225,7 @@ export function useInventoryItem(itemId: string | null) {
 
 // Hook for low stock alerts
 export function useLowStockAlerts() {
-    const [data, setData] = useState<InventoryItem[]>([]);
+    const [data, setData] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -231,10 +233,28 @@ export function useLowStockAlerts() {
         try {
             setLoading(true);
             setError(null);
-            const response = await inventoryService.getLowStockAlerts();
-            setData(response.data);
+            const response = await alertService.getAlerts({ acknowledged: false, per_page: 5 });
+            const normalizedAlerts = response.data.data.filter(
+                (alert) => alert.alert_type === 'low_stock' || alert.alert_type === 'out_of_stock',
+            );
+
+            if (normalizedAlerts.length === 0 && response.data.total === 0) {
+                const generateResponse = await alertService.generateLowStockAlerts();
+
+                if (generateResponse.success && generateResponse.data.alerts_created > 0) {
+                    const refreshedResponse = await alertService.getAlerts({ acknowledged: false, per_page: 5 });
+                    setData(
+                        refreshedResponse.data.data.filter(
+                            (alert) => alert.alert_type === 'low_stock' || alert.alert_type === 'out_of_stock',
+                        ),
+                    );
+                    return;
+                }
+            }
+
+            setData(normalizedAlerts);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch alerts');
+            setError(getApiErrorMessage(err, 'Failed to fetch alerts'));
             console.error('Error fetching alerts:', err);
         } finally {
             setLoading(false);
@@ -267,7 +287,7 @@ export function useDashboardAnalytics() {
             const response = await inventoryService.getDashboardAnalytics();
             setData(response.data);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
+            setError(getApiErrorMessage(err, 'Failed to fetch analytics'));
             console.error('Error fetching analytics:', err);
         } finally {
             setLoading(false);
@@ -330,7 +350,7 @@ export function useStockTransactions(
             const response = await inventoryService.getStockTransactions(filters);
             setData(response.data);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch transactions');
+            setError(getApiErrorMessage(err, 'Failed to fetch transactions'));
             console.error('Error fetching transactions:', err);
         } finally {
             setLoading(false);
@@ -362,7 +382,7 @@ export function useStockCheck() {
             const response = await inventoryService.checkStockStatus(itemId, quantity);
             return response.data;
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to check stock');
+            setError(getApiErrorMessage(err, 'Failed to check stock'));
             throw err;
         } finally {
             setLoading(false);

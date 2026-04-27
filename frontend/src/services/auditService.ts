@@ -4,6 +4,7 @@
  */
 
 import { AuditLog, AuditLogFilters, AuditStats, AuditTransaction, StockTransaction } from '@/types/inventory';
+import { normalizeAuditTransaction, normalizeStockTransactions } from './inventoryWorkspaceNormalizers';
 import { api, ApiResponse, PaginatedResponse } from './api';
 
 class AuditService {
@@ -63,20 +64,10 @@ class AuditService {
                 this.getAuditLogs(filters),
             ]);
 
-            const transactions = transactionsResponse.data?.data || [];
+            const transactions = normalizeStockTransactions(transactionsResponse.data?.data);
             const archives = archivesResponse.data?.data || [];
 
-            // Transform transactions for audit display
-            const auditTransactions: AuditTransaction[] = transactions.map((transaction) => ({
-                ...transaction,
-                performed_by: transaction.notes?.split('|')[1] || 'System',
-                job_order_id: transaction.reference_number,
-                reason: transaction.notes?.split('|')[0] || '',
-                timestamp: transaction.created_at,
-                type: this.mapTransactionType(transaction.transaction_type),
-                partId: transaction.item_id,
-                id: `TXN-${transaction.id}`,
-            }));
+            const auditTransactions: AuditTransaction[] = transactions.map(normalizeAuditTransaction);
 
             // Calculate statistics
             const stats = this.calculateAuditStats(auditTransactions, archives);
@@ -111,18 +102,6 @@ class AuditService {
     // Get single transaction
     async getTransaction(id: number): Promise<ApiResponse<StockTransaction>> {
         return api.get<ApiResponse<StockTransaction>>(`/v1/transactions/${id}`);
-    }
-
-    // Helper method to map transaction types for display
-    private mapTransactionType(type: string): string {
-        const typeMap: Record<string, string> = {
-            procurement: 'RESTOCK',
-            sale: 'CONSUME',
-            return: 'RETURN',
-            damage: 'DAMAGE',
-            adjustment: 'ADJUST',
-        };
-        return typeMap[type] || type.toUpperCase();
     }
 
     // Helper method to calculate audit statistics

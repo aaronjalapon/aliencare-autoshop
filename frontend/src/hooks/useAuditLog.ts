@@ -125,8 +125,7 @@ export function useAuditLog(initialFilters: AuditLogFilters = {}): UseAuditLogRe
         // Listen for inventory events that should trigger audit log refresh
         const cleanup = inventoryEvents.listenMultiple(
             ['inventory-updated', 'reservation-updated', 'stock-transaction', 'audit-log-updated'],
-            (eventData) => {
-                console.log('Audit log received event:', eventData.type, eventData.data);
+            () => {
                 // Small delay to ensure backend has processed the change
                 setTimeout(() => {
                     fetchAuditData(true);

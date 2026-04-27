@@ -1,5 +1,7 @@
+import { getApiErrorMessage } from '@/lib/api-error-message';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertFilters, alertService, AlertStatistics } from '../services/alertService';
+import type { AlertGenerationResult } from '../services/inventoryWorkspaceNormalizers';
 
 interface UseAlertsState {
     alerts: Alert[];
@@ -19,7 +21,7 @@ interface UseAlertsReturn extends UseAlertsState {
     fetchStatistics: () => Promise<void>;
     acknowledgeAlert: (alertId: number) => Promise<void>;
     bulkAcknowledgeAlerts: (alertIds: number[]) => Promise<{ acknowledged_count: number }>;
-    generateLowStockAlerts: () => Promise<{ alerts_created: number; total_low_stock_items: number }>;
+    generateLowStockAlerts: () => Promise<AlertGenerationResult>;
     cleanupAlerts: (days?: number) => Promise<{ deleted_count: number }>;
     refresh: () => Promise<void>;
 }
@@ -62,17 +64,14 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                     setCurrentFilters(newFilters);
                 }
 
-                console.log('Fetching alerts with filters:', newFilters);
                 const response = await alertService.getAlerts(newFilters);
-                console.log('API Response:', response);
 
                 if (response.success && response.data) {
                     const alertsData = Array.isArray(response.data.data) ? response.data.data : [];
-                    console.log('Alerts data:', alertsData);
 
                     setState((prev) => ({
                         ...prev,
-                        alerts: alertsData, // Ensure this is always an array
+                        alerts: alertsData,
                         pagination: {
                             currentPage: response.data.current_page || 1,
                             lastPage: response.data.last_page || 1,
@@ -81,14 +80,10 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                         },
                     }));
 
-                    // If no alerts exist and this is the initial load, try to generate them automatically
                     if (alertsData.length === 0 && response.data.total === 0) {
-                        console.log('No alerts found, attempting to auto-generate from low stock items...');
                         try {
                             const generateResponse = await alertService.generateLowStockAlerts();
                             if (generateResponse.success && generateResponse.data.alerts_created > 0) {
-                                console.log(`Auto-generated ${generateResponse.data.alerts_created} alerts`);
-                                // Fetch alerts again to get the newly generated ones
                                 const updatedResponse = await alertService.getAlerts(newFilters);
                                 if (updatedResponse.success && updatedResponse.data) {
                                     const updatedAlertsData = Array.isArray(updatedResponse.data.data) ? updatedResponse.data.data : [];
@@ -104,18 +99,16 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                                     }));
                                 }
                             }
-                        } catch (error) {
-                            console.log('Auto-generation failed, but continuing normally:', error);
+                        } catch {
+                            // Generation failure should not block the page from rendering the empty state.
                         }
                     }
                 } else {
-                    console.error('API response not successful:', response);
                     setError(response.message || 'Failed to fetch alerts');
-                    setState((prev) => ({ ...prev, alerts: [] })); // Ensure alerts is always an array
+                    setState((prev) => ({ ...prev, alerts: [] }));
                 }
             } catch (error) {
-                console.error('Error fetching alerts:', error);
-                setError('Failed to fetch alerts');
+                setError(getApiErrorMessage(error, 'Failed to fetch alerts'));
                 setState((prev) => ({ ...prev, alerts: [] }));
             } finally {
                 setLoading(false);
@@ -138,8 +131,7 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                 setError(response.message || 'Failed to fetch statistics');
             }
         } catch (error) {
-            console.error('Error fetching alert statistics:', error);
-            setError('Failed to fetch alert statistics');
+            setError(getApiErrorMessage(error, 'Failed to fetch alert statistics'));
         }
     }, []);
 
@@ -167,8 +159,7 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                     throw new Error(response.message || 'Failed to acknowledge alert');
                 }
             } catch (error) {
-                console.error('Error acknowledging alert:', error);
-                setError('Failed to acknowledge alert');
+                setError(getApiErrorMessage(error, 'Failed to acknowledge alert'));
                 throw error;
             }
         },
@@ -201,8 +192,7 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                     throw new Error(response.message || 'Failed to acknowledge alerts');
                 }
             } catch (error) {
-                console.error('Error bulk acknowledging alerts:', error);
-                setError('Failed to acknowledge alerts');
+                setError(getApiErrorMessage(error, 'Failed to acknowledge alerts'));
                 throw error;
             }
         },
@@ -215,7 +205,6 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
             const response = await alertService.generateLowStockAlerts();
 
             if (response.success) {
-                // Refresh alerts and statistics after generation
                 await Promise.all([fetchAlerts(), fetchStatistics()]);
                 return response.data;
             } else {
@@ -223,8 +212,7 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                 throw new Error(response.message || 'Failed to generate alerts');
             }
         } catch (error) {
-            console.error('Error generating low stock alerts:', error);
-            setError('Failed to generate low stock alerts');
+            setError(getApiErrorMessage(error, 'Failed to generate low stock alerts'));
             throw error;
         }
     }, [fetchAlerts, fetchStatistics]);
@@ -236,7 +224,6 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                 const response = await alertService.cleanupAlerts(days);
 
                 if (response.success) {
-                    // Refresh alerts and statistics after cleanup
                     await Promise.all([fetchAlerts(), fetchStatistics()]);
                     return response.data;
                 } else {
@@ -244,8 +231,7 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
                     throw new Error(response.message || 'Failed to cleanup alerts');
                 }
             } catch (error) {
-                console.error('Error cleaning up alerts:', error);
-                setError('Failed to cleanup alerts');
+                setError(getApiErrorMessage(error, 'Failed to cleanup alerts'));
                 throw error;
             }
         },
@@ -264,7 +250,7 @@ export const useAlerts = (initialFilters: AlertFilters = {}): UseAlertsReturn =>
 
     return {
         ...state,
-        alerts: Array.isArray(state.alerts) ? state.alerts : [], // Ensure alerts is always an array
+        alerts: Array.isArray(state.alerts) ? state.alerts : [],
         fetchAlerts,
         fetchStatistics,
         acknowledgeAlert,

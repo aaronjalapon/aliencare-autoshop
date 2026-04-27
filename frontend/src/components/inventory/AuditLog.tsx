@@ -139,12 +139,12 @@ export function AuditLog() {
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Data Integrity</p>
+                        <p className="text-sm font-medium">This Week</p>
                         <Shield className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
-                        <div className="text-2xl font-bold text-primary">100%</div>
-                        <p className="text-xs text-muted-foreground">Audit compliance</p>
+                        <div className="text-2xl font-bold text-primary">{loading ? '...' : stats.week_transactions}</div>
+                        <p className="text-xs text-muted-foreground">Recorded in the last 7 days</p>
                     </div>
                 </div>
             </div>

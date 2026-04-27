@@ -1,12 +1,14 @@
 import { AlertTriangle, CheckCircle, Clock, Package, RefreshCw, Settings } from 'lucide-react';
 import { useState } from 'react';
+import { getApiErrorMessage } from '../../lib/api-error-message';
 import { useAlerts } from '../../hooks/useAlerts';
+import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
 export function StockAlerts() {
     const {
-        alerts: rawAlerts,
+        alerts,
         statistics,
         loading,
         error,
@@ -17,35 +19,24 @@ export function StockAlerts() {
         refresh,
     } = useAlerts();
 
-    // Ensure alerts is always an array and add debugging
-    const alerts = Array.isArray(rawAlerts) ? rawAlerts : [];
-
     const [bulkSelected, setBulkSelected] = useState<number[]>([]);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-    // Debug logging
-    console.log('StockAlerts render - rawAlerts:', rawAlerts, 'alerts:', alerts, 'type:', typeof alerts, 'isArray:', Array.isArray(alerts));
-
-    // Early return if alerts is not properly initialized
-    if (!Array.isArray(alerts)) {
-        console.error('Alerts is not an array, returning loading state');
-        return (
-            <div className="space-y-6">
-                <div className="py-8 text-center">
-                    <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin" />
-                    <p>Initializing alerts...</p>
-                </div>
-            </div>
-        );
-    }
+    const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const handleAcknowledgeAlert = async (alertId: number) => {
         try {
+            setActionMessage(null);
             setActionLoading(`acknowledge-${alertId}`);
             await acknowledgeAlert(alertId);
-            alert('Alert acknowledged successfully');
-        } catch {
-            alert('Failed to acknowledge alert');
+            setActionMessage({
+                type: 'success',
+                message: 'Alert acknowledged successfully.',
+            });
+        } catch (err) {
+            setActionMessage({
+                type: 'error',
+                message: getApiErrorMessage(err, 'Failed to acknowledge alert.'),
+            });
         } finally {
             setActionLoading(null);
         }
@@ -53,17 +44,28 @@ export function StockAlerts() {
 
     const handleBulkAcknowledge = async () => {
         if (bulkSelected.length === 0) {
-            alert('Please select alerts to acknowledge');
+            setActionMessage({
+                type: 'error',
+                message: 'Please select alerts to acknowledge.',
+            });
             return;
         }
 
         try {
+            setActionMessage(null);
             setActionLoading('bulk-acknowledge');
+            const selectedCount = bulkSelected.length;
             await bulkAcknowledgeAlerts(bulkSelected);
-            alert(`Successfully acknowledged ${bulkSelected.length} alerts`);
             setBulkSelected([]);
-        } catch {
-            alert('Failed to acknowledge selected alerts');
+            setActionMessage({
+                type: 'success',
+                message: `Acknowledged ${selectedCount} alert${selectedCount === 1 ? '' : 's'}.`,
+            });
+        } catch (err) {
+            setActionMessage({
+                type: 'error',
+                message: getApiErrorMessage(err, 'Failed to acknowledge selected alerts.'),
+            });
         } finally {
             setActionLoading(null);
         }
@@ -71,11 +73,18 @@ export function StockAlerts() {
 
     const handleGenerateAlerts = async () => {
         try {
+            setActionMessage(null);
             setActionLoading('generate');
             const result = await generateLowStockAlerts();
-            alert(`Generated ${result.alerts_created} new alerts for ${result.total_low_stock_items} low stock items`);
-        } catch {
-            alert('Failed to generate alerts');
+            setActionMessage({
+                type: 'success',
+                message: `Generated ${result.alerts_created} new alert${result.alerts_created === 1 ? '' : 's'} and refreshed ${result.total_alerts} total tracked alert${result.total_alerts === 1 ? '' : 's'}.`,
+            });
+        } catch (err) {
+            setActionMessage({
+                type: 'error',
+                message: getApiErrorMessage(err, 'Failed to generate alerts.'),
+            });
         } finally {
             setActionLoading(null);
         }
@@ -83,11 +92,18 @@ export function StockAlerts() {
 
     const handleCleanup = async () => {
         try {
+            setActionMessage(null);
             setActionLoading('cleanup');
             const result = await cleanupAlerts(30);
-            alert(`Cleaned up ${result.deleted_count} old acknowledged alerts`);
-        } catch {
-            alert('Failed to cleanup alerts');
+            setActionMessage({
+                type: 'success',
+                message: `Cleaned up ${result.deleted_count} old acknowledged alert${result.deleted_count === 1 ? '' : 's'}.`,
+            });
+        } catch (err) {
+            setActionMessage({
+                type: 'error',
+                message: getApiErrorMessage(err, 'Failed to clean up alerts.'),
+            });
         } finally {
             setActionLoading(null);
         }
@@ -98,11 +114,6 @@ export function StockAlerts() {
     };
 
     const selectAllUnacknowledged = () => {
-        console.log('selectAllUnacknowledged called - alerts:', alerts, 'isArray:', Array.isArray(alerts));
-        if (!Array.isArray(alerts)) {
-            console.error('alerts is not an array in selectAllUnacknowledged:', alerts);
-            return;
-        }
         const unacknowledgedIds = alerts.filter((alert) => !alert.acknowledged).map((alert) => alert.id);
         setBulkSelected(unacknowledgedIds);
     };
@@ -133,21 +144,8 @@ export function StockAlerts() {
         }
     };
 
-    // Safe filter operations with debugging - only if not loading
-    console.log('About to filter alerts - alerts:', alerts, 'isArray:', Array.isArray(alerts), 'loading:', loading);
-
-    // Ensure alerts is always a safe array
-    const safeAlerts = Array.isArray(alerts) ? alerts : [];
-    const unacknowledgedAlerts = safeAlerts.filter((alert) => !alert.acknowledged);
-    const acknowledgedAlerts = safeAlerts.filter((alert) => alert.acknowledged);
-
-    console.log('Safe arrays created:', {
-        safeAlerts: safeAlerts.length,
-        unacknowledged: unacknowledgedAlerts.length,
-        acknowledged: acknowledgedAlerts.length,
-    });
-
-    console.log('Filtered results - unacknowledged:', unacknowledgedAlerts.length, 'acknowledged:', acknowledgedAlerts.length);
+    const unacknowledgedAlerts = alerts.filter((alert) => !alert.acknowledged);
+    const acknowledgedAlerts = alerts.filter((alert) => alert.acknowledged);
 
     if (error) {
         return (
@@ -190,6 +188,13 @@ export function StockAlerts() {
                     </Button>
                 </div>
             </div>
+
+            {actionMessage && (
+                <Alert variant={actionMessage.type === 'error' ? 'destructive' : 'default'}>
+                    {actionMessage.type === 'error' ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                    <AlertDescription>{actionMessage.message}</AlertDescription>
+                </Alert>
+            )}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="profile-card rounded-xl">
@@ -267,10 +272,8 @@ export function StockAlerts() {
                                             />
                                             {getUrgencyIcon(alert.urgency)}
                                             <div>
-                                                <p className="font-medium text-foreground">
-                                                    {alert.inventory_item?.item_name || `Item #${alert.item_id}`}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">{alert.inventory_item?.category || alert.alert_type}</p>
+                                                <p className="font-medium text-foreground">{alert.item_name || `Item #${alert.item_id}`}</p>
+                                                <p className="text-sm text-muted-foreground">{alert.category || alert.alert_type}</p>
                                             </div>
                                         </div>
                                         {getUrgencyBadge(alert.urgency)}
@@ -284,7 +287,7 @@ export function StockAlerts() {
                                     <div className="h-2 w-full rounded-full bg-muted">
                                         <div
                                             className="h-2 rounded-full bg-destructive"
-                                            style={{ width: `${Math.min((alert.current_stock / alert.reorder_level) * 100, 100)}%` }}
+                                            style={{ width: `${Math.min((alert.current_stock / Math.max(alert.reorder_level, 1)) * 100, 100)}%` }}
                                         />
                                     </div>
 
@@ -332,10 +335,8 @@ export function StockAlerts() {
                                         <div className="flex items-center gap-2">
                                             <CheckCircle className="h-4 w-4 text-primary" />
                                             <div>
-                                                <p className="font-medium text-foreground">
-                                                    {alert.inventory_item?.item_name || `Item #${alert.item_id}`}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">{alert.inventory_item?.category || alert.alert_type}</p>
+                                                <p className="font-medium text-foreground">{alert.item_name || `Item #${alert.item_id}`}</p>
+                                                <p className="text-sm text-muted-foreground">{alert.category || alert.alert_type}</p>
                                             </div>
                                         </div>
                                         <Badge variant="outline">Acknowledged</Badge>

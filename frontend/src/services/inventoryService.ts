@@ -4,6 +4,7 @@
  */
 
 import { DashboardAnalytics, InventoryItem, StockTransaction } from '@/types/inventory';
+import { normalizeStockTransaction, normalizeStockTransactions } from './inventoryWorkspaceNormalizers';
 import { api, ApiResponse, PaginatedResponse } from './api';
 
 type LowStockAlertsPayload = InventoryItem[] | { alert_count?: number; alerts?: InventoryItem[]; data?: InventoryItem[] };
@@ -83,6 +84,13 @@ export interface ReturnDamageOperation extends StockOperation {
     transaction_type: 'return' | 'damage';
 }
 
+export interface StockMutationPayload {
+    inventory: InventoryItem;
+    transaction: StockTransaction | null;
+    previous_stock: number;
+    new_stock: number;
+}
+
 export interface NewInventoryItem {
     sku?: string;
     item_id?: number; // Optional since it's auto-generated
@@ -139,18 +147,42 @@ class InventoryService {
     }
 
     // Add stock (procurement)
-    async addStock(operation: StockOperation): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
-        return api.post<ApiResponse<{ message: string; transaction: StockTransaction }>>('/v1/inventory/add-stock', operation);
+    async addStock(operation: StockOperation): Promise<ApiResponse<StockMutationPayload>> {
+        const response = await api.post<ApiResponse<StockMutationPayload>>('/v1/inventory/add-stock', operation);
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                transaction: normalizeStockTransaction(response.data?.transaction),
+            },
+        };
     }
 
     // Deduct stock (sales)
-    async deductStock(operation: StockOperation): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
-        return api.post<ApiResponse<{ message: string; transaction: StockTransaction }>>('/v1/inventory/deduct-stock', operation);
+    async deductStock(operation: StockOperation): Promise<ApiResponse<StockMutationPayload>> {
+        const response = await api.post<ApiResponse<StockMutationPayload>>('/v1/inventory/deduct-stock', operation);
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                transaction: normalizeStockTransaction(response.data?.transaction),
+            },
+        };
     }
 
     // Log return/damage
-    async logReturnDamage(operation: ReturnDamageOperation): Promise<ApiResponse<{ message: string; transaction: StockTransaction }>> {
-        return api.post<ApiResponse<{ message: string; transaction: StockTransaction }>>('/v1/inventory/log-return-damage', operation);
+    async logReturnDamage(operation: ReturnDamageOperation): Promise<ApiResponse<StockMutationPayload>> {
+        const response = await api.post<ApiResponse<StockMutationPayload>>('/v1/inventory/log-return-damage', operation);
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                transaction: normalizeStockTransaction(response.data?.transaction),
+            },
+        };
     }
 
     // Get low stock alerts
@@ -188,7 +220,15 @@ class InventoryService {
             }
         });
 
-        return api.get<ApiResponse<PaginatedResponse<StockTransaction>>>('/v1/transactions', params);
+        const response = await api.get<ApiResponse<PaginatedResponse<StockTransaction>>>('/v1/transactions', params);
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                data: normalizeStockTransactions(response.data?.data),
+            },
+        };
     }
 
     // Get archives/audit logs with filters

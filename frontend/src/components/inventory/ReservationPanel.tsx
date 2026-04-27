@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, Loader2, Package, Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiErrorMessage } from '../../lib/api-error-message';
 import { useInventoryItems } from '../../hooks/useInventory';
 import { useReservations } from '../../hooks/useReservations';
 import { Reservation } from '../../types/inventory';
@@ -32,6 +33,7 @@ export function ReservationPanel() {
     // Local state for UI
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [createReservationError, setCreateReservationError] = useState<string | null>(null);
     const [isCreatingReservation, setIsCreatingReservation] = useState(false);
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
@@ -50,13 +52,6 @@ export function ReservationPanel() {
 
     // Extract data from responses with proper type checking
     const reservations: Reservation[] = useMemo(() => (Array.isArray(reservationsData?.data) ? reservationsData.data : []), [reservationsData?.data]);
-    console.log('Current reservations data:', reservations.length, 'total reservations');
-    console.log('Raw reservationsData:', reservationsData);
-    console.log(
-        'Reservation statuses:',
-        reservations.map((r) => r.status),
-    );
-    console.log('Pending reservations:', reservations.filter((r) => r.status === 'pending').length);
 
     const inventoryItems = Array.isArray(inventoryData?.data?.data) ? inventoryData.data.data : [];
     const loading = reservationsLoading || inventoryLoading;
@@ -166,9 +161,7 @@ export function ReservationPanel() {
     // Auto-expand pending reservations if they exist
     const checkAndExpandPendingReservations = useCallback(() => {
         const pendingReservations = reservations.filter((r) => r.status === 'pending');
-        console.log('Checking pending reservations:', pendingReservations.length, 'found');
         if (pendingReservations.length > 0 && collapsedGroups.pending) {
-            console.log('Auto-expanding pending reservations section');
             setCollapsedGroups((prev) => ({
                 ...prev,
                 pending: false, // Ensure pending is always visible when they exist
@@ -300,51 +293,33 @@ export function ReservationPanel() {
             }
 
             if (result.success) {
-                // Reset form
                 resetReservationForm();
                 setIsDialogOpen(false);
-
-                // Force immediate refresh of reservations
-                refreshReservations();
-
-                // You could show a success toast here instead of alert
-                alert(`Reservation${validItems.length > 1 ? 's' : ''} created successfully`);
+                setActionMessage({
+                    type: 'success',
+                    message: `Reservation${validItems.length > 1 ? 's' : ''} created successfully.`,
+                });
             } else {
                 setCreateReservationError(result.error || 'Failed to create reservation. Please try again.');
             }
         } catch (error) {
-            console.error('Error creating reservation:', error);
-            setCreateReservationError(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
+            setCreateReservationError(getApiErrorMessage(error, 'An unexpected error occurred. Please try again.'));
         } finally {
             setIsCreatingReservation(false);
         }
     };
 
     const addReservationItem = () => {
-        console.log('Adding new reservation item');
-        setReservationItems((prev) => {
-            const newItems = [...prev, { item_id: '', quantity: 1 }];
-            console.log('New reservation items:', newItems);
-            return newItems;
-        });
+        setReservationItems((prev) => [...prev, { item_id: '', quantity: 1 }]);
     };
 
     const removeReservationItem = (index: number) => {
-        console.log('Removing reservation item at index:', index);
         if (reservationItems.length > 1) {
-            setReservationItems((prev) => {
-                const newItems = prev.filter((_, i) => i !== index);
-                console.log('Items after removal:', newItems);
-                return newItems;
-            });
-        } else {
-            console.log('Cannot remove - only one item left');
+            setReservationItems((prev) => prev.filter((_, i) => i !== index));
         }
     };
 
     const updateReservationItem = (index: number, field: 'item_id' | 'quantity', value: string | number) => {
-        console.log('Updating reservation item:', { index, field, value, type: typeof value });
-
         // Clear error when user makes changes
         if (createReservationError) {
             setCreateReservationError(null);
@@ -381,22 +356,22 @@ export function ReservationPanel() {
                 }
                 return item;
             });
-            console.log('Items after update:', newItems);
             return newItems;
         });
     };
     const handleApproveReservation = async (reservationId: number) => {
         try {
+            setActionMessage(null);
             setActionLoading(`approve-${reservationId}`);
-            const result = await approveReservation(reservationId, { approved_by: 'Current User' });
+            const result = await approveReservation(reservationId, {});
 
             if (result.success) {
-                alert('Reservation approved successfully');
+                setActionMessage({ type: 'success', message: 'Reservation approved successfully.' });
             } else {
-                alert('Failed to approve reservation: ' + (result.error || 'Unknown error'));
+                setActionMessage({ type: 'error', message: result.error || 'Failed to approve reservation.' });
             }
         } catch (error) {
-            alert('Failed to approve reservation: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to approve reservation.') });
         } finally {
             setActionLoading(null);
         }
@@ -404,19 +379,19 @@ export function ReservationPanel() {
 
     const handleRejectReservation = async (reservationId: number) => {
         try {
+            setActionMessage(null);
             setActionLoading(`reject-${reservationId}`);
             const result = await rejectReservation(reservationId, {
-                approved_by: 'Current User',
-                notes: 'Rejected by user',
+                notes: 'Rejected from inventory workspace',
             });
 
             if (result.success) {
-                alert('Reservation rejected successfully');
+                setActionMessage({ type: 'success', message: 'Reservation rejected successfully.' });
             } else {
-                alert('Failed to reject reservation: ' + (result.error || 'Unknown error'));
+                setActionMessage({ type: 'error', message: result.error || 'Failed to reject reservation.' });
             }
         } catch (error) {
-            alert('Failed to reject reservation: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to reject reservation.') });
         } finally {
             setActionLoading(null);
         }
@@ -424,18 +399,17 @@ export function ReservationPanel() {
 
     const handleCompleteReservation = async (reservationId: number) => {
         try {
+            setActionMessage(null);
             setActionLoading(`complete-${reservationId}`);
-            const result = await completeReservation(reservationId, {
-                completed_by: 'Current User',
-            });
+            const result = await completeReservation(reservationId, {});
 
             if (result.success) {
-                alert('Reservation completed successfully');
+                setActionMessage({ type: 'success', message: 'Reservation completed successfully.' });
             } else {
-                alert('Failed to complete reservation: ' + (result.error || 'Unknown error'));
+                setActionMessage({ type: 'error', message: result.error || 'Failed to complete reservation.' });
             }
         } catch (error) {
-            alert('Failed to complete reservation: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to complete reservation.') });
         } finally {
             setActionLoading(null);
         }
@@ -443,19 +417,19 @@ export function ReservationPanel() {
 
     const handleCancelReservation = async (reservationId: number) => {
         try {
+            setActionMessage(null);
             setActionLoading(`cancel-${reservationId}`);
             const result = await cancelReservation(reservationId, {
-                cancelled_by: 'Current User',
-                reason: 'Cancelled by user',
+                reason: 'Cancelled from inventory workspace',
             });
 
             if (result.success) {
-                alert('Reservation cancelled successfully');
+                setActionMessage({ type: 'success', message: 'Reservation cancelled successfully.' });
             } else {
-                alert('Failed to cancel reservation: ' + (result.error || 'Unknown error'));
+                setActionMessage({ type: 'error', message: result.error || 'Failed to cancel reservation.' });
             }
         } catch (error) {
-            alert('Failed to cancel reservation: ' + (error instanceof Error ? error.message : 'Unknown error'));
+            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to cancel reservation.') });
         } finally {
             setActionLoading(null);
         }
@@ -489,7 +463,7 @@ export function ReservationPanel() {
                     <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-destructive" />
                     <h3 className="mb-2 text-lg font-semibold text-foreground">Error Loading Reservations</h3>
                     <p className="mb-4 text-muted-foreground">{reservationsError}</p>
-                    <Button onClick={() => window.location.reload()}>
+                    <Button onClick={refreshReservations}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Retry
                     </Button>
@@ -681,7 +655,6 @@ export function ReservationPanel() {
                                                         max="100"
                                                         value={item.quantity === '' ? '' : String(item.quantity)}
                                                         onChange={(e) => {
-                                                            console.log('Quantity input change:', e.target.value);
                                                             const value = e.target.value;
 
                                                             // Prevent negative numbers and values over 100
@@ -778,6 +751,13 @@ export function ReservationPanel() {
                     </DialogContent>
                 </Dialog>
             </div>
+
+            {actionMessage && (
+                <Alert variant={actionMessage.type === 'error' ? 'destructive' : 'default'}>
+                    {actionMessage.type === 'error' ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                    <AlertDescription>{actionMessage.message}</AlertDescription>
+                </Alert>
+            )}
 
             {/* Priority Alert for Pending Reservations */}
             {reservations.filter((r) => r.status === 'pending').length > 0 && (

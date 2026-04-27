@@ -1,6 +1,6 @@
 import { useDashboardAnalytics, useLowStockAlerts } from '@/hooks/useInventory';
 import { useReservationsSummary } from '@/hooks/useReservations';
-import type { InventoryItem } from '@/types/inventory';
+import type { Alert as InventoryAlert } from '@/services/alertService';
 import { AlertTriangle, Clock, Loader2, Package, TrendingDown } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
@@ -144,19 +144,19 @@ export function Dashboard() {
                                 <span className="text-sm text-muted-foreground">Loading alerts...</span>
                             </div>
                         ) : lowStockAlerts && lowStockAlerts.length > 0 ? (
-                            lowStockAlerts.slice(0, 5).map((item: InventoryItem) => (
-                                <div key={item.id} className="flex items-center justify-between rounded-lg border border-border bg-destructive/5 p-3">
+                            lowStockAlerts.slice(0, 5).map((alert: InventoryAlert) => (
+                                <div key={alert.id} className="flex items-center justify-between rounded-lg border border-border bg-destructive/5 p-3">
                                     <div className="flex items-center space-x-3">
                                         <AlertTriangle className="h-5 w-5 text-destructive" />
                                         <div>
-                                            <p className="font-medium text-foreground">{item.item_id}</p>
-                                            <p className="text-sm text-muted-foreground">{item.item_name}</p>
+                                            <p className="font-medium text-foreground">{alert.item_id}</p>
+                                            <p className="text-sm text-muted-foreground">{alert.item_name}</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <Badge variant="destructive">Low Stock</Badge>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            {item.stock} / {item.reorder_level} min
+                                            {alert.current_stock} / {alert.reorder_level} min
                                         </p>
                                     </div>
                                 </div>

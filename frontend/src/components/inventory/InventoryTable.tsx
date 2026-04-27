@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
 export function InventoryTable() {
+    const [workspaceMessage, setWorkspaceMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [stockFilter, setStockFilter] = useState<string>('all');
@@ -19,6 +20,7 @@ export function InventoryTable() {
     const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string>('');
     const [stockToAdd, setStockToAdd] = useState('');
+    const [addStockError, setAddStockError] = useState<string | null>(null);
     const [isStockActionDialogOpen, setIsStockActionDialogOpen] = useState(false);
     const [stockActionType, setStockActionType] = useState<'deduct' | 'return' | 'damage'>('deduct');
     const [selectedActionPartId, setSelectedActionPartId] = useState<string>('');
@@ -58,7 +60,6 @@ export function InventoryTable() {
         logReturnDamage,
         updateItem,
         updateFilters,
-        refresh,
     } = useInventoryItems({
         search: searchTerm || undefined,
         category: categoryFilter !== 'all' ? categoryFilter : undefined,
@@ -67,7 +68,10 @@ export function InventoryTable() {
     });
 
     const parts = inventoryData?.data?.data && Array.isArray(inventoryData.data.data) ? inventoryData.data.data : [];
-    const categories = parts.length > 0 ? [...new Set(parts.map((part: InventoryItem) => part.category).filter(Boolean))] : [];
+    const categories =
+        parts.length > 0
+            ? [...new Set(parts.map((part: InventoryItem) => part.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+            : [];
 
     // Filter parts locally for immediate UI feedback
     const filteredParts =
@@ -120,42 +124,46 @@ export function InventoryTable() {
     }
 
     const handleAddStock = async () => {
+        setAddStockError(null);
+        setWorkspaceMessage(null);
+
         if (!selectedPartId || !stockToAdd) {
-            // You could show an error toast here
+            setAddStockError('Please select a part and enter a quantity.');
             return;
         }
 
         const quantity = parseInt(stockToAdd);
         if (isNaN(quantity) || quantity <= 0) {
-            // You could show an error toast here
+            setAddStockError('Quantity must be a valid number greater than 0.');
             return;
         }
 
-        try {
-            setIsAddingStock(true);
-            const success = await addStock({
-                item_id: parseInt(selectedPartId),
-                quantity,
-                reference_number: `PROC-${Date.now()}`,
-                notes: 'Manual stock addition',
-            });
+        setIsAddingStock(true);
+        const result = await addStock({
+            item_id: parseInt(selectedPartId),
+            quantity,
+            reference_number: `PROC-${Date.now()}`,
+            notes: 'Manual stock addition',
+        });
 
-            if (success) {
-                setStockToAdd('');
-                setSelectedPartId('');
-                setIsAddStockDialogOpen(false);
-                refresh(); // Refresh the data
-            }
-        } catch (err) {
-            console.error('Failed to add stock:', err);
-            // You could show a toast notification here
-        } finally {
-            setIsAddingStock(false);
+        if (result.success) {
+            setStockToAdd('');
+            setSelectedPartId('');
+            setIsAddStockDialogOpen(false);
+            setWorkspaceMessage({
+                type: 'success',
+                message: `Added ${quantity} unit${quantity === 1 ? '' : 's'} to inventory.`,
+            });
+        } else {
+            setAddStockError(result.error || 'Failed to add stock.');
         }
+
+        setIsAddingStock(false);
     };
 
     const handleStockAction = async () => {
         setStockActionError(null);
+        setWorkspaceMessage(null);
 
         if (!selectedActionPartId || !stockActionQuantity) {
             setStockActionError('Please select a part and enter a quantity.');
@@ -171,44 +179,42 @@ export function InventoryTable() {
 
         const itemId = parseInt(selectedActionPartId);
 
-        try {
-            setIsSubmittingStockAction(true);
+        setIsSubmittingStockAction(true);
 
-            let success = false;
+        const result =
+            stockActionType === 'deduct'
+                ? await deductStock({
+                      item_id: itemId,
+                      quantity,
+                      reference_number: `SALE-${Date.now()}`,
+                      notes: 'Manual stock deduction',
+                  })
+                : await logReturnDamage({
+                      item_id: itemId,
+                      quantity,
+                      transaction_type: stockActionType,
+                      reference_number: `${stockActionType === 'return' ? 'RET' : 'DMG'}-${Date.now()}`,
+                      notes: stockActionType === 'return' ? 'Manual return log' : 'Manual damage log',
+                  });
 
-            if (stockActionType === 'deduct') {
-                success = await deductStock({
-                    item_id: itemId,
-                    quantity,
-                    reference_number: `SALE-${Date.now()}`,
-                    notes: 'Manual stock deduction',
-                });
-            } else {
-                success = await logReturnDamage({
-                    item_id: itemId,
-                    quantity,
-                    transaction_type: stockActionType,
-                    reference_number: `${stockActionType === 'return' ? 'RET' : 'DMG'}-${Date.now()}`,
-                    notes: stockActionType === 'return' ? 'Manual return log' : 'Manual damage log',
-                });
-            }
-
-            if (success) {
-                setStockActionQuantity('');
-                setSelectedActionPartId('');
-                setStockActionType('deduct');
-                setIsStockActionDialogOpen(false);
-                refresh();
-            }
-        } catch (err) {
-            console.error('Failed to submit stock action:', err);
-            setStockActionError(err instanceof Error ? err.message : 'Failed to submit stock transaction.');
-        } finally {
-            setIsSubmittingStockAction(false);
+        if (result.success) {
+            setStockActionQuantity('');
+            setSelectedActionPartId('');
+            setStockActionType('deduct');
+            setIsStockActionDialogOpen(false);
+            setWorkspaceMessage({
+                type: 'success',
+                message: `${stockActionType === 'deduct' ? 'Deduction' : stockActionType === 'return' ? 'Return' : 'Damage'} logged successfully.`,
+            });
+        } else {
+            setStockActionError(result.error || 'Failed to submit stock transaction.');
         }
+
+        setIsSubmittingStockAction(false);
     };
 
     const handleDiscontinueItem = async (item: InventoryItem) => {
+        setWorkspaceMessage(null);
         const confirmed = window.confirm(
             `Discontinue ${item.item_name}? This marks the item as discontinued and hides it from active inventory views.`,
         );
@@ -219,25 +225,30 @@ export function InventoryTable() {
 
         try {
             setIsDiscontinuingItemId(item.item_id);
-            const success = await deleteItem(item.item_id);
+            const result = await deleteItem(item.item_id);
 
-            if (success) {
-                refresh();
+            if (result.success) {
+                setWorkspaceMessage({
+                    type: 'success',
+                    message: `${item.item_name} was marked as discontinued.`,
+                });
+            } else {
+                setWorkspaceMessage({
+                    type: 'error',
+                    message: result.error || 'Failed to discontinue item.',
+                });
             }
-        } catch (err) {
-            console.error('Failed to discontinue item:', err);
         } finally {
             setIsDiscontinuingItemId(null);
         }
     };
 
     const handleAddItem = async () => {
-        // Clear previous errors
         setAddItemError(null);
+        setWorkspaceMessage(null);
         setIsAddingItem(true);
 
         try {
-            // Validate required fields
             if (!newItem.item_name || !newItem.category || !newItem.stock || !newItem.reorder_level || !newItem.unit_price) {
                 setAddItemError('Please fill in all required fields marked with *');
                 return;
@@ -273,11 +284,9 @@ export function InventoryTable() {
                 location: newItem.location,
             };
 
-            console.log('Sending item data:', itemData);
             const result = await createItem(itemData);
 
             if (result.success) {
-                // Reset form
                 setNewItem({
                     item_name: '',
                     description: '',
@@ -290,13 +299,13 @@ export function InventoryTable() {
                 });
 
                 setIsAddItemDialogOpen(false);
-                refresh(); // Refresh the data
+                setWorkspaceMessage({
+                    type: 'success',
+                    message: `${itemData.item_name} was added to inventory.`,
+                });
             } else {
                 setAddItemError(result.error || 'Failed to add item. Please try again.');
             }
-        } catch (err) {
-            console.error('Failed to add item:', err);
-            setAddItemError(err instanceof Error ? err.message : 'Failed to add item. Please try again.');
         } finally {
             setIsAddingItem(false);
         }
@@ -312,10 +321,10 @@ export function InventoryTable() {
         if (!editingItem) return;
 
         setUpdateItemError(null);
+        setWorkspaceMessage(null);
         setIsUpdatingItem(true);
 
         try {
-            // Validate required fields
             if (!editingItem.item_name || !editingItem.category || editingItem.reorder_level === undefined || editingItem.unit_price === undefined) {
                 setUpdateItemError('Please fill in all required fields');
                 return;
@@ -346,13 +355,13 @@ export function InventoryTable() {
             if (result.success) {
                 setIsEditItemDialogOpen(false);
                 setEditingItem(null);
-                refresh();
+                setWorkspaceMessage({
+                    type: 'success',
+                    message: `${updateData.item_name} was updated successfully.`,
+                });
             } else {
                 setUpdateItemError(result.error || 'Failed to update item. Please try again.');
             }
-        } catch (err) {
-            console.error('Failed to update item:', err);
-            setUpdateItemError(err instanceof Error ? err.message : 'Failed to update item. Please try again.');
         } finally {
             setIsUpdatingItem(false);
         }
@@ -429,7 +438,9 @@ export function InventoryTable() {
                         open={isAddItemDialogOpen}
                         onOpenChange={(open) => {
                             setIsAddItemDialogOpen(open);
-                            if (!open) setAddItemError(null);
+                            if (!open) {
+                                setAddItemError(null);
+                            }
                         }}
                     >
                         <DialogTrigger asChild>
@@ -471,23 +482,14 @@ export function InventoryTable() {
                                     <Label htmlFor="category" className="text-foreground">
                                         Category *
                                     </Label>
-                                    <Select value={newItem.category} onValueChange={(value) => setNewItem((prev) => ({ ...prev, category: value }))}>
-                                        <SelectTrigger className="border-border bg-input text-foreground">
-                                            <SelectValue placeholder="Select category" />
-                                        </SelectTrigger>
-                                        <SelectContent className="border-border bg-popover">
-                                            {categories.map((category: string) => (
-                                                <SelectItem key={category} value={category}>
-                                                    {category}
-                                                </SelectItem>
-                                            ))}
-                                            <SelectItem value="Engine Parts">Engine Parts</SelectItem>
-                                            <SelectItem value="Body Parts">Body Parts</SelectItem>
-                                            <SelectItem value="Electronics">Electronics</SelectItem>
-                                            <SelectItem value="Fluids">Fluids</SelectItem>
-                                            <SelectItem value="Tools">Tools</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Input
+                                        id="category"
+                                        list="inventory-category-options"
+                                        value={newItem.category}
+                                        onChange={(e) => setNewItem((prev) => ({ ...prev, category: e.target.value }))}
+                                        placeholder="Enter or select category"
+                                        className="border-border bg-input text-foreground"
+                                    />
                                 </div>
                                 <div>
                                     <Label htmlFor="initial-stock" className="text-foreground">
@@ -583,7 +585,15 @@ export function InventoryTable() {
                             </div>
                         </DialogContent>
                     </Dialog>
-                    <Dialog open={isAddStockDialogOpen} onOpenChange={setIsAddStockDialogOpen}>
+                    <Dialog
+                        open={isAddStockDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsAddStockDialogOpen(open);
+                            if (!open) {
+                                setAddStockError(null);
+                            }
+                        }}
+                    >
                         <DialogTrigger asChild>
                             <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                                 <Plus className="mr-2 h-4 w-4" />
@@ -627,6 +637,12 @@ export function InventoryTable() {
                                         className="border-border bg-input text-foreground"
                                     />
                                 </div>
+                                {addStockError && (
+                                    <Alert variant="destructive">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertDescription>{addStockError}</AlertDescription>
+                                    </Alert>
+                                )}
                                 <Button
                                     onClick={handleAddStock}
                                     disabled={isAddingStock}
@@ -792,25 +808,14 @@ export function InventoryTable() {
                                         <Label htmlFor="edit-category" className="text-foreground">
                                             Category *
                                         </Label>
-                                        <Select
+                                        <Input
+                                            id="edit-category"
+                                            list="inventory-category-options"
                                             value={editingItem.category}
-                                            onValueChange={(value) => setEditingItem((prev) => (prev ? { ...prev, category: value } : null))}
-                                        >
-                                            <SelectTrigger className="border-border bg-input text-foreground">
-                                                <SelectValue placeholder="Select category" />
-                                            </SelectTrigger>
-                                            <SelectContent className="border-border bg-popover">
-                                                <SelectItem value="Engine">Engine</SelectItem>
-                                                <SelectItem value="Transmission">Transmission</SelectItem>
-                                                <SelectItem value="Brake">Brake</SelectItem>
-                                                <SelectItem value="Suspension">Suspension</SelectItem>
-                                                <SelectItem value="Electrical">Electrical</SelectItem>
-                                                <SelectItem value="Body">Body</SelectItem>
-                                                <SelectItem value="Interior">Interior</SelectItem>
-                                                <SelectItem value="Consumables">Consumables</SelectItem>
-                                                <SelectItem value="Tools">Tools</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                            onChange={(e) => setEditingItem((prev) => (prev ? { ...prev, category: e.target.value } : null))}
+                                            placeholder="Enter or select category"
+                                            className="border-border bg-input text-foreground"
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="edit-stock" className="text-foreground">
@@ -911,6 +916,19 @@ export function InventoryTable() {
                 </div>
             </div>
 
+            <datalist id="inventory-category-options">
+                {categories.map((category) => (
+                    <option key={category} value={category} />
+                ))}
+            </datalist>
+
+            {workspaceMessage && (
+                <Alert variant={workspaceMessage.type === 'error' ? 'destructive' : 'default'}>
+                    {workspaceMessage.type === 'error' ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                    <AlertDescription>{workspaceMessage.message}</AlertDescription>
+                </Alert>
+            )}
+
             <div className="profile-card overflow-hidden rounded-xl">
                 <div className="p-5 pb-3">
                     <h3 className="font-semibold text-foreground">Inventory Filters</h3>
@@ -918,7 +936,7 @@ export function InventoryTable() {
                         <div className="relative flex-1">
                             <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by part number or description..."
+                                placeholder="Search by item ID, name, or description..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="border-border bg-input pl-10 text-foreground"
@@ -999,7 +1017,8 @@ export function InventoryTable() {
                                                 onClick={() => handleEditItem(part)}
                                                 className="border-border text-foreground hover:bg-muted"
                                             >
-                                                <Edit className="h-4 w-4" />
+                                                <Edit className="mr-2 h-4 w-4" />
+                                                Edit
                                             </Button>
                                             <Button
                                                 variant="destructive"
@@ -1008,10 +1027,11 @@ export function InventoryTable() {
                                                 disabled={isDiscontinuingItemId === part.item_id}
                                             >
                                                 {isDiscontinuingItemId === part.item_id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                 ) : (
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="mr-2 h-4 w-4" />
                                                 )}
+                                                Discontinue
                                             </Button>
                                         </div>
                                     </TableCell>

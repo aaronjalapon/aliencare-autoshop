@@ -21,6 +21,17 @@ export interface InventoryItem {
     updated_at: string;
 }
 
+export interface InventoryItemReference {
+    id?: number;
+    item_id: number;
+    sku?: string | null;
+    item_name: string;
+    category?: string | null;
+    stock?: number;
+    current_stock?: number;
+    unit_price?: number | string | null;
+}
+
 // Legacy interface for backward compatibility
 export interface Part extends Omit<
     InventoryItem,
@@ -45,13 +56,20 @@ export interface StockTransaction {
     item_id: number;
     transaction_type: 'procurement' | 'sale' | 'return' | 'damage' | 'adjustment';
     quantity: number;
-    balance_after: number;
-    reference_number?: string;
-    notes?: string;
+    previous_stock?: number;
+    new_stock?: number;
+    balance_after?: number;
+    reference_number?: string | null;
+    notes?: string | null;
+    created_by?: string | null;
+    absolute_quantity?: number;
+    is_stock_increase?: boolean;
+    transaction_value?: number;
     created_at: string;
     updated_at: string;
     // Relationships
-    inventory_item?: InventoryItem;
+    inventory?: InventoryItemReference | null;
+    inventory_item?: InventoryItemReference | null;
 }
 
 // Updated to match Laravel backend Reservation model
@@ -77,6 +95,7 @@ export interface Reservation {
     fee_payment_status?: string | null;
     fee_payment_url?: string | null;
     // Relationships
+    inventory?: InventoryItem;
     inventory_item?: InventoryItem;
 }
 
@@ -178,9 +197,12 @@ export interface AuditTransaction {
     item_id: number;
     transaction_type: 'procurement' | 'sale' | 'return' | 'damage' | 'adjustment';
     quantity: number;
-    balance_after: number;
-    reference_number?: string;
-    notes?: string;
+    previous_stock?: number;
+    new_stock?: number;
+    balance_after?: number;
+    reference_number?: string | null;
+    notes?: string | null;
+    created_by?: string | null;
     created_at: string;
     updated_at: string;
     // Audit-specific fields
@@ -191,7 +213,8 @@ export interface AuditTransaction {
     type: string; // Maps to transaction_type for display
     partId: number;
     // Optional inventory relationship
-    inventory_item?: InventoryItem;
+    inventory?: InventoryItemReference | null;
+    inventory_item?: InventoryItemReference | null;
 }
 
 // Audit log filters
