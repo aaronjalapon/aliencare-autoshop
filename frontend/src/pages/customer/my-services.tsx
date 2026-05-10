@@ -580,7 +580,8 @@ function BookingDetailView({
                 </div>
 
                 {/* ── BOOKING SUMMARY (right sticky panel) ─────────────── */}
-                <div className="profile-card flex min-h-0 flex-col gap-4 rounded-xl p-5 xl:overflow-y-auto">
+                <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
+                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
                     <p className="text-base font-bold">Booking Summary</p>
 
                     {/* Status rows */}
@@ -637,7 +638,8 @@ function BookingDetailView({
                         </div>
                     </div>
 
-                    <div className="h-px bg-[#2a2a2e]" />
+                    </div>
+                    <div className="shrink-0 flex flex-col gap-2 pt-4">
 
                     {/* Action buttons */}
                     <div className="flex flex-col gap-2">
@@ -685,6 +687,7 @@ function BookingDetailView({
                             <p className="mt-1 pl-5">If you are late, your booking may be moved to the next available slot.</p>
                         </div>
                     )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -939,7 +942,8 @@ export default function MyServices() {
 
                 {/* ── RIGHT: Detail panel ───────────────────────────────────── */}
                 {selected && (
-                    <div className="profile-card flex min-h-0 flex-col gap-4 rounded-xl p-5 xl:overflow-y-auto">
+                    <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
+                        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
                         {/* Service Header */}
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-col gap-1">
@@ -1033,7 +1037,8 @@ export default function MyServices() {
 
                         <p className="text-xs text-muted-foreground italic">Please arrive 10 minutes before your scheduled time.</p>
 
-                        <div className="h-px bg-[#2a2a2e]" />
+                        </div>
+                        <div className="shrink-0 flex flex-col gap-2 pt-4">
 
                         {/* Action buttons */}
                         <div className="flex flex-col gap-2">
@@ -1076,6 +1081,7 @@ export default function MyServices() {
                                 </div>
                             )}
                         </div>
+                    </div>
                     </div>
                 )}
             </div>

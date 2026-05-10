@@ -739,8 +739,9 @@ export default function PointOfSale() {
                             </div>
                         </div>
 
-                        <aside className="profile-card min-h-0 overflow-y-auto rounded-xl p-5">
-                            <div className="mb-4 flex items-center justify-between">
+                        <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
+                            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+                            <div className="flex items-center justify-between">
                                 <h2 className="text-base font-semibold">Current Ticket</h2>
                                 <ReceiptText className="h-4 w-4 text-[#d4af37]" />
                             </div>
@@ -892,31 +893,6 @@ export default function PointOfSale() {
                                 </button>
                             )}
 
-                            <div className="mt-4 grid gap-2">
-                                <button
-                                    onClick={checkout}
-                                    disabled={isCheckingOut}
-                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90"
-                                >
-                                    {isCheckingOut ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin" /> Processing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle2 className="h-4 w-4" />{' '}
-                                            {paymentMode === 'online' ? 'Create Payment Link' : 'Charge Customer'}
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={clearCart}
-                                    className="rounded-lg border border-[#2a2a2e] px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                >
-                                    Clear Ticket
-                                </button>
-                            </div>
-
                             {selectedProduct && (
                                 <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
                                     <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Selected Product</p>
@@ -957,6 +933,31 @@ export default function PointOfSale() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                        <div className="shrink-0 grid gap-2 pt-4">
+                            <button
+                                onClick={checkout}
+                                disabled={isCheckingOut}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90"
+                            >
+                                {isCheckingOut ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" /> Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="h-4 w-4" />{' '}
+                                        {paymentMode === 'online' ? 'Create Payment Link' : 'Charge Customer'}
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={clearCart}
+                                className="rounded-lg border border-[#2a2a2e] px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                            >
+                                Clear Ticket
+                            </button>
+                        </div>
                         </aside>
                     </div>
                 </div>

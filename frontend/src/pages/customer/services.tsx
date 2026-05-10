@@ -660,8 +660,9 @@ export default function CustomerServices() {
                 </div>
 
                 {/* ── RIGHT PANEL (Booking) ─────────────────────────────────── */}
-                <div className="profile-card flex min-h-0 flex-col gap-4 rounded-xl p-5 xl:self-stretch xl:overflow-y-auto">
-                    {/* Service Header */}
+                <div className="profile-card flex min-h-0 flex-col rounded-xl p-5 xl:self-stretch">
+                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+                        {/* Service Header */}
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-col gap-1">
                             <p className="text-base font-bold">{selectedService.name}</p>
@@ -868,15 +869,18 @@ export default function CustomerServices() {
                         </div>
                     </div>
 
-                    {/* CTA */}
-                    <button
-                        onClick={() => void beginBookingFlow()}
-                        disabled={checkingOnboarding}
-                        className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        {checkingOnboarding ? 'Checking onboarding...' : 'Schedule Now'}
-                    </button>
-                    {onboardingCheckError && <p className="text-xs text-red-400">{onboardingCheckError}</p>}
+                    </div>
+                    <div className="shrink-0 pt-4">
+                        {/* CTA */}
+                        <button
+                            onClick={() => void beginBookingFlow()}
+                            disabled={checkingOnboarding}
+                            className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {checkingOnboarding ? 'Checking onboarding...' : 'Schedule Now'}
+                        </button>
+                        {onboardingCheckError && <p className="text-xs text-red-400">{onboardingCheckError}</p>}
+                    </div>
                 </div>
             </div>
 

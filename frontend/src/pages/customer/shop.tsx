@@ -265,8 +265,9 @@ export default function Shop() {
                 </div>
 
                 {/* ── RIGHT: Cart panel ────────────────────────────────────── */}
-                <div className="profile-card flex min-h-0 flex-col gap-4 rounded-xl p-5 xl:self-stretch">
-                    {/* Cart header */}
+                <div className="profile-card flex min-h-0 flex-col rounded-xl p-5 xl:self-stretch">
+                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-0.5">
+                        {/* Cart header */}
                     <div className="flex shrink-0 items-center justify-between">
                         <h2 className="flex items-center gap-2 text-base font-bold">
                             <ShoppingCart className="h-4 w-4 text-[#d4af37]" />
@@ -287,7 +288,7 @@ export default function Shop() {
                     <div className="h-px shrink-0 bg-[#2a2a2e]" />
 
                     {/* Cart items — scrollable area */}
-                    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+                    <div className="flex min-h-0 flex-1 flex-col gap-3">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                                 <ShoppingCart className="mb-2 h-8 w-8 opacity-20" />
@@ -360,14 +361,18 @@ export default function Shop() {
                                     </div>
                                 </div>
                             </div>
-
+                        </>
+                    )}
+                    </div>
+                    {cart.length > 0 && (
+                        <div className="shrink-0 pt-4">
                             <button
                                 onClick={() => setShopModal('invoice')}
                                 className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90"
                             >
                                 Proceed to Checkout
                             </button>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
