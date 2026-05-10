@@ -745,7 +745,7 @@ export default function Billing() {
                     </div>
 
                     <div className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[1.6fr_1fr]">
-                        <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
+                        <div className="profile-card rounded-xl p-5">
                             <div className="mb-4 flex flex-col gap-3">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -816,7 +816,7 @@ export default function Billing() {
                                 </div>
                             </div>
 
-                            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#2a2a2e]">
+                            <div className="overflow-hidden rounded-xl border border-[#2a2a2e]">
                                 <div className="hidden grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Invoice</span>
                                     <span>Customer</span>
@@ -826,7 +826,7 @@ export default function Billing() {
                                     <span>Status</span>
                                 </div>
 
-                                <div className="max-h-full overflow-y-auto">
+                                <div className="max-h-140 overflow-y-auto">
                                     {isLoadingQueue ? (
                                         <div className="px-5 py-16 text-center text-sm text-muted-foreground">
                                             <div className="inline-flex items-center gap-2">
