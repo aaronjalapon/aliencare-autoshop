@@ -6,6 +6,7 @@ import { type BreadcrumbItem } from '@/types';
 import { type CustomerProfile, type JobOrder, type JobOrderStatus, type ServiceCatalogItem, type Vehicle } from '@/types/customer';
 import { Car, CheckCircle2, Clock3, Loader2, Search, ShieldCheck, UserRoundPlus, Wrench, XCircle } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Job Orders', href: '/job-orders' }];
 
@@ -252,7 +253,7 @@ function getPrimaryActionLabel(action: PrimaryAction): string {
 }
 
 function canCancel(status: JobOrderStatus): boolean {
-    return status !== 'settled' && status !== 'cancelled';
+    return status !== 'settled' && status !== 'cancelled' && status !== 'completed';
 }
 
 export default function JobOrders() {
@@ -287,10 +288,7 @@ export default function JobOrders() {
     const [mechanics, setMechanics] = useState<MechanicOption[]>([]);
     const [bays, setBays] = useState<BayOption[]>([]);
 
-    const [showSettleModal, setShowSettleModal] = useState(false);
-    const [settleInvoiceId, setSettleInvoiceId] = useState('');
-    const [settleSubmitError, setSettleSubmitError] = useState<string | null>(null);
-    const [isSubmittingSettle, setIsSubmittingSettle] = useState(false);
+    const navigate = useNavigate();
 
     const [updateDraft, setUpdateDraft] = useState({ notes: '', serviceFee: '0' });
     const [updateError, setUpdateError] = useState<string | null>(null);
@@ -493,9 +491,22 @@ export default function JobOrders() {
         }
 
         if (action === 'settle') {
-            setSettleInvoiceId(selectedOrder.invoice_id ?? '');
-            setSettleSubmitError(null);
-            setShowSettleModal(true);
+            if (selectedOrder.balance === 0) {
+                setActionError(null);
+                setIsProcessingAction(true);
+                try {
+                    const response = await frontdeskJobOrderService.settleJobOrder(selectedOrder.id, {
+                        invoice_id: selectedOrder.invoice_id ?? null,
+                    });
+                    upsertJobOrder(response.data);
+                } catch (error) {
+                    setActionError(error instanceof Error ? error.message : 'Failed to settle job order.');
+                } finally {
+                    setIsProcessingAction(false);
+                }
+            } else {
+                navigate(`/billing?job_order_id=${selectedOrder.id}`);
+            }
             return;
         }
 
@@ -555,30 +566,6 @@ export default function JobOrders() {
             setStartSubmitError(error instanceof Error ? error.message : 'Failed to start job order.');
         } finally {
             setIsSubmittingStart(false);
-        }
-    };
-
-    const handleSettleJobOrder = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-
-        if (!selectedOrder) {
-            return;
-        }
-
-        setSettleSubmitError(null);
-        setIsSubmittingSettle(true);
-
-        try {
-            const response = await frontdeskJobOrderService.settleJobOrder(selectedOrder.id, {
-                invoice_id: settleInvoiceId.trim() || null,
-            });
-
-            upsertJobOrder(response.data);
-            setShowSettleModal(false);
-        } catch (error) {
-            setSettleSubmitError(error instanceof Error ? error.message : 'Failed to settle job order.');
-        } finally {
-            setIsSubmittingSettle(false);
         }
     };
 
@@ -1449,42 +1436,6 @@ export default function JobOrders() {
                 </div>
             )}
 
-            {showSettleModal && selectedOrder && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowSettleModal(false)}>
-                    <div className="profile-card w-full max-w-lg rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-                        <h3 className="text-lg font-semibold">Settle Job Order</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">Optionally provide an invoice ID while settling this completed order.</p>
-
-                        <form onSubmit={handleSettleJobOrder} className="mt-4 space-y-3">
-                            <input
-                                value={settleInvoiceId}
-                                onChange={(event) => setSettleInvoiceId(event.target.value)}
-                                placeholder="Invoice ID (optional)"
-                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                            />
-
-                            {settleSubmitError && <p className="text-sm text-red-300">{settleSubmitError}</p>}
-
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowSettleModal(false)}
-                                    className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmittingSettle}
-                                    className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {isSubmittingSettle ? 'Settling...' : 'Confirm Settlement'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </AppLayout>
     );
 }

@@ -22,6 +22,7 @@ import {
     X,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing & Payment', href: '/billing' }];
 
@@ -256,6 +257,7 @@ export default function Billing() {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [page, setPage] = useState(1);
     const [selectedTicketKey, setSelectedTicketKey] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [selectedJobOrder, setSelectedJobOrder] = useState<JobOrder | null>(null);
     const [selectedTransactions, setSelectedTransactions] = useState<CustomerTransaction[]>([]);
@@ -336,10 +338,20 @@ export default function Billing() {
             return;
         }
 
-        if (selectedTicketKey === null || !queueTickets.some((ticket) => queueKey(ticket) === selectedTicketKey)) {
+        const jobOrderId = searchParams.get('job_order_id');
+        if (jobOrderId) {
+            const target = queueTickets.find((ticket) => ticket.job_order_id?.toString() === jobOrderId);
+            if (target) {
+                setSelectedTicketKey(queueKey(target));
+            }
+            setSearchParams((prev) => {
+                prev.delete('job_order_id');
+                return prev;
+            }, { replace: true });
+        } else if (selectedTicketKey === null || !queueTickets.some((ticket) => queueKey(ticket) === selectedTicketKey)) {
             setSelectedTicketKey(queueKey(queueTickets[0]));
         }
-    }, [queueTickets, selectedTicketKey]);
+    }, [queueTickets, selectedTicketKey, searchParams, setSearchParams]);
 
     const selectedTicket = useMemo(() => {
         if (selectedTicketKey === null) return null;
