@@ -476,8 +476,8 @@ export function ReservationPanel() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Part Reservations</h1>
-                    <p className="text-muted-foreground">Manage job order reservations and consumption tracking</p>
+                    <h1 className="text-2xl font-bold text-foreground">Parts on Hold</h1>
+                    <p className="text-muted-foreground">Track parts set aside for job orders and mark them as used when the job is done.</p>
                 </div>
                 <Dialog
                     open={isDialogOpen}
@@ -492,12 +492,12 @@ export function ReservationPanel() {
                     <DialogTrigger asChild>
                         <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                             <Plus className="mr-2 h-4 w-4" />
-                            New Reservation
+                            New Hold Request
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-popover">
                         <DialogHeader>
-                            <DialogTitle className="text-foreground">Create New Reservation</DialogTitle>
+                            <DialogTitle className="text-foreground">Reserve Parts for a Job</DialogTitle>
                         </DialogHeader>
 
                         {/* Show loading indicator when data is still loading */}
@@ -768,7 +768,7 @@ export function ReservationPanel() {
                                 <div className="flex items-center gap-2">
                                     <AlertTriangle className="h-5 w-5 animate-pulse text-orange-600" />
                                     <div>
-                                        <h3 className="font-semibold text-orange-900 dark:text-orange-100">Urgent: Reservations Awaiting Approval</h3>
+                                        <h3 className="font-semibold text-orange-900 dark:text-orange-100">Reservations Needing Your Approval</h3>
                                         <p className="text-sm text-orange-700 dark:text-orange-300">
                                             {reservations.filter((r) => r.status === 'pending').length} reservation
                                             {reservations.filter((r) => r.status === 'pending').length !== 1 ? 's' : ''} need
@@ -791,29 +791,29 @@ export function ReservationPanel() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Active Reservations</p>
+                        <p className="text-sm font-medium">Active Holds</p>
                         <Clock className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-primary">{activeReservations.length}</div>
-                        <p className="text-xs text-muted-foreground">Parts currently reserved</p>
+                        <p className="text-xs text-muted-foreground">On hold for job orders</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Reserved Value</p>
+                        <p className="text-sm font-medium">Hold Value</p>
                         <Package className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-foreground">₱{totalReservedValue.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Total reserved inventory value</p>
+                        <p className="text-xs text-muted-foreground">Value of parts on hold</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Completed Today</p>
+                        <p className="text-sm font-medium">Fulfilled Today</p>
                         <CheckCircle className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
@@ -823,14 +823,14 @@ export function ReservationPanel() {
                                     .length
                             }
                         </div>
-                        <p className="text-xs text-muted-foreground">Jobs completed today</p>
+                        <p className="text-xs text-muted-foreground">Orders completed today</p>
                     </div>
                 </div>
             </div>
 
             <div className="profile-card rounded-xl">
                 <div className="p-5 pb-3">
-                    <h3 className="font-semibold text-foreground">Reservation Details</h3>
+                    <h3 className="font-semibold text-foreground">Hold Details</h3>
                 </div>
                 <div className="p-5 pt-0">
                     {/* Hierarchical Reservation Groups */}
@@ -861,7 +861,7 @@ export function ReservationPanel() {
                                                         <div className="text-left">
                                                             <div className="flex items-center gap-2">
                                                                 <h3 className={`text-lg font-semibold ${style.textColor} capitalize`}>
-                                                                    {status} Reservations
+                                                                    {status} Holds
                                                                 </h3>
                                                             </div>
                                                             <p className={`text-sm ${style.textColor} opacity-80`}>

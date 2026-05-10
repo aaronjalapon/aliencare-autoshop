@@ -41,7 +41,7 @@ export default function Dashboard() {
                                 <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Dashboard</p>
                                 <h1 className="mt-2 text-2xl font-bold tracking-tight">Welcome back, {user?.name?.split(' ')[0] ?? 'Frontdesk'}</h1>
                                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                                    Keep service operations moving with a live snapshot of offerings, inventory pressure, and quick action shortcuts.
+                                    Your daily command center — check today's job queue, walk-in activity, and what needs your attention right now.
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -49,13 +49,13 @@ export default function Dashboard() {
                                     to="/services"
                                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90"
                                 >
-                                    Manage Services <ArrowRight className="h-4 w-4" />
+                                    Service Menu <ArrowRight className="h-4 w-4" />
                                 </Link>
                                 <Link
                                     to="/job-orders"
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-[#d4af37]/40"
                                 >
-                                    Job Orders
+                                    Today's Jobs
                                 </Link>
                             </div>
                         </div>
@@ -68,7 +68,7 @@ export default function Dashboard() {
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <div className="profile-card rounded-xl p-5">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Services Offered</p>
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Services Available</p>
                                 <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                     <Wrench className="h-4 w-4 text-[#d4af37]" />
                                 </div>
@@ -78,14 +78,14 @@ export default function Dashboard() {
                             ) : (
                                 <>
                                     <p className="mt-3 text-3xl font-bold">{activeServices.length}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Active services in catalog</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Ready for customers today</p>
                                 </>
                             )}
                         </div>
 
                         <div className="profile-card rounded-xl p-5">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Recommended Picks</p>
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Customer Favorites</p>
                                 <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                     <Sparkles className="h-4 w-4 text-[#d4af37]" />
                                 </div>
@@ -95,14 +95,14 @@ export default function Dashboard() {
                             ) : (
                                 <>
                                     <p className="mt-3 text-3xl font-bold">{recommendedCount}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Promoted services live</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Top-rated and promoted</p>
                                 </>
                             )}
                         </div>
 
                         <div className="profile-card rounded-xl p-5">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Avg Service Price</p>
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Typical Price</p>
                                 <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                     <ClipboardList className="h-4 w-4 text-[#d4af37]" />
                                 </div>
@@ -112,14 +112,14 @@ export default function Dashboard() {
                             ) : (
                                 <>
                                     <p className="mt-3 text-3xl font-bold">P{Math.round(averageServicePrice).toLocaleString('en-US')}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Across current offerings</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Average for quick quotes</p>
                                 </>
                             )}
                         </div>
 
                         <div className="profile-card rounded-xl p-5">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Low Stock Alerts</p>
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Running Low</p>
                                 <div className="rounded-lg bg-[#d4af37]/10 p-2">
                                     <TriangleAlert className="h-4 w-4 text-[#d4af37]" />
                                 </div>
@@ -129,7 +129,7 @@ export default function Dashboard() {
                             ) : (
                                 <>
                                     <p className="mt-3 text-3xl font-bold">{analytics?.low_stock_count ?? 0}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Inventory items need attention</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Items needing restock</p>
                                 </>
                             )}
                         </div>
@@ -138,9 +138,9 @@ export default function Dashboard() {
                     <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
                         <div className="profile-card rounded-xl p-5">
                             <div className="mb-4 flex items-center justify-between">
-                                <h2 className="text-base font-semibold">Queue Snapshot</h2>
+                                <h2 className="text-base font-semibold">Today's Service Board</h2>
                                 <Link to="/services" className="text-xs font-semibold text-[#d4af37] hover:underline">
-                                    Open service manager
+                                    See all services
                                 </Link>
                             </div>
 
@@ -162,7 +162,7 @@ export default function Dashboard() {
                         </div>
 
                         <div className="profile-card rounded-xl p-5">
-                            <h2 className="text-base font-semibold">Operations Pulse</h2>
+                            <h2 className="text-base font-semibold">Shop Activity</h2>
                             <div className="mt-4 space-y-3">
                                 <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3">
                                     <p className="text-xs font-semibold text-muted-foreground uppercase">Today's Transactions</p>
@@ -186,7 +186,7 @@ export default function Dashboard() {
                                 to="/inventory"
                                 className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#d4af37] transition-opacity hover:opacity-80"
                             >
-                                <Package className="h-3.5 w-3.5" /> Open inventory workspace
+                                <Package className="h-3.5 w-3.5" /> Check inventory
                             </Link>
                         </div>
                     </div>

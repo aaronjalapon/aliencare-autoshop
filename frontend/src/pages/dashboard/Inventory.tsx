@@ -39,9 +39,9 @@ export default function Inventory() {
                         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div>
                                 <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
-                                <h1 className="mt-2 text-2xl font-bold tracking-tight">Inventory Operations</h1>
+                                <h1 className="mt-2 text-2xl font-bold tracking-tight">Stock & Supplies</h1>
                                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                                    Monitor stock health, reservations, alerts, reports, and audit activity from one workspace.
+                                    Keep track of parts, products, and supplies — know what's in stock, what's reserved, and what needs reordering.
                                 </p>
                             </div>
 

@@ -89,10 +89,10 @@ export function AuditLog() {
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Audit Log</h1>
-                    <p className="text-muted-foreground">Complete record of all inventory transactions and changes</p>
+                    <p className="text-muted-foreground">Track every stock movement, adjustment, and who made it.</p>
                     <div className="mt-2 flex items-center gap-2">
                         <div className={`h-2 w-2 rounded-full ${isRealTime ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                        <span className="text-sm text-muted-foreground">{isRealTime ? 'Live Updates Active' : 'Real-time Disabled'}</span>
+                        <span className="text-sm text-muted-foreground">{isRealTime ? 'Auto-refresh On' : 'Auto-refresh Off'}</span>
                         {lastUpdated && <span className="text-xs text-muted-foreground">• Last updated: {lastUpdated.toLocaleTimeString()}</span>}
                     </div>
                 </div>
@@ -106,12 +106,12 @@ export function AuditLog() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Total Transactions</p>
+                        <p className="text-sm font-medium">All Entries</p>
                         <Activity className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-foreground">{loading ? '...' : stats.total_transactions}</div>
-                        <p className="text-xs text-muted-foreground">All recorded transactions</p>
+                        <p className="text-xs text-muted-foreground">Total stock entries tracked</p>
                     </div>
                 </div>
 
@@ -122,18 +122,18 @@ export function AuditLog() {
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-primary">{loading ? '...' : stats.today_transactions}</div>
-                        <p className="text-xs text-muted-foreground">Transactions today</p>
+                        <p className="text-xs text-muted-foreground">Entries recorded today</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Active Users</p>
+                        <p className="text-sm font-medium">Staff Activity</p>
                         <User className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-primary">{loading ? '...' : stats.unique_users}</div>
-                        <p className="text-xs text-muted-foreground">Users with activity</p>
+                        <p className="text-xs text-muted-foreground">Staff with activity</p>
                     </div>
                 </div>
 
@@ -144,19 +144,19 @@ export function AuditLog() {
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-primary">{loading ? '...' : stats.week_transactions}</div>
-                        <p className="text-xs text-muted-foreground">Recorded in the last 7 days</p>
+                        <p className="text-xs text-muted-foreground">Entries this week</p>
                     </div>
                 </div>
             </div>
 
             <div className="profile-card overflow-hidden rounded-xl">
                 <div className="p-5 pb-3">
-                    <h3 className="font-semibold text-foreground">Transaction Filters</h3>
+                    <h3 className="font-semibold text-foreground">Filter Entries</h3>
                     <div className="mt-3 flex flex-col gap-4 sm:flex-row">
                         <div className="relative flex-1">
                             <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by item ID, job order, or notes..."
+                                placeholder="Search by item, job order, or notes..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="border-border bg-input pl-10 text-foreground"
@@ -255,12 +255,12 @@ export function AuditLog() {
 
             <div className="profile-card rounded-xl">
                 <div className="p-5 pb-3">
-                    <h3 className="font-semibold text-foreground">Audit Trail Summary</h3>
+                    <h3 className="font-semibold text-foreground">Activity Summary</h3>
                 </div>
                 <div className="space-y-4 p-5 pt-0">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="space-y-2">
-                            <h4 className="font-medium text-foreground">Transaction Types</h4>
+                            <h4 className="font-medium text-foreground">Entry Types</h4>
                             <div className="space-y-1">
                                 {stats.transaction_types.map(({ type, count }) => (
                                     <div key={type} className="flex justify-between text-sm">

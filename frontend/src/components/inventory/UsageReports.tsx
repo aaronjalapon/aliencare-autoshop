@@ -108,8 +108,8 @@ export function UsageReports() {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">Usage Reports</h1>
-                        <p className="text-muted-foreground">Analyze parts consumption and cost tracking</p>
+                        <h1 className="text-2xl font-bold text-foreground">Parts Usage</h1>
+                        <p className="text-muted-foreground">See which parts are being used, how much they cost, and spot usage trends.</p>
                     </div>
                 </div>
 
@@ -131,8 +131,8 @@ export function UsageReports() {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">Usage Reports</h1>
-                        <p className="text-muted-foreground">Analyze parts consumption and cost tracking</p>
+                        <h1 className="text-2xl font-bold text-foreground">Parts Usage</h1>
+                        <p className="text-muted-foreground">See which parts are being used, how much they cost, and spot usage trends.</p>
                     </div>
                 </div>
 
@@ -156,9 +156,9 @@ export function UsageReports() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Usage Reports</h1>
+                    <h1 className="text-2xl font-bold text-foreground">Parts Usage</h1>
                     <p className="text-muted-foreground">
-                        Analyze parts consumption and cost tracking ({data.date_range.start_date} to {data.date_range.end_date})
+                        See which parts are being used, how much they cost, and spot usage trends. ({data.date_range.start_date} to {data.date_range.end_date})
                     </p>
                 </div>
                 <div className="flex gap-4">
@@ -219,45 +219,45 @@ export function UsageReports() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Total Parts Consumed</p>
+                        <p className="text-sm font-medium">Parts Used</p>
                         <Package className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-foreground">{data.summary.total_consumed}</div>
-                        <p className="text-xs text-muted-foreground">{reportPeriod} period</p>
+                        <p className="text-xs text-muted-foreground">{reportPeriod} usage</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Total Cost</p>
+                        <p className="text-sm font-medium">Total Spending</p>
                         <PesoIcon className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-foreground">₱{data.summary.total_cost.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">Parts consumption value</p>
+                        <p className="text-xs text-muted-foreground">Cost of parts used</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Most Used Part</p>
+                        <p className="text-sm font-medium">Top Used Part</p>
                         <TrendingUp className="h-4 w-4 text-primary" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-lg font-bold text-foreground">{data.summary.most_used_item?.part_number || 'N/A'}</div>
-                        <p className="text-xs text-muted-foreground">{data.summary.most_used_item?.consumed || 0} units consumed</p>
+                        <p className="text-xs text-muted-foreground">{data.summary.most_used_item?.consumed || 0} units used</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Active Categories</p>
+                        <p className="text-sm font-medium">Categories in Use</p>
                         <FileText className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-foreground">{data.summary.active_categories}</div>
-                        <p className="text-xs text-muted-foreground">Categories with usage</p>
+                        <p className="text-xs text-muted-foreground">Part categories used</p>
                     </div>
                 </div>
             </div>
@@ -265,7 +265,7 @@ export function UsageReports() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div className="profile-card rounded-xl">
                     <div className="p-5 pb-3">
-                        <h3 className="font-semibold text-foreground">Consumption by Category</h3>
+                        <h3 className="font-semibold text-foreground">Parts Used by Category</h3>
                     </div>
                     <div className="p-5 pt-0">
                         <div className="flex flex-col items-start gap-8 lg:flex-row">
@@ -371,7 +371,7 @@ export function UsageReports() {
 
                 <div className="profile-card rounded-xl">
                     <div className="p-5 pb-8">
-                        <h3 className="font-semibold text-foreground">Top Consumed Parts</h3>
+                        <h3 className="font-semibold text-foreground">Most-Used Parts</h3>
                     </div>
                     <div className="p-5 pt-4">
                         <div className="space-y-10">
@@ -475,7 +475,7 @@ export function UsageReports() {
 
             <div className="profile-card overflow-hidden rounded-xl">
                 <div className="p-5 pb-3">
-                    <h3 className="font-semibold text-foreground">Detailed Usage Report</h3>
+                    <h3 className="font-semibold text-foreground">Usage Details</h3>
                 </div>
                 <div className="overflow-auto">
                     <Table>
@@ -488,7 +488,7 @@ export function UsageReports() {
                                 <TableHead className="text-foreground">Total Cost</TableHead>
                                 <TableHead className="text-foreground">Unit Price</TableHead>
                                 <TableHead className="text-foreground">Transactions</TableHead>
-                                <TableHead className="text-foreground">Usage Intensity</TableHead>
+                                <TableHead className="text-foreground">Usage Level</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -521,7 +521,7 @@ export function UsageReports() {
                     </Table>
                 </div>
                 {usageItems.length === 0 && (
-                    <div className="py-8 text-center text-muted-foreground">No usage data found for the selected period and category</div>
+                    <div className="py-8 text-center text-muted-foreground">No usage data for this period and category</div>
                 )}
             </div>
         </div>

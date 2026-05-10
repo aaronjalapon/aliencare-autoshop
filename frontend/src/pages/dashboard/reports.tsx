@@ -580,10 +580,10 @@ export default function Reports() {
                     <section className="rounded-2xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Business Intelligence</p>
-                                <h1 className="mt-2 text-2xl font-bold tracking-tight">Reports and Analytics Command Center</h1>
+                                <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Performance Snapshot</p>
+                                <h1 className="mt-2 text-2xl font-bold tracking-tight">Shop Performance & Insights</h1>
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                    Monitor services, job completion performance, and short-term business forecasts in one operational dashboard.
+                                    See how the shop is doing — revenue trends, job completion rates, and trends over the selected period.
                                 </p>
                                 {error && <p className="mt-2 text-xs text-amber-400">{error}</p>}
                             </div>
@@ -639,7 +639,7 @@ export default function Reports() {
 
                         <article className="profile-card rounded-xl p-4">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Parts Cost Exposure</p>
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Parts Cost</p>
                                 <TrendingDown className="h-4 w-4 text-amber-400" />
                             </div>
                             <p className="mt-2 text-3xl font-bold text-foreground">{peso.format(data.procurement.totalValue)}</p>
@@ -648,7 +648,7 @@ export default function Reports() {
 
                         <article className="profile-card rounded-xl p-4">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Risk Signals</p>
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Needs Attention</p>
                                 <AlertTriangle className="h-4 w-4 text-red-400" />
                             </div>
                             <p className="mt-2 text-3xl font-bold text-foreground">

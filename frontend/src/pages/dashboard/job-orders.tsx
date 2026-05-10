@@ -736,7 +736,7 @@ export default function JobOrders() {
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Manage online and walk-in job orders with full backend-connected CRUD actions.
+                                Track every job from check-in to completion — online bookings, walk-ins, and everything in between.
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -764,19 +764,19 @@ export default function JobOrders() {
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Active Queue</p>
+                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">In the Shop</p>
                             <p className="mt-2 text-3xl font-bold">{totals.active}</p>
                         </div>
                         <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Online Pending</p>
+                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Awaiting Confirmation</p>
                             <p className="mt-2 text-3xl font-bold">{totals.onlinePending}</p>
                         </div>
                         <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Walk-ins Today</p>
+                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Walk-ins</p>
                             <p className="mt-2 text-3xl font-bold">{totals.walkInToday}</p>
                         </div>
                         <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Completed Today</p>
+                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Completed</p>
                             <p className="mt-2 text-3xl font-bold">{totals.completedToday}</p>
                         </div>
                     </div>

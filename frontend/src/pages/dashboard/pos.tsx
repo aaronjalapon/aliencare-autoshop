@@ -574,7 +574,7 @@ export default function PointOfSale() {
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Run backend-connected checkout transactions and maintain the inventory-backed product catalog.
+                                Counter sales made simple — ring up products, process payments, and keep the shelves stocked.
                             </p>
                         </div>
                         <button

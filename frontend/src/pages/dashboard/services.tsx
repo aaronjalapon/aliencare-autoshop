@@ -316,7 +316,7 @@ export default function Services() {
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Create, review, update, and remove services offered by the shop in one streamlined panel.
+                                Your service menu at a glance — browse offerings, check prices, and help customers pick the right service.
                             </p>
                         </div>
                         <button
