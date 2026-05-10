@@ -407,7 +407,7 @@ export function InventoryTable() {
                 return (
                     <Badge variant="outline" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
-                        Good Stock
+                        In Stock
                     </Badge>
                 );
         }
@@ -430,8 +430,8 @@ export function InventoryTable() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Parts Inventory</h1>
-                    <p className="text-muted-foreground">Manage and monitor all parts and consumables</p>
+                    <h1 className="text-2xl font-bold text-foreground">Full Stock List</h1>
+                    <p className="text-muted-foreground">Browse every part and supply in stock, check levels, and update item details.</p>
                 </div>
                 <div className="flex gap-2">
                     <Dialog
@@ -451,7 +451,7 @@ export function InventoryTable() {
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl border-border bg-popover">
                             <DialogHeader>
-                                <DialogTitle className="text-foreground">Add New Inventory Item</DialogTitle>
+                                <DialogTitle className="text-foreground">Add New Stock Item</DialogTitle>
                             </DialogHeader>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
@@ -602,7 +602,7 @@ export function InventoryTable() {
                         </DialogTrigger>
                         <DialogContent className="border-border bg-popover">
                             <DialogHeader>
-                                <DialogTitle className="text-foreground">Add Stock to Existing Part</DialogTitle>
+                                <DialogTitle className="text-foreground">Restock an Existing Item</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
                                 <div>
@@ -673,12 +673,12 @@ export function InventoryTable() {
                         <DialogTrigger asChild>
                             <Button variant="outline" className="border-border text-foreground hover:bg-muted">
                                 <ArrowDownCircle className="mr-2 h-4 w-4" />
-                                Log Stock Transaction
+                                Record Stock Movement
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="border-border bg-popover">
                             <DialogHeader>
-                                <DialogTitle className="text-foreground">Deduct / Return / Damage</DialogTitle>
+                                <DialogTitle className="text-foreground">Record Stock Change</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
                                 <div>
@@ -693,7 +693,7 @@ export function InventoryTable() {
                                             <SelectValue placeholder="Select action" />
                                         </SelectTrigger>
                                         <SelectContent className="border-border bg-popover">
-                                            <SelectItem value="deduct">Deduct (Sale/Usage)</SelectItem>
+                                            <SelectItem value="deduct">Used in Service</SelectItem>
                                             <SelectItem value="return">Return</SelectItem>
                                             <SelectItem value="damage">Damage</SelectItem>
                                         </SelectContent>
@@ -931,12 +931,12 @@ export function InventoryTable() {
 
             <div className="profile-card overflow-hidden rounded-xl">
                 <div className="p-5 pb-3">
-                    <h3 className="font-semibold text-foreground">Inventory Filters</h3>
+                    <h3 className="font-semibold text-foreground">Filter Stock</h3>
                     <div className="mt-3 flex flex-col gap-4 sm:flex-row">
                         <div className="relative flex-1">
                             <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by item ID, name, or description..."
+                                placeholder="Search by item name, code, or description..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="border-border bg-input pl-10 text-foreground"
@@ -963,7 +963,7 @@ export function InventoryTable() {
                             <SelectContent className="border-border bg-popover">
                                 <SelectItem value="all">All Stock Levels</SelectItem>
                                 <SelectItem value="low">Low Stock</SelectItem>
-                                <SelectItem value="good">Good Stock</SelectItem>
+                                <SelectItem value="good">In Stock</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

@@ -41,14 +41,14 @@ export function Dashboard() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold text-foreground">Inventory Dashboard</h1>
-                <p className="text-muted-foreground">Real-time overview of Alien Care Autoshop inventory status</p>
+                <h1 className="text-2xl font-bold text-foreground">Stock Overview</h1>
+                <p className="text-muted-foreground">At-a-glance view of parts, stock levels, and what's moving in the shop.</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Total Parts</p>
+                        <p className="text-sm font-medium">All Stock Items</p>
                         <Package className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="p-5 pt-0">
@@ -60,7 +60,7 @@ export function Dashboard() {
                         ) : (
                             <>
                                 <div className="text-2xl font-bold text-foreground">{analytics?.total_items || 0}</div>
-                                <p className="text-xs text-muted-foreground">Active inventory items</p>
+                                <p className="text-xs text-muted-foreground">Items currently in stock</p>
                             </>
                         )}
                     </div>
@@ -68,7 +68,7 @@ export function Dashboard() {
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Low Stock Items</p>
+                        <p className="text-sm font-medium">Running Low</p>
                         <TrendingDown className="h-4 w-4 text-destructive" />
                     </div>
                     <div className="p-5 pt-0">
@@ -80,7 +80,7 @@ export function Dashboard() {
                         ) : (
                             <>
                                 <div className="text-2xl font-bold text-destructive">{analytics?.low_stock_count || 0}</div>
-                                <p className="text-xs text-muted-foreground">Below minimum threshold</p>
+                                <p className="text-xs text-muted-foreground">Need reordering soon</p>
                             </>
                         )}
                     </div>
@@ -105,7 +105,7 @@ export function Dashboard() {
                                         minimumFractionDigits: 2,
                                     }) || '0.00'}
                                 </div>
-                                <p className="text-xs text-muted-foreground">Current inventory value</p>
+                                <p className="text-xs text-muted-foreground">Total value of stock on hand</p>
                             </>
                         )}
                     </div>
@@ -113,7 +113,7 @@ export function Dashboard() {
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Active Reservations</p>
+                        <p className="text-sm font-medium">Reserved Items</p>
                         <Clock className="h-4 w-4 text-blue-600" />
                     </div>
                     <div className="p-5 pt-0">
@@ -125,7 +125,7 @@ export function Dashboard() {
                         ) : (
                             <>
                                 <div className="text-2xl font-bold text-blue-600">{analytics?.active_reservations || 0}</div>
-                                <p className="text-xs text-muted-foreground">Pending approval and processing</p>
+                                <p className="text-xs text-muted-foreground">Set aside for job orders</p>
                             </>
                         )}
                     </div>
@@ -135,7 +135,7 @@ export function Dashboard() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div className="profile-card rounded-xl">
                     <div className="p-5 pb-3">
-                        <h3 className="font-semibold text-foreground">Low Stock Alerts</h3>
+                        <h3 className="font-semibold text-foreground">Items to Reorder</h3>
                     </div>
                     <div className="space-y-3 p-5 pt-0">
                         {isLoading ? (
@@ -162,14 +162,14 @@ export function Dashboard() {
                                 </div>
                             ))
                         ) : (
-                            <p className="text-sm text-muted-foreground">No low stock alerts</p>
+                            <p className="text-sm text-muted-foreground">Nothing needs reordering right now</p>
                         )}
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="p-5 pb-3">
-                        <h3 className="font-semibold text-foreground">Recent Transactions</h3>
+                        <h3 className="font-semibold text-foreground">Recent Stock Activity</h3>
                     </div>
                     <div className="space-y-3 p-5 pt-0">
                         {isLoading ? (
@@ -196,7 +196,7 @@ export function Dashboard() {
                                 </div>
                             ))
                         ) : (
-                            <p className="text-sm text-muted-foreground">No recent transactions</p>
+                            <p className="text-sm text-muted-foreground">No stock activity recently</p>
                         )}
                     </div>
                 </div>
@@ -205,7 +205,7 @@ export function Dashboard() {
             {/* Top Categories */}
             <div className="profile-card rounded-xl">
                 <div className="p-5 pb-3">
-                    <h3 className="font-semibold text-foreground">Top Categories by Value</h3>
+                    <h3 className="font-semibold text-foreground">Most Valuable Categories</h3>
                 </div>
                 <div className="p-5 pt-0">
                     {isLoading ? (

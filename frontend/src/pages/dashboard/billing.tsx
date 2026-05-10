@@ -684,8 +684,7 @@ export default function Billing() {
                         <div>
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Process online booking invoices and walk-in settlements in one queue, including deposits, partial payments, and
-                                release-ready balances.
+                                Track invoices, record deposits, process payments, and release vehicles when balances clear.
                             </p>
                             {notice && <p className="mt-2 text-xs text-[#d4af37]">{notice}</p>}
                             {queueError && <p className="mt-2 text-xs text-red-400">{queueError}</p>}

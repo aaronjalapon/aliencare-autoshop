@@ -685,7 +685,7 @@ export default function Customers() {
                             <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
                             <h1 className="mt-2 text-3xl font-bold tracking-tight">Customers</h1>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Manage customer records, activation status, tiers, and vehicles using live backend data.
+                                Know your customers — look up profiles, manage vehicles and membership tiers, and keep contact details current.
                             </p>
                         </div>
                         <div className="flex items-center gap-2">

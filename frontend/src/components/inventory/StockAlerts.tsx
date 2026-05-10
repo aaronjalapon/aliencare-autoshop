@@ -168,7 +168,7 @@ export function StockAlerts() {
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Stock Alerts</h1>
-                    <p className="text-muted-foreground">Monitor and manage low stock notifications</p>
+                    <p className="text-muted-foreground">Stay on top of parts running low and decide what to reorder.</p>
                 </div>
 
                 <div className="flex gap-2">
@@ -179,12 +179,12 @@ export function StockAlerts() {
 
                     <Button variant="outline" onClick={handleGenerateAlerts} disabled={actionLoading === 'generate'} size="sm">
                         <Settings className="mr-2 h-4 w-4" />
-                        Generate Alerts
+                        Scan for Low Stock
                     </Button>
 
                     <Button variant="outline" onClick={handleCleanup} disabled={actionLoading === 'cleanup'} size="sm">
                         <Package className="mr-2 h-4 w-4" />
-                        Cleanup Old
+                        Clear Old Alerts
                     </Button>
                 </div>
             </div>
@@ -199,12 +199,12 @@ export function StockAlerts() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Critical Alerts</p>
+                        <p className="text-sm font-medium">Needs Attention</p>
                         <AlertTriangle className="h-4 w-4 text-destructive" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-destructive">{statistics?.critical_alerts || 0}</div>
-                        <p className="text-xs text-muted-foreground">Immediate attention required</p>
+                        <p className="text-xs text-muted-foreground">Order these right away</p>
                     </div>
                 </div>
 
@@ -215,18 +215,18 @@ export function StockAlerts() {
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-primary">{statistics?.high_priority_alerts || 0}</div>
-                        <p className="text-xs text-muted-foreground">Action needed soon</p>
+                        <p className="text-xs text-muted-foreground">Plan to reorder soon</p>
                     </div>
                 </div>
 
                 <div className="profile-card rounded-xl">
                     <div className="flex flex-row items-center justify-between p-5 pb-2">
-                        <p className="text-sm font-medium">Total Unacknowledged</p>
+                        <p className="text-sm font-medium">Unreviewed Alerts</p>
                         <Clock className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="p-5 pt-0">
                         <div className="text-2xl font-bold text-foreground">{statistics?.unacknowledged_alerts || 0}</div>
-                        <p className="text-xs text-muted-foreground">Pending review</p>
+                        <p className="text-xs text-muted-foreground">Waiting to be checked</p>
                     </div>
                 </div>
             </div>
@@ -237,7 +237,7 @@ export function StockAlerts() {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <AlertTriangle className="h-5 w-5 text-destructive" />
-                                <h3 className="font-semibold text-foreground">Unacknowledged Alerts</h3>
+                                <h3 className="font-semibold text-foreground">Alerts to Review</h3>
                             </div>
                             {unacknowledgedAlerts.length > 0 && (
                                 <div className="flex gap-2">
@@ -319,7 +319,7 @@ export function StockAlerts() {
                     <div className="p-5 pb-3">
                         <div className="flex items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-primary" />
-                            <h3 className="font-semibold text-foreground">Acknowledged Alerts</h3>
+                            <h3 className="font-semibold text-foreground">Reviewed Alerts</h3>
                         </div>
                     </div>
                     <div className="space-y-4 p-5 pt-0">
