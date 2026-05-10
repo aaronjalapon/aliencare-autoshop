@@ -857,9 +857,10 @@ export default function Customers() {
                             </div>
                         </div>
 
-                        <aside className="min-h-0 overflow-y-auto rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
+                        <aside className="flex min-h-0 flex-col rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
                             {selectedCustomer ? (
-                                <div className="flex h-full flex-col gap-4">
+                                <>
+                                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
                                     <div className="flex items-start justify-between">
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -1077,10 +1078,12 @@ export default function Customers() {
                                         </div>
                                     </div>
 
+                                </div>
+                                <div className="shrink-0 pt-4">
                                     <button
                                         onClick={handleToggleActivation}
                                         disabled={isTogglingActivation}
-                                        className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {isTogglingActivation ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1092,6 +1095,7 @@ export default function Customers() {
                                         {selectedCustomer.is_active ? 'Deactivate Customer' : 'Activate Customer'}
                                     </button>
                                 </div>
+                                </>
                             ) : (
                                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-[#2a2a2e] p-6 text-sm text-muted-foreground">
                                     Select a customer to view details.

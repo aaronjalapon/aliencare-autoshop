@@ -919,9 +919,10 @@ export default function Billing() {
                             )}
                         </div>
 
-                        <aside className="profile-card min-h-0 overflow-y-auto rounded-xl p-5">
+                        <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                             {selectedTicket ? (
-                                <div className="flex h-full flex-col gap-4">
+                                <>
+                                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
                                     <div>
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
@@ -1074,7 +1075,8 @@ export default function Billing() {
                                         </p>
                                     </div>
 
-                                    <div className="mt-auto grid gap-2">
+                                    </div>
+                                    <div className="shrink-0 grid gap-2 pt-4">
                                         <button
                                             onClick={openRecordPaymentModal}
                                             disabled={selectedTicket.status === 'paid'}
@@ -1090,7 +1092,7 @@ export default function Billing() {
                                             <CheckCircle2 className="h-4 w-4" /> Settle Remaining Balance
                                         </button>
                                     </div>
-                                </div>
+                                </>
                             ) : (
                                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-[#2a2a2e] p-6 text-sm text-muted-foreground">
                                     Select an invoice to review billing details.

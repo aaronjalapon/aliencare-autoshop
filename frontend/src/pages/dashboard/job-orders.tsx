@@ -892,9 +892,10 @@ export default function JobOrders() {
                             </div>
                         </div>
 
-                        <aside className="profile-card min-h-0 overflow-y-auto rounded-xl p-5">
+                        <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                             {selectedOrder ? (
-                                <div className="flex h-full flex-col gap-4">
+                                <>
+                                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
                                     <div>
                                         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                                             {selectedOrder.jo_number}
@@ -993,6 +994,8 @@ export default function JobOrders() {
                                         <p className="text-sm text-muted-foreground">{selectedOrder.notes ?? 'No notes provided.'}</p>
                                     </div>
 
+                                </div>
+                                <div className="shrink-0 flex flex-col gap-2 pt-4">
                                     <button
                                         disabled={selectedPrimaryAction === 'none' || isProcessingAction}
                                         onClick={() => void handlePrimaryAction()}
@@ -1016,6 +1019,7 @@ export default function JobOrders() {
                                         </button>
                                     )}
                                 </div>
+                                </>
                             ) : (
                                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-[#2a2a2e] p-6 text-sm text-muted-foreground">
                                     Select a job order to inspect details.
