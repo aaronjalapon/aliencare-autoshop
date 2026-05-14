@@ -177,11 +177,7 @@ export default function Services() {
     const loadInventory = useCallback(async () => {
         try {
             const response = await inventoryService.getInventoryItems({ per_page: 200 });
-            setInventoryItems(
-                (response.data.data ?? []).filter(
-                    (item) => item.status === 'active' && item.stock > 0,
-                ),
-            );
+            setInventoryItems((response.data.data ?? []).filter((item) => item.status === 'active' && item.stock > 0));
         } catch {
             setInventoryItems([]);
         }
@@ -194,9 +190,7 @@ export default function Services() {
     const matchIncludesToInventory = useCallback(
         (includes: string[]): SelectedItem[] =>
             includes.map((name) => {
-                const match = inventoryItems.find(
-                    (inv) => inv.item_name.toLowerCase() === name.toLowerCase(),
-                );
+                const match = inventoryItems.find((inv) => inv.item_name.toLowerCase() === name.toLowerCase());
                 if (match) {
                     return {
                         item_id: match.item_id,
@@ -218,9 +212,7 @@ export default function Services() {
         if (!normalized) return candidates.slice(0, 25);
         return candidates
             .filter((item) => {
-                const haystack = [item.item_name, item.sku ?? '', item.description ?? '']
-                    .join(' ')
-                    .toLowerCase();
+                const haystack = [item.item_name, item.sku ?? '', item.description ?? ''].join(' ').toLowerCase();
                 return haystack.includes(normalized);
             })
             .slice(0, 25);
@@ -548,10 +540,10 @@ export default function Services() {
                             ) : selectedService ? (
                                 <>
                                     {/* Header — always visible */}
-                                    <div className="shrink-0 space-y-4 pb-4 border-b border-[#2a2a2e]">
+                                    <div className="shrink-0 space-y-4 border-b border-[#2a2a2e] pb-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <h2 className="text-lg font-bold leading-snug">{selectedService.name}</h2>
+                                                <h2 className="text-lg leading-snug font-bold">{selectedService.name}</h2>
                                                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                                     <span className="rounded-full border border-[#2a2a2e] bg-[#0d0d10] px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                                                         {formatCategory(selectedService.category)}
@@ -586,7 +578,7 @@ export default function Services() {
                                     </div>
 
                                     {/* Scrollable details */}
-                                    <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                                    <div className="flex-1 space-y-4 overflow-y-auto py-4">
                                         {/* Quick stats */}
                                         <div className="grid grid-cols-3 gap-2">
                                             <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5 text-center">
@@ -601,9 +593,7 @@ export default function Services() {
                                             <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5 text-center">
                                                 <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Rating</p>
                                                 <p className="mt-1 text-sm font-bold text-foreground">
-                                                    {selectedService.rating_count > 0
-                                                        ? `${selectedService.rating.toFixed(1)}`
-                                                        : '—'}
+                                                    {selectedService.rating_count > 0 ? `${selectedService.rating.toFixed(1)}` : '—'}
                                                 </p>
                                                 <p className="text-[10px] text-muted-foreground">
                                                     {selectedService.rating_count > 0 ? `${selectedService.rating_count} reviews` : 'No reviews'}
@@ -649,7 +639,7 @@ export default function Services() {
                                     </div>
 
                                     {/* Sticky actions */}
-                                    <div className="flex shrink-0 items-center gap-2 pt-4 border-t border-[#2a2a2e]">
+                                    <div className="flex shrink-0 items-center gap-2 border-t border-[#2a2a2e] pt-4">
                                         <button
                                             onClick={() => openEditModal(selectedService)}
                                             className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-4 py-2.5 text-sm font-semibold transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
@@ -951,12 +941,10 @@ export default function Services() {
                                                     onClick={() =>
                                                         setFormState((prev) => ({
                                                             ...prev,
-                                                            selectedIncludeItems: prev.selectedIncludeItems.filter(
-                                                                (i) => i.item_id !== item.item_id,
-                                                            ),
+                                                            selectedIncludeItems: prev.selectedIncludeItems.filter((i) => i.item_id !== item.item_id),
                                                         }))
                                                     }
-                                                    className="ml-0.5 text-muted-foreground hover:text-red-400 transition-colors"
+                                                    className="ml-0.5 text-muted-foreground transition-colors hover:text-red-400"
                                                 >
                                                     <X className="h-3 w-3" />
                                                 </button>

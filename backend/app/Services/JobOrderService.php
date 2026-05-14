@@ -26,6 +26,7 @@ use App\Models\Reservation;
 use App\Models\ServiceCatalog;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class JobOrderService implements JobOrderServiceInterface
@@ -267,7 +268,7 @@ class JobOrderService implements JobOrderServiceInterface
     /**
      * Get job orders that conflict with a mechanic at the given date/time window.
      */
-    public function getConflictingJobOrdersForMechanic(int $mechanicId, string $date, string $targetTime, int $targetDurationMinutes = 60, ?int $excludeJobOrderId = null): \Illuminate\Database\Eloquent\Collection
+    public function getConflictingJobOrdersForMechanic(int $mechanicId, string $date, string $targetTime, int $targetDurationMinutes = 60, ?int $excludeJobOrderId = null): Collection
     {
         $assignedJobs = JobOrder::query()
             ->where('assigned_mechanic_id', $mechanicId)
@@ -294,7 +295,7 @@ class JobOrderService implements JobOrderServiceInterface
     /**
      * Get job orders that conflict with a bay at the given date/time window.
      */
-    public function getConflictingJobOrdersForBay(int $bayId, string $date, string $targetTime, int $targetDurationMinutes = 60, ?int $excludeJobOrderId = null): \Illuminate\Database\Eloquent\Collection
+    public function getConflictingJobOrdersForBay(int $bayId, string $date, string $targetTime, int $targetDurationMinutes = 60, ?int $excludeJobOrderId = null): Collection
     {
         $assignedJobs = JobOrder::query()
             ->where('bay_id', $bayId)

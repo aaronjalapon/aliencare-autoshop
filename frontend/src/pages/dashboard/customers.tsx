@@ -781,7 +781,7 @@ export default function Customers() {
                             </div>
 
                             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/80">
-                                <div className="hidden shrink-0 items-center grid-cols-[1.1fr_1.2fr_1.5fr_0.9fr_0.8fr_0.8fr] border-b border-[#2a2a2e] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
+                                <div className="hidden shrink-0 grid-cols-[1.1fr_1.2fr_1.5fr_0.9fr_0.8fr_0.8fr] items-center border-b border-[#2a2a2e] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Customer</span>
                                     <span>Contact</span>
                                     <span>Primary Vehicle</span>

@@ -12,11 +12,13 @@ use App\Http\Requests\Api\Report\GenerateMonthlyReportRequest;
 use App\Http\Requests\Api\Report\GenerateReconciliationReportRequest;
 use App\Http\Requests\Api\Report\GetAnalyticsDateRangeRequest;
 use App\Http\Resources\ReportResource;
+use App\Models\Report;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -234,7 +236,7 @@ class ReportController extends Controller
     /**
      * Export a report as CSV or PDF.
      */
-    public function exportReport(int $id): JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+    public function exportReport(int $id): JsonResponse|StreamedResponse
     {
         Gate::authorize('view-reports');
 
@@ -250,12 +252,12 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to export report: ' . $e->getMessage(),
+                'message' => 'Failed to export report: '.$e->getMessage(),
             ], 500);
         }
     }
 
-    private function streamCsvReport(\App\Models\Report $report): \Symfony\Component\HttpFoundation\StreamedResponse
+    private function streamCsvReport(Report $report): StreamedResponse
     {
         $data = $report->data_summary ?? [];
         $filename = sprintf('%s-%s.csv', $report->report_type, $report->report_date);
@@ -284,7 +286,7 @@ class ReportController extends Controller
         }, $filename, ['Content-Type' => 'text/csv']);
     }
 
-    private function streamPdfReport(\App\Models\Report $report): \Symfony\Component\HttpFoundation\StreamedResponse
+    private function streamPdfReport(Report $report): StreamedResponse
     {
         // Simple HTML-to-PDF via browser print; we stream an HTML page.
         $data = $report->data_summary ?? [];
@@ -293,12 +295,12 @@ class ReportController extends Controller
         return response()->streamDownload(function () use ($data, $report) {
             echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Report</title>';
             echo '<style>body{font-family:sans-serif;padding:2rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f5f5f5}</style></head><body>';
-            echo '<h1>' . htmlspecialchars(ucwords(str_replace('_', ' ', $report->report_type))) . '</h1>';
-            echo '<p>Date: ' . htmlspecialchars($report->report_date) . '</p>';
-            echo '<p>Generated: ' . htmlspecialchars($report->generated_date?->toDateTimeString() ?? '') . '</p>';
+            echo '<h1>'.htmlspecialchars(ucwords(str_replace('_', ' ', $report->report_type))).'</h1>';
+            echo '<p>Date: '.htmlspecialchars($report->report_date).'</p>';
+            echo '<p>Generated: '.htmlspecialchars($report->generated_date?->toDateTimeString() ?? '').'</p>';
 
             foreach ($data as $key => $value) {
-                echo '<h3>' . htmlspecialchars(ucwords(str_replace('_', ' ', (string) $key))) . '</h3>';
+                echo '<h3>'.htmlspecialchars(ucwords(str_replace('_', ' ', (string) $key))).'</h3>';
                 if (is_array($value)) {
                     echo '<table><thead><tr>';
                     $headers = [];
@@ -309,19 +311,19 @@ class ReportController extends Controller
                         }
                     }
                     foreach ($headers as $h) {
-                        echo '<th>' . htmlspecialchars(ucwords(str_replace('_', ' ', $h))) . '</th>';
+                        echo '<th>'.htmlspecialchars(ucwords(str_replace('_', ' ', $h))).'</th>';
                     }
                     echo '</tr></thead><tbody>';
                     foreach ($value as $item) {
                         echo '<tr>';
                         foreach ($headers as $h) {
-                            echo '<td>' . htmlspecialchars((string) ($item[$h] ?? '')) . '</td>';
+                            echo '<td>'.htmlspecialchars((string) ($item[$h] ?? '')).'</td>';
                         }
                         echo '</tr>';
                     }
                     echo '</tbody></table>';
                 } else {
-                    echo '<p>' . htmlspecialchars((string) $value) . '</p>';
+                    echo '<p>'.htmlspecialchars((string) $value).'</p>';
                 }
             }
 

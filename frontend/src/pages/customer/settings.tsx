@@ -1,4 +1,10 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+import AppearanceTabs from '@/components/shared/appearance-tabs';
+import InputError from '@/components/shared/input-error';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/AuthContext';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
@@ -6,15 +12,9 @@ import { authService, type UpdateProfileData } from '@/services/authService';
 import { customerService } from '@/services/customerService';
 import { settingsService } from '@/services/settingsService';
 import type { Vehicle } from '@/types/customer';
-import AppearanceTabs from '@/components/shared/appearance-tabs';
 import { Transition } from '@headlessui/react';
 import { ArrowLeft, Bell, ChevronRight, Lock, Moon, Shield, Smartphone, User } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import InputError from '@/components/shared/input-error';
 import { Link } from 'react-router-dom';
 
 const SETTING_SECTIONS = [
@@ -56,22 +56,17 @@ export default function CustomerSettings() {
     const [userPreferences, setUserPreferences] = useState<Record<string, unknown>>({});
     // Customer vehicles
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-    // Customer profile
-    const [customerProfile, setCustomerProfile] = useState<{ id: number } | null>(null);
+
 
     const loadData = useCallback(async () => {
         setLoading(true);
         setLoadError(null);
         try {
-            const [prefRes, profileRes] = await Promise.all([
-                settingsService.getUserPreferences(),
-                customerService.getMe().catch(() => null),
-            ]);
+            const [prefRes, profileRes] = await Promise.all([settingsService.getUserPreferences(), customerService.getMe().catch(() => null)]);
 
             setUserPreferences(prefRes.preferences);
 
             if (profileRes?.data) {
-                setCustomerProfile({ id: profileRes.data.id });
                 // Load vehicles
                 try {
                     const vehicleRes = await customerService.getVehicles(profileRes.data.id);
@@ -128,13 +123,7 @@ export default function CustomerSettings() {
             case 'Appearance':
                 return <AppearanceForm onBack={() => setSelectedItem(null)} />;
             case 'Privacy & Security':
-                return (
-                    <PrivacyForm
-                        preferences={userPreferences}
-                        onUpdate={setUserPreferences}
-                        onBack={() => setSelectedItem(null)}
-                    />
-                );
+                return <PrivacyForm preferences={userPreferences} onUpdate={setUserPreferences} onBack={() => setSelectedItem(null)} />;
             default:
                 return null;
         }
@@ -192,10 +181,7 @@ export default function CustomerSettings() {
                                 <div className="h-7 w-48 animate-pulse rounded-md bg-[#1e1e22]" />
                                 <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10]">
                                     {[1, 2, 3].map((i) => (
-                                        <div
-                                            key={i}
-                                            className="flex items-center gap-4 px-6 py-5 border-b border-[#2a2a2e] animate-pulse"
-                                        >
+                                        <div key={i} className="flex animate-pulse items-center gap-4 border-b border-[#2a2a2e] px-6 py-5">
                                             <div className="h-10 w-10 shrink-0 rounded-lg bg-[#1e1e22]" />
                                             <div className="flex-1 space-y-2">
                                                 <div className="h-4 w-32 rounded bg-[#1e1e22]" />
@@ -256,17 +242,7 @@ export default function CustomerSettings() {
 
 // ─── Form Shell ────────────────────────────────────────────────────────────────
 
-function FormShell({
-    title,
-    description,
-    onBack,
-    children,
-}: {
-    title: string;
-    description: string;
-    onBack: () => void;
-    children: React.ReactNode;
-}) {
+function FormShell({ title, description, onBack, children }: { title: string; description: string; onBack: () => void; children: React.ReactNode }) {
     return (
         <div className="flex flex-col gap-4">
             <button
@@ -287,13 +263,7 @@ function FormShell({
 
 function SuccessBadge({ show }: { show: boolean }) {
     return (
-        <Transition
-            show={show}
-            enter="transition ease-in-out"
-            enterFrom="opacity-0"
-            leave="transition ease-in-out"
-            leaveTo="opacity-0"
-        >
+        <Transition show={show} enter="transition ease-in-out" enterFrom="opacity-0" leave="transition ease-in-out" leaveTo="opacity-0">
             <p className="text-sm text-green-500">Saved</p>
         </Transition>
     );
@@ -345,11 +315,7 @@ function PersonalInfoForm({
     };
 
     return (
-        <FormShell
-            title="Personal Information"
-            description="Update your name, email, and contact number."
-            onBack={onBack}
-        >
+        <FormShell title="Personal Information" description="Update your name, email, and contact number." onBack={onBack}>
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid gap-2">
                     <Label htmlFor="cust-name">Name</Label>
@@ -358,7 +324,14 @@ function PersonalInfoForm({
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="cust-email">Email address</Label>
-                    <Input id="cust-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Email address" />
+                    <Input
+                        id="cust-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        placeholder="Email address"
+                    />
                     <InputError message={errors.email} />
                 </div>
                 <div className="grid gap-2">
@@ -419,11 +392,7 @@ function PasswordForm({ onBack }: { onBack: () => void }) {
     };
 
     return (
-        <FormShell
-            title="Change Password"
-            description="Update your account password."
-            onBack={onBack}
-        >
+        <FormShell title="Change Password" description="Update your account password." onBack={onBack}>
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid gap-2">
                     <Label htmlFor="cust-current-pw">Current password</Label>
@@ -473,11 +442,7 @@ function PasswordForm({ onBack }: { onBack: () => void }) {
 
 function LinkedVehiclesList({ vehicles, onBack }: { vehicles: Vehicle[]; onBack: () => void }) {
     return (
-        <FormShell
-            title="Linked Vehicles"
-            description="Manage your registered vehicles."
-            onBack={onBack}
-        >
+        <FormShell title="Linked Vehicles" description="Manage your registered vehicles." onBack={onBack}>
             <div className="space-y-4">
                 {vehicles.length === 0 ? (
                     <div className="py-8 text-center">
@@ -565,7 +530,9 @@ function NotificationToggleForm({
                 <SettingToggle label={label} description={description} checked={enabled} onChange={setEnabled} />
                 {formError && <InputError message={formError} />}
                 <div className="flex items-center gap-4">
-                    <Button disabled={processing} onClick={handleSave}>Save</Button>
+                    <Button disabled={processing} onClick={handleSave}>
+                        Save
+                    </Button>
                     <SuccessBadge show={recentlySuccessful} />
                 </div>
             </div>
@@ -575,11 +542,7 @@ function NotificationToggleForm({
 
 function AppearanceForm({ onBack }: { onBack: () => void }) {
     return (
-        <FormShell
-            title="Appearance"
-            description="Light, dark, or system default."
-            onBack={onBack}
-        >
+        <FormShell title="Appearance" description="Light, dark, or system default." onBack={onBack}>
             <AppearanceTabs />
         </FormShell>
     );
@@ -615,11 +578,7 @@ function PrivacyForm({
     };
 
     return (
-        <FormShell
-            title="Privacy & Security"
-            description="Control your data and security settings."
-            onBack={onBack}
-        >
+        <FormShell title="Privacy & Security" description="Control your data and security settings." onBack={onBack}>
             <div className="space-y-5">
                 <SettingToggle
                     label="Share Usage Data"
@@ -629,7 +588,9 @@ function PrivacyForm({
                 />
                 {formError && <InputError message={formError} />}
                 <div className="flex items-center gap-4">
-                    <Button disabled={processing} onClick={handleSave}>Save</Button>
+                    <Button disabled={processing} onClick={handleSave}>
+                        Save
+                    </Button>
                     <SuccessBadge show={recentlySuccessful} />
                 </div>
             </div>
@@ -658,12 +619,7 @@ function SettingToggle({
                 <p className="text-sm font-medium text-foreground">{label}</p>
                 <p className="text-xs text-muted-foreground">{description}</p>
             </div>
-            <Switch
-                checked={checked}
-                onCheckedChange={onChange ?? (() => {})}
-                disabled={disabled}
-                className="shrink-0"
-            />
+            <Switch checked={checked} onCheckedChange={onChange ?? (() => {})} disabled={disabled} className="shrink-0" />
         </div>
     );
 }

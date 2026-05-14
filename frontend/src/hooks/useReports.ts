@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { dateRangeFromDays, isRecord, toNumber, toStringValue } from '@/lib/reports-utils';
 import { reportsService } from '@/services/reportsService';
-import { isRecord, toNumber, toStringValue, dateRangeFromDays } from '@/lib/reports-utils';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface DashboardView {
     inventoryValue: number;
@@ -71,34 +71,65 @@ export interface ReportsState {
 
 function emptyDashboard(): DashboardView {
     return {
-        inventoryValue: 0, lowStockCount: 0, pendingReservations: 0,
-        todayTransactions: 0, weeklySales: 0, monthlyProcurement: 0,
-        totalItems: 0, activeReservations: 0,
+        inventoryValue: 0,
+        lowStockCount: 0,
+        pendingReservations: 0,
+        todayTransactions: 0,
+        weeklySales: 0,
+        monthlyProcurement: 0,
+        totalItems: 0,
+        activeReservations: 0,
         jobPipeline: { completed: 0, inProgress: 0, queued: 0 },
-        recentTransactions: [], topCategories: [], monthlyTrends: [],
+        recentTransactions: [],
+        topCategories: [],
+        monthlyTrends: [],
     };
 }
 
 function emptyUsage(start: string, end: string): UsageView {
     return {
-        startDate: start, endDate: end,
-        totalTransactions: 0, totalConsumed: 0, totalCost: 0,
-        uniqueItemsUsed: 0, activeCategories: 0, mostUsedItem: null,
-        byType: [], byCategory: [], topItems: [], dailySummary: [], allItems: [],
+        startDate: start,
+        endDate: end,
+        totalTransactions: 0,
+        totalConsumed: 0,
+        totalCost: 0,
+        uniqueItemsUsed: 0,
+        activeCategories: 0,
+        mostUsedItem: null,
+        byType: [],
+        byCategory: [],
+        topItems: [],
+        dailySummary: [],
+        allItems: [],
     };
 }
 
 function emptyProcurement(start: string, end: string): ProcurementView {
     return {
-        startDate: start, endDate: end,
-        totalProcurements: 0, totalQuantity: 0, totalValue: 0,
-        bySupplier: [], byCategory: [], monthlyBreakdown: [],
+        startDate: start,
+        endDate: end,
+        totalProcurements: 0,
+        totalQuantity: 0,
+        totalValue: 0,
+        bySupplier: [],
+        byCategory: [],
+        monthlyBreakdown: [],
     };
 }
 
 function normalizeUsageItem(raw: unknown, index: number): UsageItemView {
     if (!isRecord(raw)) {
-        return { itemId: index, itemName: 'Unknown', partNumber: 'N/A', description: '', category: 'General', consumed: 0, cost: 0, unitPrice: 0, transactionCount: 0 };
+        return {
+            itemId: index,
+            itemName: 'Unknown',
+            partNumber: 'N/A',
+            description: '',
+            category: 'General',
+            consumed: 0,
+            cost: 0,
+            unitPrice: 0,
+            transactionCount: 0,
+        };
     }
     const itemId = toNumber(raw.item_id, index);
     return {
@@ -165,8 +196,7 @@ function normalizeUsage(raw: unknown, start: string, end: string): UsageView {
     const summary = isRecord(raw.summary) ? raw.summary : null;
     const byTypeRaw = isRecord(raw.by_type) ? raw.by_type : {};
     const catBreakdown = Array.isArray(raw.category_breakdown) ? raw.category_breakdown : [];
-    const topItemsRaw = Array.isArray(raw.top_consumed_items) ? raw.top_consumed_items
-        : Array.isArray(raw.top_items) ? raw.top_items : [];
+    const topItemsRaw = Array.isArray(raw.top_consumed_items) ? raw.top_consumed_items : Array.isArray(raw.top_items) ? raw.top_items : [];
     const dailyRaw = Array.isArray(raw.daily_summary) ? raw.daily_summary : [];
     const allRaw = Array.isArray(raw.usage_by_item) ? raw.usage_by_item : [];
 
@@ -176,7 +206,11 @@ function normalizeUsage(raw: unknown, start: string, end: string): UsageView {
     const mostUsedItem = (() => {
         const fromSummary = summary && isRecord(summary.most_used_item) ? summary.most_used_item : null;
         if (fromSummary) {
-            return { partNumber: toStringValue(fromSummary.part_number), itemName: toStringValue(fromSummary.item_name), consumed: toNumber(fromSummary.consumed) };
+            return {
+                partNumber: toStringValue(fromSummary.part_number),
+                itemName: toStringValue(fromSummary.item_name),
+                consumed: toNumber(fromSummary.consumed),
+            };
         }
         const best = topItems[0];
         return best ? { partNumber: best.partNumber, itemName: best.itemName, consumed: best.consumed } : null;
@@ -186,13 +220,21 @@ function normalizeUsage(raw: unknown, start: string, end: string): UsageView {
         startDate: toStringValue(dateRange?.start_date, start),
         endDate: toStringValue(dateRange?.end_date, end),
         totalTransactions: toNumber(summary?.total_transactions, toNumber(raw.total_transactions)),
-        totalConsumed: toNumber(summary?.total_consumed, allItems.reduce((s, i) => s + i.consumed, 0)),
-        totalCost: toNumber(summary?.total_cost, allItems.reduce((s, i) => s + i.cost, 0)),
+        totalConsumed: toNumber(
+            summary?.total_consumed,
+            allItems.reduce((s, i) => s + i.consumed, 0),
+        ),
+        totalCost: toNumber(
+            summary?.total_cost,
+            allItems.reduce((s, i) => s + i.cost, 0),
+        ),
         uniqueItemsUsed: toNumber(summary?.unique_items_used, allItems.length),
         activeCategories: toNumber(summary?.active_categories),
         mostUsedItem,
         byType: Object.entries(byTypeRaw).map(([type, v]) => ({
-            type, count: toNumber(isRecord(v) ? v.count : 0), quantity: toNumber(isRecord(v) ? v.quantity : 0),
+            type,
+            count: toNumber(isRecord(v) ? v.count : 0),
+            quantity: toNumber(isRecord(v) ? v.quantity : 0),
         })),
         byCategory: catBreakdown.map((c) => ({
             category: toStringValue(c.category),
@@ -265,17 +307,20 @@ export function useReports(days: number) {
 
             const failed: string[] = [];
 
-            const dashboard = dashRes.status === 'fulfilled' && dashRes.value.success
-                ? normalizeDashboard(dashRes.value.data)
-                : (failed.push('dashboard'), emptyDashboard());
+            const dashboard =
+                dashRes.status === 'fulfilled' && dashRes.value.success
+                    ? normalizeDashboard(dashRes.value.data)
+                    : (failed.push('dashboard'), emptyDashboard());
 
-            const usage = usageRes.status === 'fulfilled' && usageRes.value.success
-                ? normalizeUsage(usageRes.value.data, startDate, endDate)
-                : (failed.push('usage'), emptyUsage(startDate, endDate));
+            const usage =
+                usageRes.status === 'fulfilled' && usageRes.value.success
+                    ? normalizeUsage(usageRes.value.data, startDate, endDate)
+                    : (failed.push('usage'), emptyUsage(startDate, endDate));
 
-            const procurement = procRes.status === 'fulfilled' && procRes.value.success
-                ? normalizeProcurement(procRes.value.data, startDate, endDate)
-                : (failed.push('procurement'), emptyProcurement(startDate, endDate));
+            const procurement =
+                procRes.status === 'fulfilled' && procRes.value.success
+                    ? normalizeProcurement(procRes.value.data, startDate, endDate)
+                    : (failed.push('procurement'), emptyProcurement(startDate, endDate));
 
             setData({ dashboard, usage, procurement });
 
@@ -291,7 +336,9 @@ export function useReports(days: number) {
         }
     }, [days]);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    useEffect(() => {
+        fetchAll();
+    }, [fetchAll]);
 
     return { data, loading, error, partialErrors, refetch: fetchAll };
 }

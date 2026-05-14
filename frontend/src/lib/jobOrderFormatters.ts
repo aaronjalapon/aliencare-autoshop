@@ -199,9 +199,7 @@ export function getQueueSortKey(order: JobOrder): string {
     const stage = getQueueStage(order);
     const stageRank = STAGE_ORDER[stage];
 
-    const scheduleKey = order.arrival_date && order.arrival_time
-        ? `${order.arrival_date}T${order.arrival_time}`
-        : order.created_at;
+    const scheduleKey = order.arrival_date && order.arrival_time ? `${order.arrival_date}T${order.arrival_time}` : order.created_at;
 
     return `${stageRank}-${scheduleKey}-${order.jo_number}`;
 }

@@ -1,4 +1,5 @@
 import AppLayout from '@/components/layout/app-layout';
+import { buildPosReceiptHtml, type PosReceiptData } from '@/lib/receipt-print';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { inventoryService, type NewInventoryItem } from '@/services/inventoryService';
@@ -7,7 +8,6 @@ import { posService, type PosPaymentMode } from '@/services/posService';
 import { type BreadcrumbItem } from '@/types';
 import type { CustomerProfile, CustomerTransaction } from '@/types/customer';
 import type { InventoryItem } from '@/types/inventory';
-import { buildPosReceiptHtml, type PosReceiptData } from '@/lib/receipt-print';
 import { Banknote, Check, Copy, ExternalLink, Loader2, Plus, Printer, QrCode, ReceiptText, Search, ShoppingCart, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -130,19 +130,6 @@ function mapWalkInValidationErrors(flatErrors: Record<string, string>): Record<s
     return mapped;
 }
 
-function toFormState(product: ProductRecord): ProductFormState {
-    return {
-        sku: product.sku,
-        name: product.name,
-        category: product.category,
-        unitPrice: product.unitPrice.toString(),
-        stock: product.stock.toString(),
-        minStock: product.minStock.toString(),
-        description: product.description,
-        isActive: product.isActive,
-    };
-}
-
 export default function PointOfSale() {
     const [products, setProducts] = useState<ProductRecord[]>([]);
     const [customers, setCustomers] = useState<CustomerProfile[]>([]);
@@ -160,8 +147,8 @@ export default function PointOfSale() {
 
     const [showProductModal, setShowProductModal] = useState(false);
     const [showWalkInModal, setShowWalkInModal] = useState(false);
-    const [productMode, setProductMode] = useState<ProductFormMode>('create');
-    const [editingId, setEditingId] = useState<number | null>(null);
+    const [productMode] = useState<ProductFormMode>('create');
+    const [editingId] = useState<number | null>(null);
     const [formState, setFormState] = useState<ProductFormState>(initialFormState);
     const [walkInFormState, setWalkInFormState] = useState<WalkInFormState>(initialWalkInFormState);
     const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -271,19 +258,6 @@ export default function PointOfSale() {
     const selectedProduct = useMemo(() => products.find((product) => product.id === selectedId) ?? null, [products, selectedId]);
     const selectedCustomer = useMemo(() => customers.find((customer) => customer.id === selectedCustomerId) ?? null, [customers, selectedCustomerId]);
 
-    const totals = useMemo(() => {
-        const lowStock = products.filter((product) => product.stock <= product.minStock).length;
-        const active = products.filter((product) => product.isActive).length;
-        const inventoryValue = products.reduce((sum, product) => sum + product.unitPrice * product.stock, 0);
-
-        return {
-            totalProducts: products.length,
-            activeProducts: active,
-            lowStockProducts: lowStock,
-            inventoryValue,
-        };
-    }, [products]);
-
     const cartLines = useMemo(() => {
         return cart
             .map((line) => {
@@ -317,18 +291,6 @@ export default function PointOfSale() {
         if (!Number.isFinite(tendered)) return 0;
         return Math.max(0, tendered - cartSummary.total);
     }, [paymentMode, amountTendered, cartSummary.total]);
-
-    const openCreateProductModal = () => {
-        setProductMode('create');
-        setEditingId(null);
-        setFormState({
-            ...initialFormState,
-            category: categoryOptions[0] ?? 'General Parts',
-        });
-        setProductFormErrors({});
-        setProductFormErrorMessage(null);
-        setShowProductModal(true);
-    };
 
     const openWalkInModal = () => {
         setWalkInFormState(initialWalkInFormState);
@@ -628,7 +590,7 @@ export default function PointOfSale() {
 
                     <div className="grid min-h-0 flex-1 gap-5 overflow-hidden lg:grid-cols-[1.45fr_1fr]">
                         <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
-                            <div className="flex shrink-0 flex-col gap-3 mb-4">
+                            <div className="mb-4 flex shrink-0 flex-col gap-3">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
@@ -660,7 +622,7 @@ export default function PointOfSale() {
                             </div>
 
                             <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#2a2a2e]">
-                                <div className="hidden shrink-0 items-center grid-cols-[1.1fr_0.9fr_0.7fr_0.7fr_1fr_0.55fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
+                                <div className="hidden shrink-0 grid-cols-[1.1fr_0.9fr_0.7fr_0.7fr_1fr_0.55fr] items-center border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Product</span>
                                     <span>Category</span>
                                     <span>Price</span>
@@ -780,7 +742,9 @@ export default function PointOfSale() {
                                         </p>
                                     )}
 
-                                    <p className="mt-3 mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Payment Method</p>
+                                    <p className="mt-3 mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                        Payment Method
+                                    </p>
 
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <button
@@ -810,7 +774,7 @@ export default function PointOfSale() {
                                             <div>
                                                 <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Amount Tendered</label>
                                                 <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₱</span>
+                                                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">₱</span>
                                                     <input
                                                         value={amountTendered}
                                                         onChange={(e) => setAmountTendered(e.target.value)}
@@ -818,7 +782,7 @@ export default function PointOfSale() {
                                                         min="0"
                                                         step="0.01"
                                                         placeholder="0.00"
-                                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] pl-8 pr-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] pr-3 pl-8 text-sm focus:border-[#d4af37] focus:outline-none"
                                                     />
                                                 </div>
                                             </div>
@@ -860,14 +824,13 @@ export default function PointOfSale() {
                                             <p className="text-base font-bold text-emerald-400">Sale Complete</p>
                                             <p className="text-center text-sm text-muted-foreground">
                                                 {formatPeso(lastCheckoutReceipt.total)} via{' '}
-                                                {lastCheckoutReceipt.paymentMethod.charAt(0).toUpperCase() + lastCheckoutReceipt.paymentMethod.slice(1)}
+                                                {lastCheckoutReceipt.paymentMethod.charAt(0).toUpperCase() +
+                                                    lastCheckoutReceipt.paymentMethod.slice(1)}
                                                 {lastCheckoutReceipt.change !== undefined && lastCheckoutReceipt.change > 0 && (
                                                     <> &middot; Change: {formatPeso(lastCheckoutReceipt.change)}</>
                                                 )}
                                             </p>
-                                            {checkoutNotice && (
-                                                <p className="text-center text-xs text-muted-foreground">{checkoutNotice}</p>
-                                            )}
+                                            {checkoutNotice && <p className="text-center text-xs text-muted-foreground">{checkoutNotice}</p>}
                                         </div>
                                         <div className="mt-4 space-y-2">
                                             <button
@@ -875,11 +838,7 @@ export default function PointOfSale() {
                                                 disabled={isPrintingReceipt}
                                                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                                             >
-                                                {isPrintingReceipt ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Printer className="h-4 w-4" />
-                                                )}
+                                                {isPrintingReceipt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                                 Print Receipt
                                             </button>
                                             <button
@@ -979,9 +938,11 @@ export default function PointOfSale() {
                             </div>
 
                             {/* Sticky footer: only critical checkout actions */}
-                            <div className="shrink-0 border-t border-[#2a2a2e] pt-3 mt-3 space-y-2">
+                            <div className="mt-3 shrink-0 space-y-2 border-t border-[#2a2a2e] pt-3">
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{cartSummary.itemCount} item{cartSummary.itemCount !== 1 ? 's' : ''}</span>
+                                    <span className="text-muted-foreground">
+                                        {cartSummary.itemCount} item{cartSummary.itemCount !== 1 ? 's' : ''}
+                                    </span>
                                     <span className="text-base font-bold text-[#d4af37]">{formatPeso(cartSummary.total)}</span>
                                 </div>
 
@@ -992,7 +953,7 @@ export default function PointOfSale() {
                                 )}
 
                                 {checkoutPaymentUrl && (
-                                    <div className="rounded-lg border border-[#d4af37]/35 bg-[#d4af37]/10 p-2 space-y-2">
+                                    <div className="space-y-2 rounded-lg border border-[#d4af37]/35 bg-[#d4af37]/10 p-2">
                                         <p className="text-xs font-semibold text-emerald-400">Payment link ready</p>
                                         <div className="flex justify-center rounded-lg bg-white p-1.5">
                                             <img
@@ -1281,7 +1242,6 @@ export default function PointOfSale() {
                     </div>
                 </div>
             )}
-
         </AppLayout>
     );
 }

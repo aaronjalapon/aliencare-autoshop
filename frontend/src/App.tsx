@@ -21,9 +21,9 @@ import VerifyEmail from '@/pages/auth/verify-email';
 // Front Desk pages
 import Billing from '@/pages/dashboard/billing';
 import Customers from '@/pages/dashboard/customers';
-import InvoiceDrafts from '@/pages/dashboard/invoice-drafts';
 import Dashboard from '@/pages/dashboard/dashboard';
 import Inventory from '@/pages/dashboard/Inventory';
+import InvoiceDrafts from '@/pages/dashboard/invoice-drafts';
 import JobOrders from '@/pages/dashboard/job-orders';
 import PointOfSale from '@/pages/dashboard/pos';
 import FrontdeskProfile from '@/pages/dashboard/profile';

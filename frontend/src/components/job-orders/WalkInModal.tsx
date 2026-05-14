@@ -1,9 +1,9 @@
-import { flattenValidationErrors } from '@/lib/validation-errors';
 import { formatPeso } from '@/lib/jobOrderFormatters';
+import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { jobOrderService } from '@/services/jobOrderService';
 import type { CustomerProfile, ServiceCatalogItem, Vehicle } from '@/types/customer';
-import { Loader2, UserRoundPlus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 type WalkInCustomerMode = 'existing' | 'new';
@@ -95,7 +95,9 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
     const [isLoadingLookups, setIsLoadingLookups] = useState(false);
     const [arrivalDate, setArrivalDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [arrivalTime, setArrivalTime] = useState('');
-    const [timeSlots, setTimeSlots] = useState<Array<{ time: string; label: string; status: string; slots_left: number; capacity: number; booked: number }>>([]);
+    const [timeSlots, setTimeSlots] = useState<
+        Array<{ time: string; label: string; status: string; slots_left: number; capacity: number; booked: number }>
+    >([]);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
     const loadLookups = useCallback(async (search = '') => {
@@ -130,9 +132,15 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
     }, []);
 
     useEffect(() => {
-        if (!open || form.customerMode !== 'existing') { setVehicles([]); return; }
+        if (!open || form.customerMode !== 'existing') {
+            setVehicles([]);
+            return;
+        }
         const customerId = Number.parseInt(form.existingCustomerId, 10);
-        if (!Number.isFinite(customerId) || customerId <= 0) { setVehicles([]); return; }
+        if (!Number.isFinite(customerId) || customerId <= 0) {
+            setVehicles([]);
+            return;
+        }
         loadVehicles(customerId);
     }, [open, form.customerMode, form.existingCustomerId, loadVehicles]);
 
@@ -235,10 +243,9 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
 
             const parsedAmount = Number.parseFloat(form.estimatedAmount);
             const serviceFee = Number.isFinite(parsedAmount) && parsedAmount >= 0 ? parsedAmount : 0;
-            const notesParts = [
-                form.serviceName.trim() ? `Service Request: ${form.serviceName.trim()}` : null,
-                form.notes.trim() || null,
-            ].filter(Boolean);
+            const notesParts = [form.serviceName.trim() ? `Service Request: ${form.serviceName.trim()}` : null, form.notes.trim() || null].filter(
+                Boolean,
+            );
 
             const createResponse = await jobOrderService.createJobOrder({
                 customer_id: customerId,
@@ -268,9 +275,11 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={close}>
-            <div className="profile-card w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="profile-card max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl p-5" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-lg font-semibold">Create Walk-in Job Order</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Select an existing customer/vehicle or create them inline before creating the walk-in order.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Select an existing customer/vehicle or create them inline before creating the walk-in order.
+                </p>
 
                 <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                     {/* Service date & time */}
@@ -315,8 +324,8 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                                                         isSelected
                                                             ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37]'
                                                             : isFull
-                                                            ? 'border-[#2a2a2e] bg-[#0d0d10] text-muted-foreground/40 cursor-not-allowed line-through'
-                                                            : 'border-[#2a2a2e] bg-[#0d0d10] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+                                                              ? 'cursor-not-allowed border-[#2a2a2e] bg-[#0d0d10] text-muted-foreground/40 line-through'
+                                                              : 'border-[#2a2a2e] bg-[#0d0d10] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
                                                     }`}
                                                 >
                                                     {slot.label}
@@ -330,9 +339,7 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                                     <p className="mt-1 text-[10px] text-[#d4af37]">
                                         {(() => {
                                             const selected = timeSlots.find((s) => s.time === arrivalTime);
-                                            return selected
-                                                ? `${selected.slots_left} slot(s) available out of ${selected.capacity}`
-                                                : '';
+                                            return selected ? `${selected.slots_left} slot(s) available out of ${selected.capacity}` : '';
                                         })()}
                                     </p>
                                 )}
@@ -344,26 +351,47 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                     <div className="rounded-lg border border-[#2a2a2e] p-3">
                         <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Customer</p>
                         <div className="mb-3 flex gap-2">
-                            <button type="button" onClick={() => setForm((prev) => ({ ...prev, customerMode: 'existing' }))}
-                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.customerMode === 'existing' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'}`}>
+                            <button
+                                type="button"
+                                onClick={() => setForm((prev) => ({ ...prev, customerMode: 'existing' }))}
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.customerMode === 'existing' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'}`}
+                            >
                                 Existing Customer
                             </button>
-                            <button type="button" onClick={() => setForm((prev) => ({ ...prev, customerMode: 'new', existingCustomerId: '', vehicleMode: 'new', existingVehicleId: '' }))}
-                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.customerMode === 'new' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'}`}>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        customerMode: 'new',
+                                        existingCustomerId: '',
+                                        vehicleMode: 'new',
+                                        existingVehicleId: '',
+                                    }))
+                                }
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.customerMode === 'new' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'}`}
+                            >
                                 New Customer
                             </button>
                         </div>
                         {form.customerMode === 'existing' ? (
                             <div className="space-y-2">
-                                <input value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)}
+                                <input
+                                    value={customerSearch}
+                                    onChange={(e) => setCustomerSearch(e.target.value)}
                                     placeholder="Search customer by name or phone"
-                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
-                                <select value={form.existingCustomerId}
+                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                />
+                                <select
+                                    value={form.existingCustomerId}
                                     onChange={(e) => setForm((prev) => ({ ...prev, existingCustomerId: e.target.value, existingVehicleId: '' }))}
-                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none">
+                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                >
                                     <option value="">Select customer</option>
                                     {customerOptions.map((c) => (
-                                        <option key={c.id} value={c.id}>{c.full_name} {c.phone_number ? `- ${c.phone_number}` : ''}</option>
+                                        <option key={c.id} value={c.id}>
+                                            {c.full_name} {c.phone_number ? `- ${c.phone_number}` : ''}
+                                        </option>
                                     ))}
                                 </select>
                                 {formErrors.existingCustomerId && <p className="text-xs text-red-300">{formErrors.existingCustomerId}</p>}
@@ -371,27 +399,45 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                         ) : (
                             <div className="grid gap-3 md:grid-cols-2">
                                 <div>
-                                    <input value={form.newCustomerFirstName} onChange={(e) => setForm((prev) => ({ ...prev, newCustomerFirstName: e.target.value }))}
-                                        placeholder="First name" required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
-                                    {formErrors.newCustomerFirstName && <p className="mt-1 text-xs text-red-300">{formErrors.newCustomerFirstName}</p>}
+                                    <input
+                                        value={form.newCustomerFirstName}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, newCustomerFirstName: e.target.value }))}
+                                        placeholder="First name"
+                                        required
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
+                                    {formErrors.newCustomerFirstName && (
+                                        <p className="mt-1 text-xs text-red-300">{formErrors.newCustomerFirstName}</p>
+                                    )}
                                 </div>
                                 <div>
-                                    <input value={form.newCustomerLastName} onChange={(e) => setForm((prev) => ({ ...prev, newCustomerLastName: e.target.value }))}
-                                        placeholder="Last name" required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                    <input
+                                        value={form.newCustomerLastName}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, newCustomerLastName: e.target.value }))}
+                                        placeholder="Last name"
+                                        required
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.newCustomerLastName && <p className="mt-1 text-xs text-red-300">{formErrors.newCustomerLastName}</p>}
                                 </div>
                                 <div>
-                                    <input value={form.newCustomerPhone} onChange={(e) => setForm((prev) => ({ ...prev, newCustomerPhone: e.target.value }))}
-                                        placeholder="Phone number" required
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                    <input
+                                        value={form.newCustomerPhone}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, newCustomerPhone: e.target.value }))}
+                                        placeholder="Phone number"
+                                        required
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.newCustomerPhone && <p className="mt-1 text-xs text-red-300">{formErrors.newCustomerPhone}</p>}
                                 </div>
                                 <div>
-                                    <input value={form.newCustomerEmail} onChange={(e) => setForm((prev) => ({ ...prev, newCustomerEmail: e.target.value }))}
-                                        placeholder="Email (optional)" type="email"
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                    <input
+                                        value={form.newCustomerEmail}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, newCustomerEmail: e.target.value }))}
+                                        placeholder="Email (optional)"
+                                        type="email"
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.newCustomerEmail && <p className="mt-1 text-xs text-red-300">{formErrors.newCustomerEmail}</p>}
                                 </div>
                             </div>
@@ -402,24 +448,34 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                     <div className="rounded-lg border border-[#2a2a2e] p-3">
                         <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Vehicle</p>
                         <div className="mb-3 flex gap-2">
-                            <button type="button" onClick={() => setForm((prev) => ({ ...prev, vehicleMode: 'existing' }))}
+                            <button
+                                type="button"
+                                onClick={() => setForm((prev) => ({ ...prev, vehicleMode: 'existing' }))}
                                 disabled={form.customerMode === 'new'}
-                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.vehicleMode === 'existing' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'} disabled:cursor-not-allowed disabled:opacity-45`}>
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.vehicleMode === 'existing' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'} disabled:cursor-not-allowed disabled:opacity-45`}
+                            >
                                 Existing Vehicle
                             </button>
-                            <button type="button" onClick={() => setForm((prev) => ({ ...prev, vehicleMode: 'new', existingVehicleId: '' }))}
-                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.vehicleMode === 'new' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'}`}>
+                            <button
+                                type="button"
+                                onClick={() => setForm((prev) => ({ ...prev, vehicleMode: 'new', existingVehicleId: '' }))}
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${form.vehicleMode === 'new' ? 'bg-[#d4af37] text-black' : 'border border-[#2a2a2e] text-muted-foreground'}`}
+                            >
                                 New Vehicle
                             </button>
                         </div>
                         {form.vehicleMode === 'existing' && form.customerMode === 'existing' ? (
                             <div className="space-y-2">
-                                <select value={form.existingVehicleId}
+                                <select
+                                    value={form.existingVehicleId}
                                     onChange={(e) => setForm((prev) => ({ ...prev, existingVehicleId: e.target.value }))}
-                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none">
+                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                >
                                     <option value="">Select vehicle</option>
                                     {vehicles.map((v) => (
-                                        <option key={v.id} value={v.id}>{v.make} {v.model} {v.year} - {v.plate_number}</option>
+                                        <option key={v.id} value={v.id}>
+                                            {v.make} {v.model} {v.year} - {v.plate_number}
+                                        </option>
                                     ))}
                                 </select>
                                 {formErrors.existingVehicleId && <p className="text-xs text-red-300">{formErrors.existingVehicleId}</p>}
@@ -427,34 +483,55 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                         ) : (
                             <div className="grid gap-3 md:grid-cols-2">
                                 <div>
-                                    <input value={form.vehicleMake} onChange={(e) => setForm((prev) => ({ ...prev, vehicleMake: e.target.value }))}
-                                        placeholder="Vehicle make" required={form.vehicleMode === 'new'}
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                    <input
+                                        value={form.vehicleMake}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, vehicleMake: e.target.value }))}
+                                        placeholder="Vehicle make"
+                                        required={form.vehicleMode === 'new'}
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.vehicleMake && <p className="mt-1 text-xs text-red-300">{formErrors.vehicleMake}</p>}
                                 </div>
                                 <div>
-                                    <input value={form.vehicleModel} onChange={(e) => setForm((prev) => ({ ...prev, vehicleModel: e.target.value }))}
-                                        placeholder="Vehicle model" required={form.vehicleMode === 'new'}
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                    <input
+                                        value={form.vehicleModel}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, vehicleModel: e.target.value }))}
+                                        placeholder="Vehicle model"
+                                        required={form.vehicleMode === 'new'}
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.vehicleModel && <p className="mt-1 text-xs text-red-300">{formErrors.vehicleModel}</p>}
                                 </div>
                                 <div>
-                                    <input value={form.vehicleYear} onChange={(e) => setForm((prev) => ({ ...prev, vehicleYear: e.target.value }))}
-                                        placeholder="Vehicle year" type="number" min="1900" max={new Date().getFullYear() + 1}
+                                    <input
+                                        value={form.vehicleYear}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, vehicleYear: e.target.value }))}
+                                        placeholder="Vehicle year"
+                                        type="number"
+                                        min="1900"
+                                        max={new Date().getFullYear() + 1}
                                         required={form.vehicleMode === 'new'}
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.vehicleYear && <p className="mt-1 text-xs text-red-300">{formErrors.vehicleYear}</p>}
                                 </div>
                                 <div>
-                                    <input value={form.vehiclePlateNumber} onChange={(e) => setForm((prev) => ({ ...prev, vehiclePlateNumber: e.target.value.toUpperCase() }))}
-                                        placeholder="Plate number" required={form.vehicleMode === 'new'}
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                    <input
+                                        value={form.vehiclePlateNumber}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, vehiclePlateNumber: e.target.value.toUpperCase() }))}
+                                        placeholder="Plate number"
+                                        required={form.vehicleMode === 'new'}
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.vehiclePlateNumber && <p className="mt-1 text-xs text-red-300">{formErrors.vehiclePlateNumber}</p>}
                                 </div>
                                 <div className="md:col-span-2">
-                                    <input value={form.vehicleColor} onChange={(e) => setForm((prev) => ({ ...prev, vehicleColor: e.target.value }))}
+                                    <input
+                                        value={form.vehicleColor}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, vehicleColor: e.target.value }))}
                                         placeholder="Vehicle color (optional)"
-                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    />
                                     {formErrors.vehicleColor && <p className="mt-1 text-xs text-red-300">{formErrors.vehicleColor}</p>}
                                 </div>
                             </div>
@@ -464,7 +541,8 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                     {/* Service / Amount */}
                     <div className="grid gap-3 md:grid-cols-2">
                         <div>
-                            <select value={form.serviceTemplateId}
+                            <select
+                                value={form.serviceTemplateId}
                                 onChange={(e) => {
                                     const selected = serviceOptions.find((s) => s.id === Number.parseInt(e.target.value, 10));
                                     setForm((prev) => ({
@@ -474,29 +552,46 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                                         estimatedAmount: selected ? selected.price_fixed.toString() : prev.estimatedAmount,
                                     }));
                                 }}
-                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none">
+                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                            >
                                 <option value="">Select service template (optional)</option>
                                 {serviceOptions.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.name} - {formatPeso(s.price_fixed)}</option>
+                                    <option key={s.id} value={s.id}>
+                                        {s.name} - {formatPeso(s.price_fixed)}
+                                    </option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <input value={form.estimatedAmount} onChange={(e) => setForm((prev) => ({ ...prev, estimatedAmount: e.target.value }))}
-                                placeholder="Estimated amount" type="number" min="0" step="0.01"
-                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                            <input
+                                value={form.estimatedAmount}
+                                onChange={(e) => setForm((prev) => ({ ...prev, estimatedAmount: e.target.value }))}
+                                placeholder="Estimated amount"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                            />
                             {formErrors.estimatedAmount && <p className="mt-1 text-xs text-red-300">{formErrors.estimatedAmount}</p>}
                         </div>
                         <div className="md:col-span-2">
-                            <input value={form.serviceName} onChange={(e) => setForm((prev) => ({ ...prev, serviceName: e.target.value }))}
-                                placeholder="Requested service (shown in notes)" required
-                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none" />
+                            <input
+                                value={form.serviceName}
+                                onChange={(e) => setForm((prev) => ({ ...prev, serviceName: e.target.value }))}
+                                placeholder="Requested service (shown in notes)"
+                                required
+                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                            />
                         </div>
                     </div>
 
-                    <textarea value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                        placeholder="Additional notes" rows={3}
-                        className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:outline-none" />
+                    <textarea
+                        value={form.notes}
+                        onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Additional notes"
+                        rows={3}
+                        className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:outline-none"
+                    />
 
                     {isLoadingLookups && (
                         <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -506,12 +601,18 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
                     {submitError && <p className="text-sm text-red-300">{submitError}</p>}
 
                     <div className="flex justify-end gap-2">
-                        <button type="button" onClick={close}
-                            className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground">
+                        <button
+                            type="button"
+                            onClick={close}
+                            className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                        >
                             Cancel
                         </button>
-                        <button type="submit" disabled={isSubmitting}
-                            className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
                             {isSubmitting ? 'Creating...' : 'Create Job Order'}
                         </button>
                     </div>

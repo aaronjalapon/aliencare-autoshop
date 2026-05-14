@@ -1,5 +1,5 @@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { formatPeso, getBalance, getServiceName, getVehicleLabel } from '@/lib/jobOrderFormatters';
+import { formatPeso, getServiceName, getVehicleLabel } from '@/lib/jobOrderFormatters';
 import { jobOrderService } from '@/services/jobOrderService';
 import type { JobOrder, JobOrderItem } from '@/types/customer';
 import { FileText, Loader2 } from 'lucide-react';
@@ -58,14 +58,12 @@ export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSa
                         <FileText className="h-4 w-4 text-[#d4af37]" />
                         Prepare Invoice Draft
                     </SheetTitle>
-                    <SheetDescription className="text-xs">
-                        Review the invoice details from {order.jo_number} before saving as draft.
-                    </SheetDescription>
+                    <SheetDescription className="text-xs">Review the invoice details from {order.jo_number} before saving as draft.</SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
                     {/* Job Order / Customer Info */}
-                    <div className="rounded-lg border border-[#2a2a2e]/50 bg-[#0d0d10] p-3 space-y-2 text-sm">
+                    <div className="space-y-2 rounded-lg border border-[#2a2a2e]/50 bg-[#0d0d10] p-3 text-sm">
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Job Order</span>
                             <span className="font-medium">{order.jo_number}</span>
@@ -86,15 +84,15 @@ export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSa
 
                     {/* Line Items */}
                     <div>
-                        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Line Items</h4>
-                        <div className="rounded-lg border border-[#2a2a2e]/50 bg-[#0d0d10] overflow-hidden">
+                        <h4 className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Line Items</h4>
+                        <div className="overflow-hidden rounded-lg border border-[#2a2a2e]/50 bg-[#0d0d10]">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-[#2a2a2e]/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    <tr className="border-b border-[#2a2a2e]/50 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                                         <th className="px-3 py-2 text-left">Description</th>
-                                        <th className="px-3 py-2 text-center w-16">Qty</th>
-                                        <th className="px-3 py-2 text-right w-24">Unit Price</th>
-                                        <th className="px-3 py-2 text-right w-24">Total</th>
+                                        <th className="w-16 px-3 py-2 text-center">Qty</th>
+                                        <th className="w-24 px-3 py-2 text-right">Unit Price</th>
+                                        <th className="w-24 px-3 py-2 text-right">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#2a2a2e]/30">
@@ -127,14 +125,14 @@ export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSa
                     </div>
 
                     {/* Total */}
-                    <div className="rounded-lg border border-[#d4af37]/30 bg-[#d4af37]/5 p-3 flex justify-between items-center">
+                    <div className="flex items-center justify-between rounded-lg border border-[#d4af37]/30 bg-[#d4af37]/5 p-3">
                         <span className="text-sm font-semibold">Total Amount</span>
                         <span className="text-lg font-bold text-[#d4af37]">{formatPeso(grandTotal)}</span>
                     </div>
 
                     {/* Notes */}
                     <div>
-                        <label htmlFor="draft-notes" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <label htmlFor="draft-notes" className="mb-1.5 block text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             Notes (optional)
                         </label>
                         <textarea
@@ -143,16 +141,12 @@ export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSa
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Add any notes for this invoice draft..."
                             rows={3}
-                            className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#d4af37]/50 focus:outline-none resize-none"
+                            className="w-full resize-none rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#d4af37]/50 focus:outline-none"
                         />
                     </div>
 
                     {/* Error */}
-                    {error && (
-                        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-400">
-                            {error}
-                        </div>
-                    )}
+                    {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-400">{error}</div>}
                 </div>
 
                 <SheetFooter className="border-t border-[#2a2a2e] px-5 py-4">
@@ -167,7 +161,7 @@ export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSa
                         <button
                             onClick={handleSaveDraft}
                             disabled={isSaving}
-                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-all hover:bg-[#b5952f] disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-all hover:bg-[#b5952f] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {isSaving ? (
                                 <>

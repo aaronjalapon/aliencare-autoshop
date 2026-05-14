@@ -273,13 +273,13 @@ class ReportService implements ReportServiceInterface
             $monthStart = Carbon::today()->subMonths($monthsAgo)->startOfMonth();
             $monthEnd = $monthStart->copy()->endOfMonth();
 
-            $procurementValue = (float) \App\Models\StockTransaction::query()
+            $procurementValue = (float) StockTransaction::query()
                 ->where('transaction_type', 'procurement')
                 ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->get()
                 ->sum(fn ($t) => (int) $t->quantity * (float) ($t->inventory->unit_price ?? 0));
 
-            $usageValue = (float) \App\Models\StockTransaction::query()
+            $usageValue = (float) StockTransaction::query()
                 ->where('transaction_type', '!=', 'procurement')
                 ->where('quantity', '<', 0)
                 ->whereBetween('created_at', [$monthStart, $monthEnd])

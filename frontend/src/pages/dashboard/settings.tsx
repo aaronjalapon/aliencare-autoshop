@@ -1,4 +1,9 @@
 import AppLayout from '@/components/layout/app-layout';
+import InputError from '@/components/shared/input-error';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/AuthContext';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
@@ -6,23 +11,8 @@ import { authService, type UpdateProfileData } from '@/services/authService';
 import { settingsService } from '@/services/settingsService';
 import { type BreadcrumbItem } from '@/types';
 import { Transition } from '@headlessui/react';
-import {
-    ArrowLeft,
-    Bell,
-    ChevronRight,
-    CreditCard,
-    Lock,
-    ReceiptText,
-    ShieldCheck,
-    SlidersHorizontal,
-    UserCircle2,
-} from 'lucide-react';
+import { ArrowLeft, Bell, ChevronRight, CreditCard, Lock, ReceiptText, ShieldCheck, SlidersHorizontal, UserCircle2 } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import InputError from '@/components/shared/input-error';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -79,10 +69,7 @@ export default function FrontdeskSettings() {
         setLoading(true);
         setLoadError(null);
         try {
-            const [sysRes, prefRes] = await Promise.all([
-                settingsService.getSystemSettings(),
-                settingsService.getUserPreferences(),
-            ]);
+            const [sysRes, prefRes] = await Promise.all([settingsService.getSystemSettings(), settingsService.getUserPreferences()]);
             setSystemSettings(sysRes.settings);
             setCanManage(sysRes.can_manage);
             setUserPreferences(prefRes.preferences);
@@ -199,10 +186,7 @@ export default function FrontdeskSettings() {
                                 <div className="h-7 w-48 animate-pulse rounded-md bg-[#1e1e22]" />
                                 <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10]">
                                     {[1, 2, 3].map((i) => (
-                                        <div
-                                            key={i}
-                                            className="flex items-center gap-4 px-6 py-5 border-b border-[#2a2a2e] animate-pulse"
-                                        >
+                                        <div key={i} className="flex animate-pulse items-center gap-4 border-b border-[#2a2a2e] px-6 py-5">
                                             <div className="h-10 w-10 shrink-0 rounded-lg bg-[#1e1e22]" />
                                             <div className="flex-1 space-y-2">
                                                 <div className="h-4 w-32 rounded bg-[#1e1e22]" />
@@ -265,17 +249,7 @@ export default function FrontdeskSettings() {
 
 // ─── Inline Form Components ───────────────────────────────────────────────────
 
-function FormShell({
-    title,
-    description,
-    onBack,
-    children,
-}: {
-    title: string;
-    description: string;
-    onBack: () => void;
-    children: React.ReactNode;
-}) {
+function FormShell({ title, description, onBack, children }: { title: string; description: string; onBack: () => void; children: React.ReactNode }) {
     return (
         <div className="flex flex-col gap-4">
             <button
@@ -296,13 +270,7 @@ function FormShell({
 
 function SuccessBadge({ show }: { show: boolean }) {
     return (
-        <Transition
-            show={show}
-            enter="transition ease-in-out"
-            enterFrom="opacity-0"
-            leave="transition ease-in-out"
-            leaveTo="opacity-0"
-        >
+        <Transition show={show} enter="transition ease-in-out" enterFrom="opacity-0" leave="transition ease-in-out" leaveTo="opacity-0">
             <p className="text-sm text-green-500">Saved</p>
         </Transition>
     );
@@ -352,11 +320,7 @@ function ProfileInformationForm({
     };
 
     return (
-        <FormShell
-            title="Profile Information"
-            description="Update your frontdesk display name, email, and contact details."
-            onBack={onBack}
-        >
+        <FormShell title="Profile Information" description="Update your frontdesk display name, email, and contact details." onBack={onBack}>
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid gap-2">
                     <Label htmlFor="fd-name">Name</Label>
@@ -426,11 +390,7 @@ function PasswordForm({ onBack }: { onBack: () => void }) {
     };
 
     return (
-        <FormShell
-            title="Password and Login"
-            description="Manage password updates and account sign-in protection."
-            onBack={onBack}
-        >
+        <FormShell title="Password and Login" description="Manage password updates and account sign-in protection." onBack={onBack}>
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid gap-2">
                     <Label htmlFor="fd-current-pw">Current password</Label>
@@ -508,11 +468,7 @@ function SessionSecurityForm({
     };
 
     return (
-        <FormShell
-            title="Session Security"
-            description="Control session timeout and account safety preferences."
-            onBack={onBack}
-        >
+        <FormShell title="Session Security" description="Control session timeout and account safety preferences." onBack={onBack}>
             <div className="space-y-5">
                 <div className="grid gap-2">
                     <Label htmlFor="fd-timeout">Session timeout</Label>
@@ -520,7 +476,7 @@ function SessionSecurityForm({
                         id="fd-timeout"
                         value={timeoutMinutes}
                         onChange={(e) => setTimeoutMinutes(e.target.value)}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <option value="15">15 minutes</option>
                         <option value="30">30 minutes</option>
@@ -530,7 +486,9 @@ function SessionSecurityForm({
                 </div>
                 {formError && <InputError message={formError} />}
                 <div className="flex items-center gap-4">
-                    <Button disabled={processing} onClick={handleSave}>Save</Button>
+                    <Button disabled={processing} onClick={handleSave}>
+                        Save
+                    </Button>
                     <SuccessBadge show={recentlySuccessful} />
                 </div>
             </div>
@@ -538,22 +496,10 @@ function SessionSecurityForm({
     );
 }
 
-function PaymentMethodsForm({
-    settings,
-    canManage,
-    onBack,
-}: {
-    settings: Record<string, unknown>;
-    canManage: boolean;
-    onBack: () => void;
-}) {
+function PaymentMethodsForm({ settings, canManage, onBack }: { settings: Record<string, unknown>; canManage: boolean; onBack: () => void }) {
     // Read-only display for frontdesk
     return (
-        <FormShell
-            title="Payment Methods"
-            description="Enable and configure accepted payment channels at the counter."
-            onBack={onBack}
-        >
+        <FormShell title="Payment Methods" description="Enable and configure accepted payment channels at the counter." onBack={onBack}>
             <div className="space-y-5">
                 <p className="text-xs text-muted-foreground">
                     {canManage
@@ -620,16 +566,10 @@ function InvoiceFormatForm({
     };
 
     return (
-        <FormShell
-            title="Invoice and Receipt Format"
-            description="Set default notes and print behavior for customer documents."
-            onBack={onBack}
-        >
+        <FormShell title="Invoice and Receipt Format" description="Set default notes and print behavior for customer documents." onBack={onBack}>
             <div className="space-y-5">
                 {!canManage && (
-                    <p className="text-xs text-muted-foreground">
-                        These settings are managed by the administrator and are shown as read-only.
-                    </p>
+                    <p className="text-xs text-muted-foreground">These settings are managed by the administrator and are shown as read-only.</p>
                 )}
                 <div className="grid gap-2">
                     <Label htmlFor="fd-notes">Default notes</Label>
@@ -665,7 +605,7 @@ function InvoiceFormatForm({
                         value={format}
                         onChange={(e) => setFormat(e.target.value)}
                         disabled={!canManage}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <option value="standard">Standard (full details)</option>
                         <option value="simplified">Simplified (summary only)</option>
@@ -674,7 +614,9 @@ function InvoiceFormatForm({
                 {formError && <InputError message={formError} />}
                 {canManage && (
                     <div className="flex items-center gap-4">
-                        <Button disabled={processing} onClick={handleSave}>Save</Button>
+                        <Button disabled={processing} onClick={handleSave}>
+                            Save
+                        </Button>
                         <SuccessBadge show={recentlySuccessful} />
                     </div>
                 )}
@@ -726,16 +668,10 @@ function CounterWorkflowForm({
     };
 
     return (
-        <FormShell
-            title="Counter Workflow Defaults"
-            description="Adjust payment flow and frontdesk billing operation defaults."
-            onBack={onBack}
-        >
+        <FormShell title="Counter Workflow Defaults" description="Adjust payment flow and frontdesk billing operation defaults." onBack={onBack}>
             <div className="space-y-5">
                 {!canManage && (
-                    <p className="text-xs text-muted-foreground">
-                        These settings are managed by the administrator and are shown as read-only.
-                    </p>
+                    <p className="text-xs text-muted-foreground">These settings are managed by the administrator and are shown as read-only.</p>
                 )}
                 <div className="grid gap-2">
                     <Label htmlFor="fd-payment-flow">Default payment flow</Label>
@@ -744,7 +680,7 @@ function CounterWorkflowForm({
                         value={paymentFlow}
                         onChange={(e) => setPaymentFlow(e.target.value)}
                         disabled={!canManage}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <option value="pay_at_counter">Pay at counter</option>
                         <option value="pay_first">Pay first before service</option>
@@ -768,7 +704,9 @@ function CounterWorkflowForm({
                 {formError && <InputError message={formError} />}
                 {canManage && (
                     <div className="flex items-center gap-4">
-                        <Button disabled={processing} onClick={handleSave}>Save</Button>
+                        <Button disabled={processing} onClick={handleSave}>
+                            Save
+                        </Button>
                         <SuccessBadge show={recentlySuccessful} />
                     </div>
                 )}
@@ -818,7 +756,9 @@ function NotificationToggleForm({
                 <SettingToggle label={label} description={description} checked={enabled} onChange={setEnabled} />
                 {formError && <InputError message={formError} />}
                 <div className="flex items-center gap-4">
-                    <Button disabled={processing} onClick={handleSave}>Save</Button>
+                    <Button disabled={processing} onClick={handleSave}>
+                        Save
+                    </Button>
                     <SuccessBadge show={recentlySuccessful} />
                 </div>
             </div>
@@ -847,12 +787,7 @@ function SettingToggle({
                 <p className="text-sm font-medium text-foreground">{label}</p>
                 <p className="text-xs text-muted-foreground">{description}</p>
             </div>
-            <Switch
-                checked={checked}
-                onCheckedChange={onChange ?? (() => {})}
-                disabled={disabled}
-                className="shrink-0"
-            />
+            <Switch checked={checked} onCheckedChange={onChange ?? (() => {})} disabled={disabled} className="shrink-0" />
         </div>
     );
 }

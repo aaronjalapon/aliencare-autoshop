@@ -1,7 +1,4 @@
-import {
-    getServiceName,
-    getVehicleLabel,
-} from '@/lib/jobOrderFormatters';
+import { getServiceName, getVehicleLabel } from '@/lib/jobOrderFormatters';
 import { BayOption, MechanicOption, jobOrderService } from '@/services/jobOrderService';
 import type { JobOrder } from '@/types/customer';
 import { CheckCircle2, Clock, Loader2, Sparkles, UserCheck, Warehouse, Wrench } from 'lucide-react';
@@ -18,11 +15,7 @@ interface AssignmentState {
     bayId: string;
 }
 
-export default function AssignmentBoard({
-    selectedOrder,
-    allOrders,
-    onAssignmentComplete,
-}: Props) {
+export default function AssignmentBoard({ selectedOrder, allOrders, onAssignmentComplete }: Props) {
     const [mechanics, setMechanics] = useState<MechanicOption[]>([]);
     const [bays, setBays] = useState<BayOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -124,9 +117,7 @@ export default function AssignmentBoard({
             <aside className="profile-card flex min-h-0 flex-col items-center justify-center rounded-xl p-6">
                 <Wrench className="mb-4 h-10 w-10 text-muted-foreground/30" />
                 <p className="text-sm font-semibold text-muted-foreground">No Order Selected</p>
-                <p className="mt-1 text-center text-xs text-muted-foreground/70">
-                    Select a job order from the list to assign a mechanic and bay.
-                </p>
+                <p className="mt-1 text-center text-xs text-muted-foreground/70">Select a job order from the list to assign a mechanic and bay.</p>
             </aside>
         );
     }
@@ -137,11 +128,11 @@ export default function AssignmentBoard({
     return (
         <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
             {/* Header — always visible */}
-            <div className="shrink-0 space-y-3 pb-4 border-b border-[#2a2a2e]">
+            <div className="shrink-0 space-y-3 border-b border-[#2a2a2e] pb-4">
                 <div className="flex items-center justify-between">
                     <p className="text-[10px] font-bold tracking-wider text-[#d4af37] uppercase">Assign Resources</p>
                     {assignedCount > 0 && (
-                        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
                             {assignedCount} in progress
                         </span>
                     )}
@@ -153,7 +144,7 @@ export default function AssignmentBoard({
                         {getVehicleLabel(selectedOrder)} &middot; {getServiceName(selectedOrder)}
                     </p>
                     {hasSchedulingContext && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/20 px-2.5 py-1 text-[11px] text-[#d4af37]">
+                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/20 bg-[#d4af37]/10 px-2.5 py-1 text-[11px] text-[#d4af37]">
                             <Clock className="h-3 w-3" />
                             {selectedOrder.arrival_date} &middot; {selectedOrder.arrival_time}
                         </div>
@@ -162,12 +153,8 @@ export default function AssignmentBoard({
             </div>
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto py-4 space-y-5">
-                {loadError && (
-                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                        {loadError}
-                    </div>
-                )}
+            <div className="flex-1 space-y-5 overflow-y-auto py-4">
+                {loadError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{loadError}</div>}
 
                 {isLoading ? (
                     <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
@@ -177,10 +164,10 @@ export default function AssignmentBoard({
                     <>
                         {/* Mechanics */}
                         <div>
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="mb-3 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <UserCheck className="h-4 w-4 text-[#d4af37]" />
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Mechanics</h3>
+                                    <h3 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Mechanics</h3>
                                 </div>
                                 <span className="rounded-full bg-[#d4af37]/10 px-2 py-0.5 text-[10px] font-semibold text-[#d4af37]">
                                     {availableMechanics.length} available
@@ -193,18 +180,18 @@ export default function AssignmentBoard({
                                     return (
                                         <button
                                             key={m.id}
-                                            onClick={() => setAssignment(prev => ({ ...prev, mechanicId: String(m.id) }))}
-                                            className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                                            onClick={() => setAssignment((prev) => ({ ...prev, mechanicId: String(m.id) }))}
+                                            className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                                                 isSelected
                                                     ? 'border-[#d4af37] bg-[#d4af37]/10 ring-1 ring-[#d4af37]/40'
                                                     : 'border-[#2a2a2e] bg-[#0d0d10] hover:border-[#3a3a40] hover:bg-[#13141a]'
                                             }`}
                                         >
-                                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                                                isSelected
-                                                    ? 'bg-[#d4af37] text-black'
-                                                    : 'bg-[#1a1b20] text-muted-foreground'
-                                            }`}>
+                                            <div
+                                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                                                    isSelected ? 'bg-[#d4af37] text-black' : 'bg-[#1a1b20] text-muted-foreground'
+                                                }`}
+                                            >
                                                 {(m.name ?? `#${m.id}`).charAt(0).toUpperCase()}
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -226,10 +213,7 @@ export default function AssignmentBoard({
                                     );
                                 })}
                                 {conflictedMechanics.map((m) => (
-                                    <div
-                                        key={m.id}
-                                        className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"
-                                    >
+                                    <div key={m.id} className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
                                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-xs font-bold text-amber-400">
                                             {(m.name ?? `#${m.id}`).charAt(0).toUpperCase()}
                                         </div>
@@ -270,18 +254,16 @@ export default function AssignmentBoard({
                                         </div>
                                     </div>
                                 ))}
-                                {mechanics.length === 0 && (
-                                    <p className="py-4 text-center text-xs text-muted-foreground">No mechanics registered.</p>
-                                )}
+                                {mechanics.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">No mechanics registered.</p>}
                             </div>
                         </div>
 
                         {/* Bays */}
                         <div>
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="mb-3 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <Warehouse className="h-4 w-4 text-[#d4af37]" />
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Service Bays</h3>
+                                    <h3 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Service Bays</h3>
                                 </div>
                                 <span className="rounded-full bg-[#d4af37]/10 px-2 py-0.5 text-[10px] font-semibold text-[#d4af37]">
                                     {availableBays.length} available
@@ -293,16 +275,14 @@ export default function AssignmentBoard({
                                     return (
                                         <button
                                             key={b.id}
-                                            onClick={() => setAssignment(prev => ({ ...prev, bayId: String(b.id) }))}
+                                            onClick={() => setAssignment((prev) => ({ ...prev, bayId: String(b.id) }))}
                                             className={`flex flex-col items-center justify-center rounded-xl border p-3 transition-all ${
                                                 isSelected
                                                     ? 'border-[#d4af37] bg-[#d4af37]/10 ring-1 ring-[#d4af37]/40'
                                                     : 'border-[#2a2a2e] bg-[#0d0d10] hover:border-[#3a3a40] hover:bg-[#13141a]'
                                             }`}
                                         >
-                                            <span className={`text-lg font-bold ${isSelected ? 'text-[#d4af37]' : 'text-foreground'}`}>
-                                                {b.name}
-                                            </span>
+                                            <span className={`text-lg font-bold ${isSelected ? 'text-[#d4af37]' : 'text-foreground'}`}>{b.name}</span>
                                             <span className="mt-0.5 text-[10px] text-muted-foreground">Available</span>
                                         </button>
                                     );
@@ -328,7 +308,7 @@ export default function AssignmentBoard({
                                     </div>
                                 ))}
                                 {bays.length === 0 && (
-                                    <p className="py-4 text-center text-xs text-muted-foreground col-span-2">No bays registered.</p>
+                                    <p className="col-span-2 py-4 text-center text-xs text-muted-foreground">No bays registered.</p>
                                 )}
                             </div>
                         </div>
@@ -337,12 +317,8 @@ export default function AssignmentBoard({
             </div>
 
             {/* Sticky footer */}
-            <div className="shrink-0 space-y-2 pt-4 border-t border-[#2a2a2e]">
-                {submitError && (
-                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                        {submitError}
-                    </div>
-                )}
+            <div className="shrink-0 space-y-2 border-t border-[#2a2a2e] pt-4">
+                {submitError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">{submitError}</div>}
                 <button
                     onClick={handleAssign}
                     disabled={isSubmitting || !assignment.mechanicId || !assignment.bayId}

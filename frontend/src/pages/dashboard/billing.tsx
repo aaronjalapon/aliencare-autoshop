@@ -10,19 +10,7 @@ import { invoiceService } from '@/services/invoiceService';
 import { jobOrderService } from '@/services/jobOrderService';
 import { type BreadcrumbItem } from '@/types';
 import type { BillingQueueItem, BillingQueueStatus, CustomerTransaction, JobOrder, JobOrderItem } from '@/types/customer';
-import {
-    Banknote,
-    ChevronLeft,
-    ChevronRight,
-    CreditCard,
-    Loader2,
-    PencilLine,
-    Printer,
-    ReceiptText,
-    Search,
-    Send,
-    Wallet,
-} from 'lucide-react';
+import { Banknote, ChevronLeft, ChevronRight, CreditCard, Loader2, PencilLine, Printer, ReceiptText, Search, Send, Wallet } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -268,7 +256,6 @@ export default function Billing() {
     const [selectedTransactions, setSelectedTransactions] = useState<CustomerTransaction[]>([]);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
-
 
     const [showPaymentPanel, setShowPaymentPanel] = useState(false);
     const [printingTransactionId, setPrintingTransactionId] = useState<number | null>(null);
@@ -647,7 +634,7 @@ export default function Billing() {
                             </div>
 
                             <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#2a2a2e]">
-                                <div className="hidden shrink-0 items-center grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
+                                <div className="hidden shrink-0 grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] items-center border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Invoice</span>
                                     <span>Customer</span>
                                     <span>Reference</span>
@@ -886,7 +873,10 @@ export default function Billing() {
                                                                             <>
                                                                                 <button
                                                                                     onClick={() => handlePrintReceipt(transaction)}
-                                                                                    disabled={printingTransactionId === transaction.id || !transactionCountsAsPaid(transaction)}
+                                                                                    disabled={
+                                                                                        printingTransactionId === transaction.id ||
+                                                                                        !transactionCountsAsPaid(transaction)
+                                                                                    }
                                                                                     className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                                                                                     title="Print receipt"
                                                                                 >

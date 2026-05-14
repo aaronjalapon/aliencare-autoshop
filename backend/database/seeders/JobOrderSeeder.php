@@ -14,7 +14,6 @@ use App\Models\ServiceCatalog;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
 
 class JobOrderSeeder extends Seeder
 {
@@ -49,7 +48,7 @@ class JobOrderSeeder extends Seeder
             $mechanic = Mechanic::updateOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'specialization'      => $data['specialization'],
+                    'specialization' => $data['specialization'],
                     'availability_status' => 'available',
                 ],
             );
@@ -81,23 +80,23 @@ class JobOrderSeeder extends Seeder
                     $item = $inventoryItems->random();
                     JobOrderItem::create([
                         'job_order_id' => $jo->id,
-                        'item_type'    => 'part',
-                        'item_id'      => $item->item_id,
-                        'description'  => $item->item_name,
-                        'quantity'     => rand(1, 3),
-                        'unit_price'   => $item->unit_price,
-                        'total_price'  => 0, // auto-calc via saving event
+                        'item_type' => 'part',
+                        'item_id' => $item->item_id,
+                        'description' => $item->item_name,
+                        'quantity' => rand(1, 3),
+                        'unit_price' => $item->unit_price,
+                        'total_price' => 0, // auto-calc via saving event
                     ]);
                 } elseif ($services->isNotEmpty()) {
                     $svc = $services->random();
                     JobOrderItem::create([
                         'job_order_id' => $jo->id,
-                        'item_type'    => 'service',
-                        'item_id'      => $svc->id,
-                        'description'  => $svc->name,
-                        'quantity'     => 1,
-                        'unit_price'   => $svc->price_fixed,
-                        'total_price'  => 0,
+                        'item_type' => 'service',
+                        'item_id' => $svc->id,
+                        'description' => $svc->name,
+                        'quantity' => 1,
+                        'unit_price' => $svc->price_fixed,
+                        'total_price' => 0,
                     ]);
                 } else {
                     JobOrderItem::factory()->create(['job_order_id' => $jo->id]);
@@ -113,17 +112,17 @@ class JobOrderSeeder extends Seeder
         $c = $customers->random();
         JobOrder::factory()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Walk-in customer waiting at front desk — no services selected yet',
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Walk-in customer waiting at front desk — no services selected yet',
         ]);
 
         // Walk-in with items, created 2 days ago
         $c = $customers->random();
         $jo = JobOrder::factory()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Customer requested oil change and brake inspection',
-            'created_at'  => now()->subDays(2),
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Customer requested oil change and brake inspection',
+            'created_at' => now()->subDays(2),
         ]);
         $addItems($jo, 2, 3);
 
@@ -131,8 +130,8 @@ class JobOrderSeeder extends Seeder
         $c = $customers->random();
         $jo = JobOrder::factory()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'created_at'  => now()->subHours(2),
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'created_at' => now()->subHours(2),
         ]);
         $addItems($jo, 1, 2);
 
@@ -140,35 +139,35 @@ class JobOrderSeeder extends Seeder
         $c = $customers->random();
         $svc = $services->random();
         $jo = JobOrder::factory()->onlineBooking()->create([
-            'customer_id'            => $c->id,
-            'vehicle_id'             => $randomVehicleFor($c)->id,
-            'service_id'             => $svc->id,
-            'arrival_date'           => now()->addDays(3)->toDateString(),
-            'arrival_time'           => '10:00:00',
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'service_id' => $svc->id,
+            'arrival_date' => now()->addDays(3)->toDateString(),
+            'arrival_time' => '10:00:00',
             'reservation_expires_at' => now()->addDays(3)->setTime(12, 0),
-            'notes'                  => 'Online booking — scheduled for next week',
+            'notes' => 'Online booking — scheduled for next week',
         ]);
         JobOrderItem::create([
             'job_order_id' => $jo->id,
-            'item_type'    => 'service',
-            'item_id'      => $svc->id,
-            'description'  => $svc->name,
-            'quantity'     => 1,
-            'unit_price'   => $svc->price_fixed,
-            'total_price'  => 0,
+            'item_type' => 'service',
+            'item_id' => $svc->id,
+            'description' => $svc->name,
+            'quantity' => 1,
+            'unit_price' => $svc->price_fixed,
+            'total_price' => 0,
         ]);
 
         // Online booking arriving tomorrow
         $c = $customers->random();
         $svc = $services->random();
         $jo = JobOrder::factory()->onlineBooking()->create([
-            'customer_id'            => $c->id,
-            'vehicle_id'             => $randomVehicleFor($c)->id,
-            'service_id'             => $svc->id,
-            'arrival_date'           => now()->addDay()->toDateString(),
-            'arrival_time'           => '14:00:00',
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'service_id' => $svc->id,
+            'arrival_date' => now()->addDay()->toDateString(),
+            'arrival_time' => '14:00:00',
             'reservation_expires_at' => now()->addDay()->setTime(16, 0),
-            'notes'                  => 'Afternoon slot — requested AC check',
+            'notes' => 'Afternoon slot — requested AC check',
         ]);
         $addItems($jo, 1, 2);
 
@@ -179,27 +178,27 @@ class JobOrderSeeder extends Seeder
         $c = $customers->random();
         $jo = JobOrder::factory()->pendingApproval()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
             'service_fee' => 8000.00,
-            'notes'       => 'High-cost transmission repair — needs manager approval',
-            'created_at'  => now()->subHours(5),
+            'notes' => 'High-cost transmission repair — needs manager approval',
+            'created_at' => now()->subHours(5),
         ]);
         $addItems($jo, 3, 5);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->pendingApproval()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Engine overhaul estimate pending review',
-            'created_at'  => now()->subDay(),
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Engine overhaul estimate pending review',
+            'created_at' => now()->subDay(),
         ]);
         $addItems($jo, 2, 3);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->onlineBooking()->pendingApproval()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Online booking with premium parts — needs approval',
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Online booking with premium parts — needs approval',
         ]);
         $addItems($jo, 1, 2);
 
@@ -209,43 +208,43 @@ class JobOrderSeeder extends Seeder
 
         $c = $customers->random();
         $jo = JobOrder::factory()->approved()->create([
-            'customer_id'  => $c->id,
-            'vehicle_id'   => $randomVehicleFor($c)->id,
-            'approved_by'  => $approver->id,
-            'notes'        => 'Approved — waiting for bay assignment',
-            'created_at'   => now()->subDay(),
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
+            'notes' => 'Approved — waiting for bay assignment',
+            'created_at' => now()->subDay(),
         ]);
         $addItems($jo, 2, 4);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->approved()->create([
-            'customer_id'  => $c->id,
-            'vehicle_id'   => $randomVehicleFor($c)->id,
-            'approved_by'  => $approver->id,
-            'created_at'   => now()->subHours(8),
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
+            'created_at' => now()->subHours(8),
         ]);
         $addItems($jo, 1, 3);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->approved()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['pedro@example.com']->id,
-            'notes'                => 'Assigned to Pedro — waiting for bay',
-            'created_at'           => now()->subHours(6),
+            'notes' => 'Assigned to Pedro — waiting for bay',
+            'created_at' => now()->subHours(6),
         ]);
         $addItems($jo, 2, 3);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->approved()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['ana@example.com']->id,
-            'bay_id'               => $bays['Bay 5']->id,
-            'notes'                => 'AC diagnostics — Ana at Bay 5, ready to start',
-            'created_at'           => now()->subHours(3),
+            'bay_id' => $bays['Bay 5']->id,
+            'notes' => 'AC diagnostics — Ana at Bay 5, ready to start',
+            'created_at' => now()->subHours(3),
         ]);
         $addItems($jo, 1, 2);
 
@@ -255,12 +254,12 @@ class JobOrderSeeder extends Seeder
 
         $c = $customers->random();
         $jo = JobOrder::factory()->inProgress()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['juan@example.com']->id,
-            'bay_id'               => $bays['Bay 1']->id,
-            'notes'                => 'Engine diagnostics in progress — Juan at Bay 1',
+            'bay_id' => $bays['Bay 1']->id,
+            'notes' => 'Engine diagnostics in progress — Juan at Bay 1',
         ]);
         $bays['Bay 1']->update(['status' => 'occupied']);
         $mechanics['juan@example.com']->update(['availability_status' => 'busy']);
@@ -268,13 +267,13 @@ class JobOrderSeeder extends Seeder
 
         $c = $customers->random();
         $jo = JobOrder::factory()->inProgress()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['pedro@example.com']->id,
-            'bay_id'               => $bays['Bay 2']->id,
-            'notes'                => 'Transmission fluid service — halfway done',
-            'created_at'           => now()->subHours(2),
+            'bay_id' => $bays['Bay 2']->id,
+            'notes' => 'Transmission fluid service — halfway done',
+            'created_at' => now()->subHours(2),
         ]);
         $bays['Bay 2']->update(['status' => 'occupied']);
         $mechanics['pedro@example.com']->update(['availability_status' => 'busy']);
@@ -282,13 +281,13 @@ class JobOrderSeeder extends Seeder
 
         $c = $customers->random();
         $jo = JobOrder::factory()->inProgress()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['ana@example.com']->id,
-            'bay_id'               => $bays['Bay 3']->id,
-            'notes'                => 'AC compressor replacement underway — Ana at Bay 3',
-            'created_at'           => now()->subHours(4),
+            'bay_id' => $bays['Bay 3']->id,
+            'notes' => 'AC compressor replacement underway — Ana at Bay 3',
+            'created_at' => now()->subHours(4),
         ]);
         $bays['Bay 3']->update(['status' => 'occupied']);
         $mechanics['ana@example.com']->update(['availability_status' => 'busy']);
@@ -300,56 +299,56 @@ class JobOrderSeeder extends Seeder
 
         $c = $customers->random();
         $jo = JobOrder::factory()->completed()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['maria@example.com']->id,
-            'notes'                => 'Electrical system — all items completed',
-            'created_at'           => now()->subDays(1),
+            'notes' => 'Electrical system — all items completed',
+            'created_at' => now()->subDays(1),
         ]);
         $addItems($jo, 3, 6);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->completed()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['roberto@example.com']->id,
-            'notes'                => 'Full preventive maintenance service done',
-            'created_at'           => now()->subDays(1),
+            'notes' => 'Full preventive maintenance service done',
+            'created_at' => now()->subDays(1),
         ]);
         $addItems($jo, 2, 4);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->completed()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['juan@example.com']->id,
-            'notes'                => 'Engine tune-up — customer notified via SMS',
-            'created_at'           => now()->subDays(2),
+            'notes' => 'Engine tune-up — customer notified via SMS',
+            'created_at' => now()->subDays(2),
         ]);
         $addItems($jo, 1, 3);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->completed()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['pedro@example.com']->id,
-            'notes'                => 'Completed — pending customer pickup',
-            'created_at'           => now()->subDays(2),
+            'notes' => 'Completed — pending customer pickup',
+            'created_at' => now()->subDays(2),
         ]);
         $addItems($jo, 2, 5);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->onlineBooking()->completed()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['maria@example.com']->id,
-            'notes'                => 'Online booking — completed right on schedule',
-            'created_at'           => now()->subDays(3),
+            'notes' => 'Online booking — completed right on schedule',
+            'created_at' => now()->subDays(3),
         ]);
         $addItems($jo, 1, 2);
 
@@ -359,61 +358,61 @@ class JobOrderSeeder extends Seeder
 
         $c = $customers->random();
         $jo = JobOrder::factory()->settled()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['maria@example.com']->id,
-            'created_at'           => now()->subDays(5),
+            'created_at' => now()->subDays(5),
         ]);
         $addItems($jo, 2, 4);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->settled()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['roberto@example.com']->id,
-            'created_at'           => now()->subDays(4),
+            'created_at' => now()->subDays(4),
         ]);
         $addItems($jo, 3, 5);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->settled()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['pedro@example.com']->id,
-            'created_at'           => now()->subDays(3),
+            'created_at' => now()->subDays(3),
         ]);
         $addItems($jo, 1, 3);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->settled()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['ana@example.com']->id,
-            'created_at'           => now()->subDays(7),
+            'created_at' => now()->subDays(7),
         ]);
         $addItems($jo, 2, 4);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->settled()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['juan@example.com']->id,
-            'created_at'           => now()->subDays(6),
+            'created_at' => now()->subDays(6),
         ]);
         $addItems($jo, 2, 3);
 
         $c = $customers->random();
         $jo = JobOrder::factory()->onlineBooking()->settled()->create([
-            'customer_id'          => $c->id,
-            'vehicle_id'           => $randomVehicleFor($c)->id,
-            'approved_by'          => $approver->id,
+            'customer_id' => $c->id,
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'approved_by' => $approver->id,
             'assigned_mechanic_id' => $mechanics['maria@example.com']->id,
-            'created_at'           => now()->subDays(8),
+            'created_at' => now()->subDays(8),
         ]);
         $addItems($jo, 1, 2);
 
@@ -424,25 +423,25 @@ class JobOrderSeeder extends Seeder
         $c = $customers->random();
         JobOrder::factory()->cancelled()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Customer cancelled — went to another shop',
-            'created_at'  => now()->subDays(3),
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Customer cancelled — went to another shop',
+            'created_at' => now()->subDays(3),
         ]);
 
         $c = $customers->random();
         JobOrder::factory()->cancelled()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Cancelled — required parts out of stock',
-            'created_at'  => now()->subDays(2),
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Cancelled — required parts out of stock',
+            'created_at' => now()->subDays(2),
         ]);
 
         $c = $customers->random();
         JobOrder::factory()->onlineBooking()->cancelled()->create([
             'customer_id' => $c->id,
-            'vehicle_id'  => $randomVehicleFor($c)->id,
-            'notes'       => 'Online booking cancelled by customer — no reason given',
-            'created_at'  => now()->subDays(1),
+            'vehicle_id' => $randomVehicleFor($c)->id,
+            'notes' => 'Online booking cancelled by customer — no reason given',
+            'created_at' => now()->subDays(1),
         ]);
 
         $this->command->info('Job orders seeded: ~30 JOs across all statuses (Created → Settled + Cancelled).');

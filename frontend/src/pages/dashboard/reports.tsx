@@ -1,13 +1,25 @@
 import AppLayout from '@/components/layout/app-layout';
+import { useReports, type DashboardView, type ProcurementView, type UsageView } from '@/hooks/useReports';
+import { clampPercent, formatCurrency, formatPercentage, formatTypeLabel, toShortDateLabel } from '@/lib/reports-utils';
 import { reportsService, type ReportFilters } from '@/services/reportsService';
 import { type BreadcrumbItem } from '@/types';
 import { type Report } from '@/types/inventory';
-import { useReports, type DashboardView, type UsageView, type ProcurementView } from '@/hooks/useReports';
-import { formatCurrency, formatPercentage, clampPercent, toShortDateLabel, formatTypeLabel } from '@/lib/reports-utils';
 import {
-    AlertTriangle, BarChart3, Calendar, CheckCircle2, Clock3,
-    FileText, Filter, Loader2, Package, RefreshCcw,
-    TrendingDown, TrendingUp, Truck, Wrench, X,
+    AlertTriangle,
+    BarChart3,
+    Calendar,
+    CheckCircle2,
+    Clock3,
+    FileText,
+    Filter,
+    Loader2,
+    Package,
+    RefreshCcw,
+    TrendingDown,
+    TrendingUp,
+    Truck,
+    Wrench,
+    X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -20,7 +32,7 @@ const RANGE_CONFIG: Record<RangeKey, { label: string; days: number | null }> = {
     '7d': { label: '7 days', days: 7 },
     '30d': { label: '30 days', days: 30 },
     '90d': { label: '90 days', days: 90 },
-    'custom': { label: 'Custom', days: null },
+    custom: { label: 'Custom', days: null },
 };
 
 const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
@@ -31,15 +43,23 @@ const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
 ];
 
 const GOLD = '#d4af37';
-const GOLD_LIGHT = '#f3d886';
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function KpiCard({ label, value, subtitle, icon: Icon, accentClass }: {
-    label: string; value: string; subtitle: string;
-    icon: React.ElementType; accentClass?: string;
+function KpiCard({
+    label,
+    value,
+    subtitle,
+    icon: Icon,
+    accentClass,
+}: {
+    label: string;
+    value: string;
+    subtitle: string;
+    icon: React.ElementType;
+    accentClass?: string;
 }) {
     return (
         <article className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
@@ -85,7 +105,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span className="flex-1">{message}</span>
             {onRetry && (
-                <button onClick={onRetry} className="text-xs font-semibold text-red-200 hover:text-white underline">
+                <button onClick={onRetry} className="text-xs font-semibold text-red-200 underline hover:text-white">
                     Retry
                 </button>
             )}
@@ -102,7 +122,7 @@ function PartialErrorBanner({ endpoints }: { endpoints: string[] }) {
     );
 }
 
-function TabButton({ tab, active, onClick }: { tab: typeof TABS[number]; active: boolean; onClick: () => void }) {
+function TabButton({ tab, active, onClick }: { tab: (typeof TABS)[number]; active: boolean; onClick: () => void }) {
     const Icon = tab.icon;
     return (
         <button
@@ -162,11 +182,21 @@ function GridLines({ w, h, pad, count }: { w: number; h: number; pad: number; co
 /*  Donut Chart                                                        */
 /* ------------------------------------------------------------------ */
 
-function DonutChart({ segments, size = 170, radius = 52, thickness = 16 }: {
+function DonutChart({
+    segments,
+    size = 170,
+    radius = 52,
+    thickness = 16,
+}: {
     segments: { value: number; color: string; label: string }[];
-    size?: number; radius?: number; thickness?: number;
+    size?: number;
+    radius?: number;
+    thickness?: number;
 }) {
-    const total = Math.max(1, segments.reduce((s, seg) => s + seg.value, 0));
+    const total = Math.max(
+        1,
+        segments.reduce((s, seg) => s + seg.value, 0),
+    );
     const circ = 2 * Math.PI * radius;
     const center = size / 2;
     let offset = 0;
@@ -181,9 +211,18 @@ function DonutChart({ segments, size = 170, radius = 52, thickness = 16 }: {
                     const currentOffset = -offset;
                     offset += length;
                     return (
-                        <circle key={i} cx={center} cy={center} r={radius} fill="none" stroke={seg.color}
-                            strokeWidth={thickness} strokeLinecap="round"
-                            strokeDasharray={dashArray} strokeDashoffset={currentOffset} />
+                        <circle
+                            key={i}
+                            cx={center}
+                            cy={center}
+                            r={radius}
+                            fill="none"
+                            stroke={seg.color}
+                            strokeWidth={thickness}
+                            strokeLinecap="round"
+                            strokeDasharray={dashArray}
+                            strokeDashoffset={currentOffset}
+                        />
                     );
                 })}
             </svg>
@@ -206,7 +245,13 @@ function DonutChart({ segments, size = 170, radius = 52, thickness = 16 }: {
 /*  Bar Chart                                                          */
 /* ------------------------------------------------------------------ */
 
-function BarChart({ items, valueKey, labelKey, maxBars, color }: {
+function BarChart({
+    items,
+    valueKey,
+    labelKey,
+    maxBars,
+    color,
+}: {
     items: Record<string, unknown>[];
     valueKey: string;
     labelKey: string;
@@ -225,10 +270,11 @@ function BarChart({ items, valueKey, labelKey, maxBars, color }: {
                 return (
                     <div key={i} className="flex flex-1 flex-col items-center gap-2">
                         <span className="text-xs font-semibold text-foreground">{val}</span>
-                        <div className="w-full rounded-t-md transition-all duration-300 hover:opacity-80"
-                            style={{ height: `${Math.max(4, pct)}%`, backgroundColor: barColor, minHeight: 4 }} />
-                        <span className="truncate text-[11px] text-muted-foreground max-w-[60px] text-center"
-                            title={String(item[labelKey] ?? '')}>
+                        <div
+                            className="w-full rounded-t-md transition-all duration-300 hover:opacity-80"
+                            style={{ height: `${Math.max(4, pct)}%`, backgroundColor: barColor, minHeight: 4 }}
+                        />
+                        <span className="max-w-[60px] truncate text-center text-[11px] text-muted-foreground" title={String(item[labelKey] ?? '')}>
                             {String(item[labelKey] ?? '').slice(0, 10)}
                         </span>
                     </div>
@@ -242,9 +288,16 @@ function BarChart({ items, valueKey, labelKey, maxBars, color }: {
 /*  Line Chart (SVG)                                                   */
 /* ------------------------------------------------------------------ */
 
-function LineChart({ series, width = 600, height = 220, pad = 20 }: {
+function LineChart({
+    series,
+    width = 600,
+    height = 220,
+    pad = 20,
+}: {
     series: { label: string; values: number[]; color: string; dashed?: boolean }[];
-    width?: number; height?: number; pad?: number;
+    width?: number;
+    height?: number;
+    pad?: number;
 }) {
     const allValues = series.flatMap((s) => s.values);
     if (allValues.length === 0) {
@@ -273,9 +326,15 @@ function LineChart({ series, width = 600, height = 220, pad = 20 }: {
             {series.map((s, si) => {
                 const lp = linePath(s.values, width, height, pad);
                 return lp ? (
-                    <path key={si} d={lp} fill="none" stroke={s.color}
-                        strokeWidth={si === 0 ? 2.5 : 2} strokeLinecap="round"
-                        strokeDasharray={s.dashed ? '6 5' : undefined} />
+                    <path
+                        key={si}
+                        d={lp}
+                        fill="none"
+                        stroke={s.color}
+                        strokeWidth={si === 0 ? 2.5 : 2}
+                        strokeLinecap="round"
+                        strokeDasharray={s.dashed ? '6 5' : undefined}
+                    />
                 ) : null;
             })}
         </svg>
@@ -286,9 +345,18 @@ function LineChart({ series, width = 600, height = 220, pad = 20 }: {
 /*  Section wrapper                                                    */
 /* ------------------------------------------------------------------ */
 
-function Section({ title, subtitle, icon: Icon, children, className }: {
-    title: string; subtitle?: string; icon: React.ElementType;
-    children: React.ReactNode; className?: string;
+function Section({
+    title,
+    subtitle,
+    icon: Icon,
+    children,
+    className,
+}: {
+    title: string;
+    subtitle?: string;
+    icon: React.ElementType;
+    children: React.ReactNode;
+    className?: string;
 }) {
     return (
         <article className={`rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-5 ${className ?? ''}`}>
@@ -333,24 +401,45 @@ function OverviewTab({ dash, usage, proc }: { dash: DashboardView; usage: UsageV
         <div className="flex flex-col gap-5">
             {/* KPI Row */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiCard label="Service Revenue" value={formatCurrency(dash.weeklySales)}
-                    subtitle="Weekly billed estimate" icon={TrendingUp} accentClass="text-emerald-400" />
-                <KpiCard label="Jobs Completed" value={String(dash.jobPipeline.completed)}
-                    subtitle={`Completion ratio: ${formatPercentage(completionRatio)}`} icon={CheckCircle2} />
-                <KpiCard label="Parts Cost" value={formatCurrency(proc.totalValue)}
-                    subtitle="Procurement spend" icon={TrendingDown} accentClass="text-amber-400" />
-                <KpiCard label="Needs Attention" value={String(dash.lowStockCount + dash.pendingReservations)}
-                    subtitle="Low-stock items + pending reservations" icon={AlertTriangle} accentClass="text-red-400" />
+                <KpiCard
+                    label="Service Revenue"
+                    value={formatCurrency(dash.weeklySales)}
+                    subtitle="Weekly billed estimate"
+                    icon={TrendingUp}
+                    accentClass="text-emerald-400"
+                />
+                <KpiCard
+                    label="Jobs Completed"
+                    value={String(dash.jobPipeline.completed)}
+                    subtitle={`Completion ratio: ${formatPercentage(completionRatio)}`}
+                    icon={CheckCircle2}
+                />
+                <KpiCard
+                    label="Parts Cost"
+                    value={formatCurrency(proc.totalValue)}
+                    subtitle="Procurement spend"
+                    icon={TrendingDown}
+                    accentClass="text-amber-400"
+                />
+                <KpiCard
+                    label="Needs Attention"
+                    value={String(dash.lowStockCount + dash.pendingReservations)}
+                    subtitle="Low-stock items + pending reservations"
+                    icon={AlertTriangle}
+                    accentClass="text-red-400"
+                />
             </div>
 
             {/* Charts row */}
             <div className="grid min-h-0 gap-5 lg:grid-cols-[1.6fr_1fr]">
                 <Section title="Revenue & Cost Trend" subtitle="Monthly financial movement" icon={BarChart3}>
                     <div className="overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                        <LineChart series={[
-                            { label: 'Revenue', values: trendSeries.revenue, color: '#34d399' },
-                            { label: 'Cost', values: trendSeries.cost, color: '#f59e0b', dashed: true },
-                        ]} />
+                        <LineChart
+                            series={[
+                                { label: 'Revenue', values: trendSeries.revenue, color: '#34d399' },
+                                { label: 'Cost', values: trendSeries.cost, color: '#f59e0b', dashed: true },
+                            ]}
+                        />
                     </div>
                     <div className="mt-1 flex items-center gap-4 px-2 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
@@ -363,11 +452,13 @@ function OverviewTab({ dash, usage, proc }: { dash: DashboardView; usage: UsageV
                 </Section>
 
                 <Section title="Job Pipeline" subtitle="Status distribution" icon={Clock3}>
-                    <DonutChart segments={[
-                        { value: dash.jobPipeline.completed, color: '#34d399', label: 'Completed' },
-                        { value: dash.jobPipeline.inProgress, color: '#60a5fa', label: 'In Progress' },
-                        { value: dash.jobPipeline.queued, color: '#f59e0b', label: 'Queued / Blocked' },
-                    ]} />
+                    <DonutChart
+                        segments={[
+                            { value: dash.jobPipeline.completed, color: '#34d399', label: 'Completed' },
+                            { value: dash.jobPipeline.inProgress, color: '#60a5fa', label: 'In Progress' },
+                            { value: dash.jobPipeline.queued, color: '#f59e0b', label: 'Queued / Blocked' },
+                        ]}
+                    />
                 </Section>
             </div>
 
@@ -385,7 +476,9 @@ function OverviewTab({ dash, usage, proc }: { dash: DashboardView; usage: UsageV
                                     <div key={i} className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-3">
                                         <div className="flex items-center justify-between gap-3">
                                             <span className="text-sm font-medium text-foreground">{cat.category}</span>
-                                            <span className="text-xs text-muted-foreground">{cat.count} items &middot; {formatCurrency(cat.value)}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {cat.count} items &middot; {formatCurrency(cat.value)}
+                                            </span>
                                         </div>
                                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#1c1e23]">
                                             <div className="h-full rounded-full bg-[#d4af37]" style={{ width: `${clampPercent(pct)}%` }} />
@@ -403,16 +496,24 @@ function OverviewTab({ dash, usage, proc }: { dash: DashboardView; usage: UsageV
                     ) : (
                         <div className="max-h-64 space-y-1.5 overflow-y-auto">
                             {dash.recentTransactions.slice(0, 8).map((txn) => (
-                                <div key={txn.id} className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span className={`h-2 w-2 shrink-0 rounded-full ${
-                                            txn.type === 'sale' ? 'bg-emerald-400' : txn.type === 'procurement' ? 'bg-blue-400' : 'bg-amber-400'
-                                        }`} />
+                                <div
+                                    key={txn.id}
+                                    className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs"
+                                >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <span
+                                            className={`h-2 w-2 shrink-0 rounded-full ${
+                                                txn.type === 'sale' ? 'bg-emerald-400' : txn.type === 'procurement' ? 'bg-blue-400' : 'bg-amber-400'
+                                            }`}
+                                        />
                                         <span className="truncate text-foreground">{txn.itemName}</span>
                                     </div>
-                                    <div className="flex items-center gap-3 shrink-0">
+                                    <div className="flex shrink-0 items-center gap-3">
                                         <span className="text-muted-foreground capitalize">{formatTypeLabel(txn.type)}</span>
-                                        <span className="font-medium text-foreground">{txn.quantity > 0 ? '+' : ''}{txn.quantity}</span>
+                                        <span className="font-medium text-foreground">
+                                            {txn.quantity > 0 ? '+' : ''}
+                                            {txn.quantity}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
@@ -426,7 +527,17 @@ function OverviewTab({ dash, usage, proc }: { dash: DashboardView; usage: UsageV
 
 function ActivityIcon({ className }: { className?: string }) {
     return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+            className={className}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
             <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
         </svg>
     );
@@ -440,14 +551,27 @@ function UsageTab({ usage }: { usage: UsageView }) {
     return (
         <div className="flex flex-col gap-5">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiCard label="Parts Consumed" value={String(usage.totalConsumed)}
-                    subtitle="Total units used" icon={Package} />
-                <KpiCard label="Total Cost" value={formatCurrency(usage.totalCost)}
-                    subtitle="Value of parts consumed" icon={TrendingDown} accentClass="text-amber-400" />
-                <KpiCard label="Unique Items" value={String(usage.uniqueItemsUsed)}
-                    subtitle={`Across ${usage.activeCategories} categories`} icon={BarChart3} />
-                <KpiCard label="Top Consumed" value={usage.mostUsedItem?.partNumber ?? 'N/A'}
-                    subtitle={usage.mostUsedItem ? `${usage.mostUsedItem.consumed} units` : 'No data'} icon={TrendingUp} accentClass="text-emerald-400" />
+                <KpiCard label="Parts Consumed" value={String(usage.totalConsumed)} subtitle="Total units used" icon={Package} />
+                <KpiCard
+                    label="Total Cost"
+                    value={formatCurrency(usage.totalCost)}
+                    subtitle="Value of parts consumed"
+                    icon={TrendingDown}
+                    accentClass="text-amber-400"
+                />
+                <KpiCard
+                    label="Unique Items"
+                    value={String(usage.uniqueItemsUsed)}
+                    subtitle={`Across ${usage.activeCategories} categories`}
+                    icon={BarChart3}
+                />
+                <KpiCard
+                    label="Top Consumed"
+                    value={usage.mostUsedItem?.partNumber ?? 'N/A'}
+                    subtitle={usage.mostUsedItem ? `${usage.mostUsedItem.consumed} units` : 'No data'}
+                    icon={TrendingUp}
+                    accentClass="text-emerald-400"
+                />
             </div>
 
             <div className="grid min-h-0 gap-5 lg:grid-cols-2">
@@ -456,12 +580,12 @@ function UsageTab({ usage }: { usage: UsageView }) {
                         <p className="py-12 text-center text-sm text-muted-foreground">No daily data for this period.</p>
                     ) : (
                         <div className="overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                            <LineChart series={[
-                                { label: 'Transactions', values: usage.dailySummary.map((d) => d.count), color: GOLD },
-                            ]} />
+                            <LineChart series={[{ label: 'Transactions', values: usage.dailySummary.map((d) => d.count), color: GOLD }]} />
                             <div className="flex justify-between px-2">
                                 {usage.dailySummary.slice(0, Math.min(7, usage.dailySummary.length)).map((d, i) => (
-                                    <span key={i} className="text-[11px] text-muted-foreground">{toShortDateLabel(d.date)}</span>
+                                    <span key={i} className="text-[11px] text-muted-foreground">
+                                        {toShortDateLabel(d.date)}
+                                    </span>
                                 ))}
                             </div>
                         </div>
@@ -472,8 +596,7 @@ function UsageTab({ usage }: { usage: UsageView }) {
                     {usage.byCategory.length === 0 ? (
                         <p className="py-12 text-center text-sm text-muted-foreground">No category data.</p>
                     ) : (
-                        <BarChart items={usage.byCategory} valueKey="consumed" labelKey="category" maxBars={6}
-                            color="#60a5fa" />
+                        <BarChart items={usage.byCategory} valueKey="consumed" labelKey="category" maxBars={6} color="#60a5fa" />
                     )}
                 </Section>
             </div>
@@ -488,9 +611,9 @@ function UsageTab({ usage }: { usage: UsageView }) {
                                 <tr>
                                     <th className="px-3 py-2 font-semibold">Item</th>
                                     <th className="px-3 py-2 font-semibold">Category</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Consumed</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Cost</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Transactions</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Consumed</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Cost</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Transactions</th>
                                     <th className="px-3 py-2 font-semibold">Intensity</th>
                                 </tr>
                             </thead>
@@ -505,11 +628,17 @@ function UsageTab({ usage }: { usage: UsageView }) {
                                             <td className="px-3 py-2 text-right text-foreground">{formatCurrency(item.cost)}</td>
                                             <td className="px-3 py-2 text-right text-muted-foreground">{item.transactionCount}</td>
                                             <td className="px-3 py-2">
-                                                <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                    intensity === 'HIGH' ? 'bg-red-500/20 text-red-300'
-                                                        : intensity === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300'
-                                                            : 'bg-emerald-500/20 text-emerald-300'
-                                                }`}>{intensity}</span>
+                                                <span
+                                                    className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                                        intensity === 'HIGH'
+                                                            ? 'bg-red-500/20 text-red-300'
+                                                            : intensity === 'MEDIUM'
+                                                              ? 'bg-amber-500/20 text-amber-300'
+                                                              : 'bg-emerald-500/20 text-emerald-300'
+                                                    }`}
+                                                >
+                                                    {intensity}
+                                                </span>
                                             </td>
                                         </tr>
                                     );
@@ -531,14 +660,22 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
     return (
         <div className="flex flex-col gap-5">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiCard label="Total Procurements" value={String(proc.totalProcurements)}
-                    subtitle="Transactions in range" icon={Truck} />
-                <KpiCard label="Total Quantity" value={String(proc.totalQuantity)}
-                    subtitle="Units procured" icon={Package} />
-                <KpiCard label="Total Value" value={formatCurrency(proc.totalValue)}
-                    subtitle="Amount spent" icon={TrendingDown} accentClass="text-amber-400" />
-                <KpiCard label="Suppliers" value={String(proc.bySupplier.length)}
-                    subtitle="Unique suppliers" icon={Truck} accentClass="text-emerald-400" />
+                <KpiCard label="Total Procurements" value={String(proc.totalProcurements)} subtitle="Transactions in range" icon={Truck} />
+                <KpiCard label="Total Quantity" value={String(proc.totalQuantity)} subtitle="Units procured" icon={Package} />
+                <KpiCard
+                    label="Total Value"
+                    value={formatCurrency(proc.totalValue)}
+                    subtitle="Amount spent"
+                    icon={TrendingDown}
+                    accentClass="text-amber-400"
+                />
+                <KpiCard
+                    label="Suppliers"
+                    value={String(proc.bySupplier.length)}
+                    subtitle="Unique suppliers"
+                    icon={Truck}
+                    accentClass="text-emerald-400"
+                />
             </div>
 
             <div className="grid min-h-0 gap-5 lg:grid-cols-2">
@@ -546,8 +683,7 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
                     {proc.bySupplier.length === 0 ? (
                         <p className="py-12 text-center text-sm text-muted-foreground">No supplier data.</p>
                     ) : (
-                        <BarChart items={proc.bySupplier} valueKey="value" labelKey="supplier" maxBars={6}
-                            color={GOLD} />
+                        <BarChart items={proc.bySupplier} valueKey="value" labelKey="supplier" maxBars={6} color={GOLD} />
                     )}
                 </Section>
 
@@ -555,8 +691,7 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
                     {proc.monthlyBreakdown.length === 0 ? (
                         <p className="py-12 text-center text-sm text-muted-foreground">No monthly data.</p>
                     ) : (
-                        <BarChart items={proc.monthlyBreakdown} valueKey="value" labelKey="month" maxBars={6}
-                            color="#60a5fa" />
+                        <BarChart items={proc.monthlyBreakdown} valueKey="value" labelKey="month" maxBars={6} color="#60a5fa" />
                     )}
                 </Section>
             </div>
@@ -570,10 +705,10 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
                             <thead className="text-muted-foreground uppercase">
                                 <tr>
                                     <th className="px-3 py-2 font-semibold">Supplier</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Transactions</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Quantity</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Value</th>
-                                    <th className="px-3 py-2 font-semibold text-right">Unique Items</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Transactions</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Quantity</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Value</th>
+                                    <th className="px-3 py-2 text-right font-semibold">Unique Items</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -600,9 +735,15 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
 /* ------------------------------------------------------------------ */
 
 function HistoryTab() {
-    const [reports, setReports] = useState<Array<{
-        id: number; report_type: string; report_date: string; generated_date: string; generated_by: string;
-    }>>([]);
+    const [reports, setReports] = useState<
+        Array<{
+            id: number;
+            report_type: string;
+            report_date: string;
+            generated_date: string;
+            generated_by: string;
+        }>
+    >([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [typeFilter, setTypeFilter] = useState('');
@@ -621,13 +762,15 @@ function HistoryTab() {
             const res = await reportsService.getReports(filters);
             if (res.success && res.data) {
                 const paginatedData = res.data;
-                setReports((paginatedData.data ?? []).map((r: Report) => ({
-                    id: r.id,
-                    report_type: r.report_type ?? '',
-                    report_date: r.report_date ?? '',
-                    generated_date: r.generated_date ?? r.created_at ?? '',
-                    generated_by: r.generated_by ?? 'System',
-                })));
+                setReports(
+                    (paginatedData.data ?? []).map((r: Report) => ({
+                        id: r.id,
+                        report_type: r.report_type ?? '',
+                        report_date: r.report_date ?? '',
+                        generated_date: r.generated_date ?? r.created_at ?? '',
+                        generated_by: r.generated_by ?? 'System',
+                    })),
+                );
             }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to fetch reports');
@@ -636,7 +779,9 @@ function HistoryTab() {
         }
     }, [typeFilter]);
 
-    useEffect(() => { fetchReports(); }, [fetchReports]);
+    useEffect(() => {
+        fetchReports();
+    }, [fetchReports]);
 
     const handleGenerate = async (type: string) => {
         setGenMessage(null);
@@ -684,9 +829,12 @@ function HistoryTab() {
             <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">Generate:</span>
                 {typeOptions.map((type) => (
-                    <button key={type} onClick={() => handleGenerate(type)}
+                    <button
+                        key={type}
+                        onClick={() => handleGenerate(type)}
                         disabled={generating === type}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:opacity-60">
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:opacity-60"
+                    >
                         {generating === type ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
                         {formatTypeLabel(type)}
                     </button>
@@ -696,7 +844,9 @@ function HistoryTab() {
             {genMessage && (
                 <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
                     <CheckCircle2 className="h-4 w-4" /> {genMessage}
-                    <button onClick={() => setGenMessage(null)} className="ml-auto"><X className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => setGenMessage(null)} className="ml-auto">
+                        <X className="h-3.5 w-3.5" />
+                    </button>
                 </div>
             )}
             {genError && (
@@ -708,15 +858,23 @@ function HistoryTab() {
             {/* Filters */}
             <div className="flex items-center gap-3">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-                    className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground">
+                <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground"
+                >
                     <option value="">All Types</option>
                     {typeOptions.map((t) => (
-                        <option key={t} value={t}>{formatTypeLabel(t)}</option>
+                        <option key={t} value={t}>
+                            {formatTypeLabel(t)}
+                        </option>
                     ))}
                 </select>
-                <button onClick={fetchReports} disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground">
+                <button
+                    onClick={fetchReports}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                >
                     <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
                 </button>
@@ -745,26 +903,28 @@ function HistoryTab() {
                                 <th className="px-4 py-3 font-semibold">Report Date</th>
                                 <th className="px-4 py-3 font-semibold">Generated</th>
                                 <th className="px-4 py-3 font-semibold">By</th>
-                                <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                                <th className="px-4 py-3 text-right font-semibold">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {reports.map((r) => (
                                 <tr key={r.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
-                                    <td className="px-4 py-2.5 font-medium text-foreground capitalize">
-                                        {formatTypeLabel(r.report_type)}
-                                    </td>
+                                    <td className="px-4 py-2.5 font-medium text-foreground capitalize">{formatTypeLabel(r.report_type)}</td>
                                     <td className="px-4 py-2.5 text-muted-foreground">{r.report_date}</td>
                                     <td className="px-4 py-2.5 text-muted-foreground">{r.generated_date?.slice(0, 10) ?? '—'}</td>
                                     <td className="px-4 py-2.5 text-muted-foreground">{r.generated_by}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => handleExport(r.id, 'csv')}
-                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-[#1c1e23] hover:text-foreground transition-colors">
+                                            <button
+                                                onClick={() => handleExport(r.id, 'csv')}
+                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
+                                            >
                                                 CSV
                                             </button>
-                                            <button onClick={() => handleExport(r.id, 'pdf')}
-                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-[#1c1e23] hover:text-foreground transition-colors">
+                                            <button
+                                                onClick={() => handleExport(r.id, 'pdf')}
+                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
+                                            >
                                                 Print
                                             </button>
                                         </div>
@@ -799,7 +959,6 @@ export default function Reports() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
                 <div className="flex h-full min-h-0 flex-1 flex-col gap-5 overflow-y-auto pr-1">
-
                     {/* Header */}
                     <section className="rounded-2xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -816,24 +975,34 @@ export default function Reports() {
                                 {Object.entries(RANGE_CONFIG).map(([key, val]) => {
                                     const active = rangeKey === key;
                                     return (
-                                        <button key={key}
+                                        <button
+                                            key={key}
                                             onClick={() => setRangeKey(key as RangeKey)}
                                             className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                                                 active
                                                     ? 'bg-[#d4af37] text-black shadow-[0_0_14px_rgba(212,175,55,0.35)]'
                                                     : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
-                                            }`}>
+                                            }`}
+                                        >
                                             {val.label}
                                         </button>
                                     );
                                 })}
                                 {rangeKey === 'custom' && (
-                                    <input type="number" min={1} max={365} value={customDays}
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={365}
+                                        value={customDays}
                                         onChange={(e) => setCustomDays(Math.max(1, Number(e.target.value) || 30))}
-                                        className="w-16 rounded-full border border-[#d4af37]/40 bg-[#0a0b0f] px-3 py-1.5 text-xs font-semibold text-foreground text-center" />
+                                        className="w-16 rounded-full border border-[#d4af37]/40 bg-[#0a0b0f] px-3 py-1.5 text-center text-xs font-semibold text-foreground"
+                                    />
                                 )}
-                                <button onClick={refetch} disabled={loading}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60">
+                                <button
+                                    onClick={refetch}
+                                    disabled={loading}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                                >
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
                                     Refresh
                                 </button>

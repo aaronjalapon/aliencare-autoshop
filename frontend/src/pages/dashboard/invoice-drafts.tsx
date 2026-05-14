@@ -3,12 +3,7 @@ import { formatPeso } from '@/lib/jobOrderFormatters';
 import { invoiceService } from '@/services/invoiceService';
 import type { BreadcrumbItem } from '@/types';
 import type { CustomerTransaction } from '@/types/customer';
-import {
-    FileText,
-    Loader2,
-    Send,
-    XCircle,
-} from 'lucide-react';
+import { FileText, Loader2, Send, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Invoice Drafts', href: '/invoice-drafts' }];
@@ -72,16 +67,12 @@ export default function InvoiceDrafts() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
                 <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-5 overflow-hidden">
-                    {loadError && (
-                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{loadError}</div>
-                    )}
+                    {loadError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{loadError}</div>}
 
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-xl font-bold">Invoice Drafts</h2>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Review and issue invoice drafts prepared from job orders.
-                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">Review and issue invoice drafts prepared from job orders.</p>
                         </div>
                         <button
                             onClick={loadDrafts}
@@ -105,10 +96,10 @@ export default function InvoiceDrafts() {
                         </div>
                     ) : (
                         <div className="min-h-0 flex-1 overflow-auto">
-                            <div className="profile-card rounded-xl overflow-hidden">
+                            <div className="profile-card overflow-hidden rounded-xl">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="border-b border-[#2a2a2e] text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        <tr className="border-b border-[#2a2a2e] text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                                             <th className="px-4 py-3 text-left">Reference</th>
                                             <th className="px-4 py-3 text-left">Customer</th>
                                             <th className="px-4 py-3 text-right">Amount</th>
@@ -121,19 +112,13 @@ export default function InvoiceDrafts() {
                                             <tr key={draft.id} className="transition-colors hover:bg-[#0d0d10]">
                                                 <td className="px-4 py-3">
                                                     <p className="font-medium">{draft.reference_number ?? `DRAFT-${draft.id}`}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Job Order #{draft.job_order_id ?? '—'}
-                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">Job Order #{draft.job_order_id ?? '—'}</p>
                                                 </td>
-                                                <td className="px-4 py-3 text-muted-foreground">
-                                                    Customer #{draft.customer_id}
-                                                </td>
+                                                <td className="px-4 py-3 text-muted-foreground">Customer #{draft.customer_id}</td>
                                                 <td className="px-4 py-3 text-right font-semibold text-[#d4af37]">
                                                     {formatPeso(Math.abs(Number(draft.amount)))}
                                                 </td>
-                                                <td className="px-4 py-3 text-xs text-muted-foreground">
-                                                    {formatDate(draft.created_at)}
-                                                </td>
+                                                <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(draft.created_at)}</td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-end gap-1.5">
                                                         <button

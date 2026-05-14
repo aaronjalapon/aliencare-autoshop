@@ -38,9 +38,7 @@ export default function OAuthCallback() {
         <div className="flex min-h-dvh items-center justify-center bg-[#050505]">
             <div className="flex flex-col items-center gap-4">
                 <LoaderCircle className="h-8 w-8 animate-spin text-[#d4af37]" />
-                <p className="text-sm text-white/60">
-                    {status === 'error' ? 'Authentication failed. Redirecting...' : 'Completing sign in...'}
-                </p>
+                <p className="text-sm text-white/60">{status === 'error' ? 'Authentication failed. Redirecting...' : 'Completing sign in...'}</p>
             </div>
         </div>
     );

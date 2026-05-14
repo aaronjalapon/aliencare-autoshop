@@ -20,5 +20,9 @@ export function AppShell({ children, variant = 'header', className }: AppShellPr
         return <div className={`flex min-h-screen w-full flex-col ${className ?? ''}`}>{children}</div>;
     }
 
-    return <SidebarProvider defaultOpen={isOpen} className={className}>{children}</SidebarProvider>;
+    return (
+        <SidebarProvider defaultOpen={isOpen} className={className}>
+            {children}
+        </SidebarProvider>
+    );
 }

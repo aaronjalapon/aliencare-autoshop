@@ -118,7 +118,14 @@ class JobOrderService {
         return api.get<ApiResponse<PaginatedResponse<JobOrder>>>('/v1/job-orders', params);
     }
 
-    async getSlotAvailability(arrivalDate: string): Promise<ApiResponse<{ arrival_date: string; slots: Array<{ time: string; label: string; status: string; slots_left: number; capacity: number; booked: number }> }>> {
+    async getSlotAvailability(
+        arrivalDate: string,
+    ): Promise<
+        ApiResponse<{
+            arrival_date: string;
+            slots: Array<{ time: string; label: string; status: string; slots_left: number; capacity: number; booked: number }>;
+        }>
+    > {
         return api.get('/v1/job-orders/slot-availability', { arrival_date: arrivalDate });
     }
 

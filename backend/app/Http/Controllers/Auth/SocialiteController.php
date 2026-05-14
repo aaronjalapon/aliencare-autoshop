@@ -29,7 +29,7 @@ class SocialiteController
             $socialUser = Socialite::driver($provider)->user();
         } catch (\Exception $e) {
             return redirect()->to(
-                config('app.frontend_url') . '/auth/oauth-callback?status=error&message=' . urlencode('Unable to authenticate with ' . ucfirst($provider))
+                config('app.frontend_url').'/auth/oauth-callback?status=error&message='.urlencode('Unable to authenticate with '.ucfirst($provider))
             );
         }
 
@@ -39,7 +39,7 @@ class SocialiteController
                 'provider_id' => $socialUser->getId(),
             ],
             [
-                'name' => $socialUser->getName() ?? $socialUser->getNickname() ?? ucfirst($provider) . ' User',
+                'name' => $socialUser->getName() ?? $socialUser->getNickname() ?? ucfirst($provider).' User',
                 'email' => $socialUser->getEmail(),
                 'password' => Str::random(32),
                 'role' => 'customer',
@@ -49,6 +49,6 @@ class SocialiteController
 
         Auth::login($user, true);
 
-        return redirect()->to(config('app.frontend_url') . '/auth/oauth-callback?status=success');
+        return redirect()->to(config('app.frontend_url').'/auth/oauth-callback?status=success');
     }
 }
