@@ -679,6 +679,39 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * Admin/frontdesk receipt detail — not scoped to an authenticated customer.
+     */
+    public function adminBillingReceiptDetail(Request $request, int $transactionId): JsonResponse
+    {
+        try {
+            $this->ensureCanManageTransactions($request);
+
+            $receipt = CustomerTransaction::with([
+                'customer',
+                'jobOrder.service',
+                'jobOrder.items.inventoryItem',
+                'jobOrder.vehicle',
+                'jobOrder.customer',
+            ])->findOrFail($transactionId);
+
+            return response()->json([
+                'success' => true,
+                'data' => new CustomerBillingReceiptResource($receipt),
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Receipt not found.',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve receipt detail: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function linkTransaction(LinkTransactionRequest $request, int $id): JsonResponse
     {
         try {

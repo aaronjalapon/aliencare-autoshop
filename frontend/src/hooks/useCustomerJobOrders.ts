@@ -17,8 +17,7 @@ export function useCustomerJobOrders() {
             setLoading(true);
             setError(null);
             const response = await customerService.getMyJobOrders();
-            const data = (response?.data ?? []) as JobOrder[];
-            setJobOrders(data);
+            setJobOrders(response.data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch job orders');
         } finally {

@@ -43,8 +43,18 @@ export interface ApiErrorResponse {
     [key: string]: unknown;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
+}
+
+export function buildQueryParams(filters: Record<string, unknown>): Record<string, string> {
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== null && value !== '') {
+            params[key] = String(value);
+        }
+    }
+    return params;
 }
 
 function toApiErrorResponse(value: unknown): ApiErrorResponse | null {
@@ -108,7 +118,7 @@ class ApiClient {
         return response.json().catch(() => null);
     }
 
-    private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    private async request<T>(endpoint: string, options: RequestInit & { timeout?: number } = {}): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
 
         const headers: Record<string, string> = {
@@ -121,32 +131,50 @@ class ApiClient {
             headers['X-XSRF-TOKEN'] = xsrfToken;
         }
 
+        const controller = new AbortController();
+        const timeoutMs = options.timeout ?? 30000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
         const config: RequestInit = {
             ...options,
             credentials: 'include',
             headers,
+            signal: controller.signal,
         };
 
-        const response = await fetch(url, config);
+        try {
+            const response = await fetch(url, config);
 
-        if (!response.ok) {
-            const rawError = await this.parseJsonSafely(response);
-            const errorData = toApiErrorResponse(rawError);
+            if (!response.ok) {
+                const rawError = await this.parseJsonSafely(response);
+                const errorData = toApiErrorResponse(rawError);
 
-            if (response.status === 422) {
-                throw new ApiError(errorData?.message || 'Validation failed', response.status, errorData || undefined);
+                if (response.status === 422) {
+                    throw new ApiError(errorData?.message || 'Validation failed', response.status, errorData || undefined);
+                }
+
+                if (response.status === 401) {
+                    throw new ApiError('Unauthenticated', 401, errorData || undefined);
+                }
+
+                throw new ApiError(errorData?.message || `HTTP error! status: ${response.status}`, response.status, errorData || undefined);
             }
 
-            if (response.status === 401) {
-                const error = new ApiError('Unauthenticated', 401, errorData || undefined);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            if (error instanceof ApiError) {
                 throw error;
             }
 
-            throw new ApiError(errorData?.message || `HTTP error! status: ${response.status}`, response.status, errorData || undefined);
-        }
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw new ApiError('Request timed out', 408);
+            }
 
-        const data = await response.json();
-        return data;
+            throw new ApiError(error instanceof Error ? error.message : 'Network request failed', 0);
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     async get<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
@@ -187,6 +215,57 @@ class ApiClient {
             method: 'DELETE',
             body: data ? JSON.stringify(data) : undefined,
         });
+    }
+
+    async getBlob(endpoint: string, params?: Record<string, string>, accept?: string): Promise<Blob> {
+        let url = `${this.baseURL}${endpoint}`;
+        if (params) {
+            const searchParams = new URLSearchParams();
+            Object.entries(params).forEach(([key, value]) => {
+                searchParams.append(key, value);
+            });
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: Record<string, string> = {
+            ...this.defaultHeaders,
+            ...(accept ? { Accept: accept } : {}),
+        };
+
+        const xsrfToken = this.getXsrfToken();
+        if (xsrfToken) {
+            headers['X-XSRF-TOKEN'] = xsrfToken;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                headers,
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                throw new ApiError(`Export failed: HTTP ${response.status}`, response.status);
+            }
+
+            return response.blob();
+        } catch (error) {
+            if (error instanceof ApiError) {
+                throw error;
+            }
+
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw new ApiError('Request timed out', 408);
+            }
+
+            throw new ApiError(error instanceof Error ? error.message : 'Network request failed', 0);
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 }
 

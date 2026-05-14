@@ -1,25 +1,25 @@
+import PaymentSidePanel from '@/components/billing/PaymentSidePanel';
 import AppLayout from '@/components/layout/app-layout';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { buildReceiptHtml, mapCustomerBillingReceiptToPrintData } from '@/lib/receipt-print';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { billingService } from '@/services/billingService';
 import { customerService } from '@/services/customerService';
-import { frontdeskJobOrderService } from '@/services/jobOrderService';
-import { paymentService } from '@/services/paymentService';
+import { jobOrderService } from '@/services/jobOrderService';
 import { type BreadcrumbItem } from '@/types';
 import type { BillingQueueItem, BillingQueueStatus, CustomerTransaction, JobOrder, JobOrderItem } from '@/types/customer';
 import {
     Banknote,
-    CheckCircle2,
     ChevronLeft,
     ChevronRight,
     CreditCard,
-    Link2,
     Loader2,
     PencilLine,
+    Printer,
     ReceiptText,
     Search,
     Wallet,
-    X,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -264,14 +264,9 @@ export default function Billing() {
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
 
-    const [notice, setNotice] = useState<string | null>(null);
-    const [isSendingPaymentLink, setIsSendingPaymentLink] = useState(false);
 
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentTargetKey, setPaymentTargetKey] = useState<string | null>(null);
-    const [paymentError, setPaymentError] = useState<string | null>(null);
-    const [isSavingPayment, setIsSavingPayment] = useState(false);
-    const [paymentForm, setPaymentForm] = useState<PaymentFormState>(initialPaymentForm);
+    const [showPaymentPanel, setShowPaymentPanel] = useState(false);
+    const [printingTransactionId, setPrintingTransactionId] = useState<number | null>(null);
 
     const [showEditModal, setShowEditModal] = useState(false);
     const [editTargetTransaction, setEditTargetTransaction] = useState<CustomerTransaction | null>(null);
@@ -344,10 +339,13 @@ export default function Billing() {
             if (target) {
                 setSelectedTicketKey(queueKey(target));
             }
-            setSearchParams((prev) => {
-                prev.delete('job_order_id');
-                return prev;
-            }, { replace: true });
+            setSearchParams(
+                (prev) => {
+                    prev.delete('job_order_id');
+                    return prev;
+                },
+                { replace: true },
+            );
         } else if (selectedTicketKey === null || !queueTickets.some((ticket) => queueKey(ticket) === selectedTicketKey)) {
             setSelectedTicketKey(queueKey(queueTickets[0]));
         }
@@ -357,11 +355,6 @@ export default function Billing() {
         if (selectedTicketKey === null) return null;
         return queueTickets.find((ticket) => queueKey(ticket) === selectedTicketKey) ?? null;
     }, [queueTickets, selectedTicketKey]);
-
-    const paymentTargetTicket = useMemo(() => {
-        if (paymentTargetKey === null) return null;
-        return queueTickets.find((ticket) => queueKey(ticket) === paymentTargetKey) ?? null;
-    }, [paymentTargetKey, queueTickets]);
 
     const fetchTicketDetail = useCallback(async (ticket: BillingQueueItem | null) => {
         const requestId = detailRequestRef.current + 1;
@@ -384,7 +377,7 @@ export default function Billing() {
                 reference_number: ticket.pos_reference ?? undefined,
             });
 
-            const jobOrderPromise = ticket.job_order_id !== null ? frontdeskJobOrderService.getJobOrder(ticket.job_order_id) : Promise.resolve(null);
+            const jobOrderPromise = ticket.job_order_id !== null ? jobOrderService.getJobOrder(ticket.job_order_id) : Promise.resolve(null);
 
             const [transactionResult, jobOrderResult] = await Promise.allSettled([transactionPromise, jobOrderPromise]);
 
@@ -422,28 +415,6 @@ export default function Billing() {
         void fetchTicketDetail(selectedTicket);
     }, [fetchTicketDetail, selectedTicket]);
 
-    const stats = useMemo(() => {
-        const pendingCollection = queueTickets.filter((ticket) => ticket.status !== 'paid').reduce((sum, ticket) => sum + ticket.balance, 0);
-        const openOnlineBalance = queueTickets
-            .filter((ticket) => ticket.status !== 'paid' && ticket.source === 'online_booking')
-            .reduce((sum, ticket) => sum + ticket.balance, 0);
-        const walkInOpenTickets = queueTickets.filter((ticket) => ticket.status !== 'paid' && ticket.source === 'walk_in').length;
-        const averageTicketValue = queueTickets.length > 0 ? queueTickets.reduce((sum, ticket) => sum + ticket.subtotal, 0) / queueTickets.length : 0;
-
-        const today = new Date().toISOString().slice(0, 10);
-        const settledToday = queueTickets
-            .filter((ticket) => ticket.status === 'paid' && ticket.created_at.startsWith(today))
-            .reduce((sum, ticket) => sum + ticket.paid_total, 0);
-
-        return {
-            pendingCollection,
-            settledToday,
-            openOnlineBalance,
-            walkInOpenTickets,
-            averageTicketValue,
-        };
-    }, [queueTickets]);
-
     const lineItems = useMemo(() => toLineItems(selectedJobOrder, selectedTicket), [selectedJobOrder, selectedTicket]);
 
     const ledgerEntries = useMemo(() => {
@@ -476,142 +447,39 @@ export default function Billing() {
         return Math.max(0, selectedTicket.paid_total - depositCredit);
     }, [depositCredit, selectedTicket, selectedTransactions]);
 
-    const openRecordPaymentModal = () => {
+    const openRecordPaymentPanel = () => {
         if (!selectedTicket || selectedTicket.status === 'paid') return;
-
-        setPaymentTargetKey(queueKey(selectedTicket));
-        setPaymentForm({
-            amount: selectedTicket.balance.toFixed(2),
-            method: selectedTicket.source === 'online_booking' ? 'xendit' : 'cash',
-            reference: selectedTicket.pos_reference ?? '',
-            note: '',
-        });
-        setPaymentError(null);
-        setShowPaymentModal(true);
+        setShowPaymentPanel(true);
     };
 
-    const handleRecordPayment = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    const handlePaymentRecorded = useCallback(async () => {
+        await loadQueue();
+        await fetchTicketDetail(selectedTicket);
+    }, [loadQueue, fetchTicketDetail, selectedTicket]);
 
-        if (!paymentTargetTicket) {
-            return;
-        }
-
-        const parsedAmount = Number.parseFloat(paymentForm.amount);
-
-        if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-            setPaymentError('Please enter a valid payment amount greater than zero.');
-            return;
-        }
-
-        if (parsedAmount > paymentTargetTicket.balance) {
-            setPaymentError('Payment amount cannot exceed the outstanding balance.');
-            return;
-        }
-
+    const handlePrintReceipt = async (transaction: CustomerTransaction) => {
+        // Open window synchronously to avoid popup blockers
+        const pw = window.open('', '_blank', 'width=780,height=700');
+        if (!pw) return;
+        pw.document.write('<html><body style="font-family:Arial,sans-serif;text-align:center;padding:40px"><p>Loading receipt...</p></body></html>');
         try {
-            setIsSavingPayment(true);
-            setPaymentError(null);
-
-            await customerService.createCustomerTransaction(paymentTargetTicket.customer_id, {
-                type: 'payment',
-                amount: parsedAmount,
-                job_order_id: paymentTargetTicket.job_order_id ?? undefined,
-                payment_method: paymentForm.method,
-                reference_number: paymentForm.reference.trim() || paymentTargetTicket.pos_reference || null,
-                notes: paymentForm.note.trim() || null,
-            });
-
-            setNotice(`Payment recorded: ${formatPeso(parsedAmount)} for ${paymentTargetTicket.invoice_no}.`);
-            setShowPaymentModal(false);
-            setPaymentTargetKey(null);
-            setPaymentForm(initialPaymentForm);
-
-            await loadQueue();
-            await fetchTicketDetail(paymentTargetTicket);
-        } catch (error) {
-            setPaymentError(getErrorMessage(error, 'Failed to record payment.'));
+            setPrintingTransactionId(transaction.id);
+            const response = await billingService.getReceiptDetail(transaction.id);
+            const printData = mapCustomerBillingReceiptToPrintData(response.data);
+            pw.document.close();
+            pw.document.open();
+            pw.document.write(buildReceiptHtml(printData));
+            pw.document.close();
+            pw.focus();
+            setTimeout(() => {
+                pw.print();
+                pw.close();
+            }, 400);
+        } catch {
+            pw.document.write('<p style="color:red">Failed to load receipt for printing.</p>');
+            pw.document.close();
         } finally {
-            setIsSavingPayment(false);
-        }
-    };
-
-    const settleSelectedBalance = async () => {
-        if (!selectedTicket || selectedTicket.balance <= 0) return;
-
-        const settlementMethod: PaymentMethod = selectedTicket.source === 'online_booking' ? 'xendit' : 'cash';
-
-        try {
-            await customerService.createCustomerTransaction(selectedTicket.customer_id, {
-                type: 'payment',
-                amount: selectedTicket.balance,
-                job_order_id: selectedTicket.job_order_id ?? undefined,
-                payment_method: settlementMethod,
-                reference_number: selectedTicket.pos_reference,
-                notes: 'Full settlement captured by frontdesk quick action.',
-            });
-
-            setNotice(`Invoice ${selectedTicket.invoice_no} settled in full.`);
-            await loadQueue();
-            await fetchTicketDetail(selectedTicket);
-        } catch (error) {
-            setNotice(getErrorMessage(error, 'Failed to settle remaining balance.'));
-        }
-    };
-
-    const sendPaymentLink = async () => {
-        if (!selectedTicket) return;
-
-        if (selectedTicket.source !== 'online_booking') {
-            setNotice('Hosted payment links are only used for online booking settlements.');
-            return;
-        }
-
-        if (selectedTicket.status === 'paid') {
-            setNotice('This invoice is already fully paid.');
-            return;
-        }
-
-        if (selectedTicket.balance <= 0) {
-            setNotice('No remaining balance found for hosted invoice generation.');
-            return;
-        }
-
-        try {
-            setIsSendingPaymentLink(true);
-
-            const pendingInvoice = selectedTransactions.find(
-                (transaction) =>
-                    (transaction.type === 'invoice' || transaction.type === 'reservation_fee') &&
-                    (transaction.xendit_status ?? '').toUpperCase() !== 'PAID',
-            );
-
-            let transactionId = pendingInvoice?.id;
-
-            if (!transactionId) {
-                const createResponse = await customerService.createCustomerTransaction(selectedTicket.customer_id, {
-                    type: 'invoice',
-                    amount: selectedTicket.balance,
-                    job_order_id: selectedTicket.job_order_id ?? undefined,
-                    payment_method: 'xendit',
-                    reference_number: selectedTicket.job_order_no ?? selectedTicket.pos_reference,
-                    notes: 'Hosted invoice generated by frontdesk billing workspace.',
-                });
-
-                transactionId = createResponse.data.id;
-            }
-
-            const invoiceResponse = await paymentService.createInvoice(transactionId);
-            const paymentUrl = invoiceResponse.data.payment_url;
-
-            setNotice(`Hosted invoice link generated for ${selectedTicket.invoice_no}: ${paymentUrl}`);
-
-            await loadQueue();
-            await fetchTicketDetail(selectedTicket);
-        } catch (error) {
-            setNotice(getErrorMessage(error, 'Failed to generate hosted payment link.'));
-        } finally {
-            setIsSendingPaymentLink(false);
+            setPrintingTransactionId(null);
         }
     };
 
@@ -663,7 +531,6 @@ export default function Billing() {
 
             await customerService.updateCustomerTransaction(selectedTicket.customer_id, editTargetTransaction.id, payload);
 
-            setNotice(`Transaction ${editTargetTransaction.id} updated successfully.`);
             setShowEditModal(false);
             setEditTargetTransaction(null);
 
@@ -680,72 +547,16 @@ export default function Billing() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
                 <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-5 overflow-hidden">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                        <div>
-                            <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Track invoices, record deposits, process payments, and release vehicles when balances clear.
-                            </p>
-                            {notice && <p className="mt-2 text-xs text-[#d4af37]">{notice}</p>}
-                            {queueError && <p className="mt-2 text-xs text-red-400">{queueError}</p>}
-                            {detailError && <p className="mt-1 text-xs text-red-400">{detailError}</p>}
-                        </div>
+                    {queueError && (
+                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{queueError}</div>
+                    )}
+                    {detailError && (
+                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{detailError}</div>
+                    )}
 
-                        <div className="flex flex-wrap items-center gap-2">
-                            <button
-                                onClick={sendPaymentLink}
-                                disabled={
-                                    !selectedTicket ||
-                                    selectedTicket.status === 'paid' ||
-                                    selectedTicket.source !== 'online_booking' ||
-                                    isSendingPaymentLink
-                                }
-                                className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {isSendingPaymentLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />} Send Payment
-                                Link
-                            </button>
-                            <button
-                                onClick={openRecordPaymentModal}
-                                disabled={!selectedTicket || selectedTicket.status === 'paid'}
-                                className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                            >
-                                <Wallet className="h-4 w-4" /> Record Payment
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Pending Collection</p>
-                            <p className="mt-2 text-3xl font-bold">{formatPeso(stats.pendingCollection)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Visible queue open balances</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Settled Today</p>
-                            <p className="mt-2 text-3xl font-bold">{formatPeso(stats.settledToday)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Paid tickets created today (current page)</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Online Open Balance</p>
-                            <p className="mt-2 text-3xl font-bold">{formatPeso(stats.openOnlineBalance)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Online bookings pending final release payment</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Walk-in Open Tickets</p>
-                            <p className="mt-2 text-3xl font-bold">{stats.walkInOpenTickets}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">On-site tickets not fully settled</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Average Ticket Value</p>
-                            <p className="mt-2 text-3xl font-bold">{formatPeso(stats.averageTicketValue)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Across visible service and retail invoices</p>
-                        </div>
-                    </div>
-
-                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[1.6fr_1fr]">
-                        <div className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex flex-col gap-3">
+                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden lg:grid-cols-[1.6fr_1fr]">
+                        <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
+                            <div className="mb-4 flex shrink-0 flex-col gap-3">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
@@ -815,8 +626,8 @@ export default function Billing() {
                                 </div>
                             </div>
 
-                            <div className="overflow-hidden rounded-xl border border-[#2a2a2e]">
-                                <div className="hidden grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
+                            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#2a2a2e]">
+                                <div className="hidden shrink-0 items-center grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Invoice</span>
                                     <span>Customer</span>
                                     <span>Reference</span>
@@ -825,7 +636,7 @@ export default function Billing() {
                                     <span>Status</span>
                                 </div>
 
-                                <div className="max-h-140 overflow-y-auto">
+                                <div className="flex-1 overflow-y-auto">
                                     {isLoadingQueue ? (
                                         <div className="px-5 py-16 text-center text-sm text-muted-foreground">
                                             <div className="inline-flex items-center gap-2">
@@ -843,7 +654,7 @@ export default function Billing() {
                                                 <button
                                                     key={queueKey(ticket)}
                                                     onClick={() => setSelectedTicketKey(queueKey(ticket))}
-                                                    className={`grid w-full border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 lg:grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] ${
+                                                    className={`grid w-full items-center border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 lg:grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_0.8fr] ${
                                                         isSelected
                                                             ? 'bg-[#d4af37]/7 shadow-[inset_0_0_0_1px_rgba(212,175,55,0.55)]'
                                                             : 'hover:bg-[#1a1b20]/65'
@@ -921,174 +732,181 @@ export default function Billing() {
                         <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                             {selectedTicket ? (
                                 <>
-                                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                                    <div>
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                                    {selectedTicket.invoice_no}
-                                                </p>
-                                                <h2 className="mt-1 text-xl font-bold">{selectedTicket.customer_name}</h2>
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    {selectedTicket.job_order_no ?? selectedTicket.pos_reference ?? 'Reference pending'}
-                                                </p>
-                                            </div>
-                                            <span
-                                                className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[selectedTicket.status]}`}
-                                            >
-                                                {statusLabels[selectedTicket.status]}
-                                            </span>
-                                        </div>
-
-                                        <div className="mt-3 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
-                                            {selectedTicket.source === 'online_booking' ? (
-                                                <p>
-                                                    Online booking workflow: verify booking deposit, send hosted invoice if requested, then settle
-                                                    remaining balance before releasing vehicle.
-                                                </p>
-                                            ) : (
-                                                <p>
-                                                    Walk-in workflow: collect same-day payment on-site, then finalize release after complete
-                                                    settlement and receipt confirmation.
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
-                                        <div className="mb-2 flex items-center justify-between text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1">
-                                                <ReceiptText className="h-3.5 w-3.5" /> Subtotal
-                                            </span>
-                                            <span className="font-semibold text-foreground">{formatPeso(selectedTicket.subtotal)}</span>
-                                        </div>
-                                        <div className="mb-2 flex items-center justify-between text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1">
-                                                <CreditCard className="h-3.5 w-3.5" /> Deposit Credit
-                                            </span>
-                                            <span className="font-semibold text-foreground">{formatPeso(depositCredit)}</span>
-                                        </div>
-                                        <div className="mb-2 flex items-center justify-between text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1">
-                                                <Banknote className="h-3.5 w-3.5" /> Recorded Payments
-                                            </span>
-                                            <span className="font-semibold text-foreground">{formatPeso(recordedPayments)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between border-t border-[#2a2a2e] pt-2 text-sm">
-                                            <span className="font-semibold text-[#d4af37]">Outstanding Balance</span>
-                                            <span className="font-bold text-[#d4af37]">{formatPeso(selectedTicket.balance)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
-                                        <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Line Items</p>
-                                        <div className="space-y-2 text-sm">
-                                            {lineItems.map((item) => (
-                                                <div key={item.id} className="flex items-center justify-between gap-3">
-                                                    <div>
-                                                        <p>{item.description}</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {item.quantity} x {formatPeso(item.unitPrice)}
-                                                        </p>
-                                                    </div>
-                                                    <p className="font-semibold">{formatPeso(item.totalPrice)}</p>
+                                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+                                        <div>
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div>
+                                                    <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                                        {selectedTicket.invoice_no}
+                                                    </p>
+                                                    <h2 className="mt-1 text-xl font-bold">{selectedTicket.customer_name}</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">
+                                                        {selectedTicket.job_order_no ?? selectedTicket.pos_reference ?? 'Reference pending'}
+                                                    </p>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
-                                        <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Payment Ledger</p>
-
-                                        {isLoadingDetail ? (
-                                            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                                                <Loader2 className="h-4 w-4 animate-spin" /> Loading ledger entries...
+                                                <span
+                                                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[selectedTicket.status]}`}
+                                                >
+                                                    {statusLabels[selectedTicket.status]}
+                                                </span>
                                             </div>
-                                        ) : ledgerEntries.length === 0 ? (
-                                            <p className="text-xs text-muted-foreground">No payment entries yet.</p>
-                                        ) : (
-                                            <div className="space-y-2 text-sm">
-                                                {ledgerEntries.map((transaction) => {
-                                                    const isRefund = transaction.type === 'refund';
-                                                    const isDeposit = transaction.type === 'reservation_fee';
-                                                    const canEditAmount = !transactionLockedForAmount(transaction);
 
-                                                    return (
-                                                        <div
-                                                            key={transaction.id}
-                                                            className="rounded-md border border-[#2a2a2e] bg-[#090a0d] px-3 py-2"
-                                                        >
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <div>
-                                                                    <p className="font-medium">{transactionTitle(transaction)}</p>
-                                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                                        {formatDateTime(transaction.paid_at ?? transaction.created_at)} ·{' '}
-                                                                        {paymentMethodLabel(transaction.payment_method)}
+                                            <div className="mt-3 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
+                                                {selectedTicket.source === 'online_booking' ? (
+                                                    <p>
+                                                        Online booking workflow: verify booking deposit, send hosted invoice if requested, then settle
+                                                        remaining balance before releasing vehicle.
+                                                    </p>
+                                                ) : (
+                                                    <p>
+                                                        Walk-in workflow: collect same-day payment on-site, then finalize release after complete
+                                                        settlement and receipt confirmation.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
+                                            <div className="mb-2 flex items-center justify-between text-muted-foreground">
+                                                <span className="inline-flex items-center gap-1">
+                                                    <ReceiptText className="h-3.5 w-3.5" /> Subtotal
+                                                </span>
+                                                <span className="font-semibold text-foreground">{formatPeso(selectedTicket.subtotal)}</span>
+                                            </div>
+                                            <div className="mb-2 flex items-center justify-between text-muted-foreground">
+                                                <span className="inline-flex items-center gap-1">
+                                                    <CreditCard className="h-3.5 w-3.5" /> Deposit Credit
+                                                </span>
+                                                <span className="font-semibold text-foreground">{formatPeso(depositCredit)}</span>
+                                            </div>
+                                            <div className="mb-2 flex items-center justify-between text-muted-foreground">
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Banknote className="h-3.5 w-3.5" /> Recorded Payments
+                                                </span>
+                                                <span className="font-semibold text-foreground">{formatPeso(recordedPayments)}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between border-t border-[#2a2a2e] pt-2 text-sm">
+                                                <span className="font-semibold text-[#d4af37]">Outstanding Balance</span>
+                                                <span className="font-bold text-[#d4af37]">{formatPeso(selectedTicket.balance)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
+                                            <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Line Items</p>
+                                            <div className="space-y-2 text-sm">
+                                                {lineItems.map((item) => (
+                                                    <div key={item.id} className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <p>{item.description}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {item.quantity} x {formatPeso(item.unitPrice)}
+                                                            </p>
+                                                        </div>
+                                                        <p className="font-semibold">{formatPeso(item.totalPrice)}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
+                                            <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Payment Ledger</p>
+
+                                            {isLoadingDetail ? (
+                                                <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading ledger entries...
+                                                </div>
+                                            ) : ledgerEntries.length === 0 ? (
+                                                <p className="text-xs text-muted-foreground">No payment entries yet.</p>
+                                            ) : (
+                                                <div className="space-y-2 text-sm">
+                                                    {ledgerEntries.map((transaction) => {
+                                                        const isRefund = transaction.type === 'refund';
+                                                        const isDeposit = transaction.type === 'reservation_fee';
+                                                        const canEditAmount = !transactionLockedForAmount(transaction);
+
+                                                        return (
+                                                            <div
+                                                                key={transaction.id}
+                                                                className="rounded-md border border-[#2a2a2e] bg-[#090a0d] px-3 py-2"
+                                                            >
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div>
+                                                                        <p className="font-medium">{transactionTitle(transaction)}</p>
+                                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                                            {formatDateTime(transaction.paid_at ?? transaction.created_at)} ·{' '}
+                                                                            {paymentMethodLabel(transaction.payment_method)}
+                                                                        </p>
+                                                                    </div>
+                                                                    <p className={`font-semibold ${isRefund ? 'text-rose-300' : 'text-emerald-300'}`}>
+                                                                        {formatPeso(Math.abs(Number(transaction.amount)))}
                                                                     </p>
                                                                 </div>
-                                                                <p className={`font-semibold ${isRefund ? 'text-rose-300' : 'text-emerald-300'}`}>
-                                                                    {formatPeso(Math.abs(Number(transaction.amount)))}
-                                                                </p>
-                                                            </div>
 
-                                                            <div className="mt-1 flex items-center justify-between gap-2">
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Ref: {transaction.reference_number ?? 'N/A'}
-                                                                </p>
-                                                                {!isDeposit && (
-                                                                    <button
-                                                                        onClick={() => openEditPaymentModal(transaction)}
-                                                                        className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                                                    >
-                                                                        <PencilLine className="h-3 w-3" />
-                                                                        {canEditAmount ? 'Edit' : 'Annotate'}
-                                                                    </button>
+                                                                <div className="mt-1 flex items-center justify-between gap-2">
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Ref: {transaction.reference_number ?? 'N/A'}
+                                                                    </p>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <button
+                                                                            onClick={() => handlePrintReceipt(transaction)}
+                                                                            disabled={printingTransactionId === transaction.id || !transactionCountsAsPaid(transaction)}
+                                                                            className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                                                            title="Print receipt"
+                                                                        >
+                                                                            {printingTransactionId === transaction.id ? (
+                                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                                            ) : (
+                                                                                <Printer className="h-3 w-3" />
+                                                                            )}
+                                                                            Receipt
+                                                                        </button>
+                                                                        {!isDeposit && (
+                                                                            <button
+                                                                                onClick={() => openEditPaymentModal(transaction)}
+                                                                                className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                                                            >
+                                                                                <PencilLine className="h-3 w-3" />
+                                                                                {canEditAmount ? 'Edit' : 'Annotate'}
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {transaction.notes && (
+                                                                    <p className="mt-1 text-xs text-muted-foreground">{transaction.notes}</p>
                                                                 )}
                                                             </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
 
-                                                            {transaction.notes && (
-                                                                <p className="mt-1 text-xs text-muted-foreground">{transaction.notes}</p>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
+                                            <p>
+                                                Advisor: <span className="text-foreground">{selectedTicket.service_advisor ?? 'Unassigned'}</span>
+                                            </p>
+                                            <p className="mt-1">
+                                                Vehicle: <span className="text-foreground">{vehicleLabel(selectedTicket)}</span>
+                                            </p>
+                                            <p className="mt-1">
+                                                Terms:{' '}
+                                                <span className="text-foreground">
+                                                    {selectedTicket.payment_terms ?? 'Settle outstanding amount before release'}
+                                                </span>
+                                            </p>
+                                            <p className="mt-1">
+                                                Notes: <span className="text-foreground">{selectedTicket.notes ?? 'No notes provided.'}</span>
+                                            </p>
+                                        </div>
                                     </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
-                                        <p>
-                                            Advisor: <span className="text-foreground">{selectedTicket.service_advisor ?? 'Unassigned'}</span>
-                                        </p>
-                                        <p className="mt-1">
-                                            Vehicle: <span className="text-foreground">{vehicleLabel(selectedTicket)}</span>
-                                        </p>
-                                        <p className="mt-1">
-                                            Terms:{' '}
-                                            <span className="text-foreground">
-                                                {selectedTicket.payment_terms ?? 'Settle outstanding amount before release'}
-                                            </span>
-                                        </p>
-                                        <p className="mt-1">
-                                            Notes: <span className="text-foreground">{selectedTicket.notes ?? 'No notes provided.'}</span>
-                                        </p>
-                                    </div>
-
-                                    </div>
-                                    <div className="shrink-0 grid gap-2 pt-4">
+                                    <div className="shrink-0 pt-4">
                                         <button
-                                            onClick={openRecordPaymentModal}
+                                            onClick={openRecordPaymentPanel}
                                             disabled={selectedTicket.status === 'paid'}
-                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                                         >
                                             <Wallet className="h-4 w-4" /> Record Payment
-                                        </button>
-                                        <button
-                                            onClick={settleSelectedBalance}
-                                            disabled={selectedTicket.status === 'paid'}
-                                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
-                                        >
-                                            <CheckCircle2 className="h-4 w-4" /> Settle Remaining Balance
                                         </button>
                                     </div>
                                 </>
@@ -1102,119 +920,23 @@ export default function Billing() {
                 </div>
             </div>
 
-            {showPaymentModal && paymentTargetTicket && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowPaymentModal(false)}>
-                    <div className="profile-card w-full max-w-lg rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-                        <div className="mb-4 flex items-start justify-between">
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#d4af37] uppercase">Record Payment</p>
-                                <h3 className="mt-1 text-lg font-semibold">{paymentTargetTicket.invoice_no}</h3>
-                                <p className="text-sm text-muted-foreground">Outstanding: {formatPeso(paymentTargetTicket.balance)}</p>
-                            </div>
-                            <button
-                                onClick={() => setShowPaymentModal(false)}
-                                className="rounded-md border border-[#2a2a2e] p-2 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleRecordPayment} className="space-y-3">
-                            <div>
-                                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Amount</label>
-                                <input
-                                    value={paymentForm.amount}
-                                    onChange={(event) => setPaymentForm((prev) => ({ ...prev, amount: event.target.value }))}
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Payment Method</label>
-                                <select
-                                    value={paymentForm.method}
-                                    onChange={(event) =>
-                                        setPaymentForm((prev) => ({
-                                            ...prev,
-                                            method: event.target.value as PaymentMethod,
-                                        }))
-                                    }
-                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                                >
-                                    <option value="cash">Cash</option>
-                                    <option value="card">Card Terminal</option>
-                                    <option value="gcash">GCash</option>
-                                    <option value="maya">Maya</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="xendit">Xendit Hosted Invoice</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Reference (optional)</label>
-                                <input
-                                    value={paymentForm.reference}
-                                    onChange={(event) => setPaymentForm((prev) => ({ ...prev, reference: event.target.value }))}
-                                    placeholder="Terminal ID / e-wallet reference"
-                                    className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="mb-1 block text-xs font-semibold text-muted-foreground">Note (optional)</label>
-                                <textarea
-                                    value={paymentForm.note}
-                                    onChange={(event) => setPaymentForm((prev) => ({ ...prev, note: event.target.value }))}
-                                    rows={3}
-                                    className="w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:outline-none"
-                                    placeholder="Settlement remarks"
-                                />
-                            </div>
-
-                            {paymentError && <p className="text-xs text-red-400">{paymentError}</p>}
-
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPaymentModal(false)}
-                                    className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSavingPayment}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {isSavingPayment && <Loader2 className="h-4 w-4 animate-spin" />}
-                                    Save Payment
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            {selectedTicket && (
+                <PaymentSidePanel
+                    open={showPaymentPanel}
+                    onOpenChange={setShowPaymentPanel}
+                    ticket={selectedTicket}
+                    transactions={selectedTransactions}
+                    onPaymentRecorded={handlePaymentRecorded}
+                />
             )}
 
-            {showEditModal && editTargetTransaction && selectedTicket && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowEditModal(false)}>
-                    <div className="profile-card w-full max-w-lg rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-                        <div className="mb-4 flex items-start justify-between">
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#d4af37] uppercase">Update Transaction</p>
-                                <h3 className="mt-1 text-lg font-semibold">Entry #{editTargetTransaction.id}</h3>
-                                <p className="text-sm text-muted-foreground">{selectedTicket.invoice_no}</p>
-                            </div>
-                            <button
-                                onClick={() => setShowEditModal(false)}
-                                className="rounded-md border border-[#2a2a2e] p-2 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
+            <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+                {editTargetTransaction && selectedTicket && (
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Update Transaction Entry #{editTargetTransaction.id}</DialogTitle>
+                            <DialogDescription>{selectedTicket.invoice_no}</DialogDescription>
+                        </DialogHeader>
 
                         <form onSubmit={handleUpdatePayment} className="space-y-3">
                             <div>
@@ -1280,7 +1002,7 @@ export default function Billing() {
 
                             {editError && <p className="text-xs text-red-400">{editError}</p>}
 
-                            <div className="flex justify-end gap-2">
+                            <DialogFooter>
                                 <button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
@@ -1296,11 +1018,11 @@ export default function Billing() {
                                     {isUpdatingPayment && <Loader2 className="h-4 w-4 animate-spin" />}
                                     Update Entry
                                 </button>
-                            </div>
+                            </DialogFooter>
                         </form>
-                    </div>
-                </div>
-            )}
+                    </DialogContent>
+                )}
+            </Dialog>
         </AppLayout>
     );
 }

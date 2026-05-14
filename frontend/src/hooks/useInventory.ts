@@ -7,6 +7,7 @@ import { getApiErrorMessage } from '@/lib/api-error-message';
 import { alertService, type Alert } from '@/services/alertService';
 import { ApiResponse, PaginatedResponse } from '@/services/api';
 import { InventoryFilters, inventoryService, NewInventoryItem, ReturnDamageOperation, StockOperation } from '@/services/inventoryService';
+import { reportsService } from '@/services/reportsService';
 import { DashboardAnalytics, InventoryItem, StockTransaction } from '@/types/inventory';
 import { dispatchInventoryUpdate, dispatchStockTransaction, inventoryEvents } from '@/utils/inventoryEvents';
 import { useCallback, useEffect, useState } from 'react';
@@ -234,20 +235,14 @@ export function useLowStockAlerts() {
             setLoading(true);
             setError(null);
             const response = await alertService.getAlerts({ acknowledged: false, per_page: 5 });
-            const normalizedAlerts = response.data.data.filter(
-                (alert) => alert.alert_type === 'low_stock' || alert.alert_type === 'out_of_stock',
-            );
+            const normalizedAlerts = response.data.data.filter((alert) => alert.alert_type === 'low_stock' || alert.alert_type === 'out_of_stock');
 
             if (normalizedAlerts.length === 0 && response.data.total === 0) {
                 const generateResponse = await alertService.generateLowStockAlerts();
 
                 if (generateResponse.success && generateResponse.data.alerts_created > 0) {
                     const refreshedResponse = await alertService.getAlerts({ acknowledged: false, per_page: 5 });
-                    setData(
-                        refreshedResponse.data.data.filter(
-                            (alert) => alert.alert_type === 'low_stock' || alert.alert_type === 'out_of_stock',
-                        ),
-                    );
+                    setData(refreshedResponse.data.data.filter((alert) => alert.alert_type === 'low_stock' || alert.alert_type === 'out_of_stock'));
                     return;
                 }
             }
@@ -284,7 +279,7 @@ export function useDashboardAnalytics() {
         try {
             setLoading(true);
             setError(null);
-            const response = await inventoryService.getDashboardAnalytics();
+            const response = await reportsService.getDashboardAnalytics();
             setData(response.data);
         } catch (err) {
             setError(getApiErrorMessage(err, 'Failed to fetch analytics'));

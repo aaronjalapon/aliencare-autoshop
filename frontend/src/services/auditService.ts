@@ -4,8 +4,8 @@
  */
 
 import { AuditLog, AuditLogFilters, AuditStats, AuditTransaction, StockTransaction } from '@/types/inventory';
-import { normalizeAuditTransaction, normalizeStockTransactions } from './inventoryWorkspaceNormalizers';
 import { api, ApiResponse, PaginatedResponse } from './api';
+import { normalizeAuditTransaction, normalizeStockTransactions } from './inventoryWorkspaceNormalizers';
 
 class AuditService {
     // Get audit logs (archives) with pagination and filters

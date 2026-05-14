@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { reportsService } from '../services/reportsService';
 import { inventoryEvents } from '../utils/inventoryEvents';
+import { isRecord, toNumber, toStringValue } from '@/lib/reports-utils';
 
 export interface UsageReportData {
     item_id: number;
@@ -45,27 +46,6 @@ export interface UsageAnalytics {
 export interface UseUsageReportsProps {
     reportPeriod?: 'daily' | 'weekly' | 'monthly';
     selectedCategory?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-
-    if (typeof value === 'string') {
-        const parsed = Number.parseFloat(value);
-        return Number.isFinite(parsed) ? parsed : fallback;
-    }
-
-    return fallback;
-}
-
-function toStringValue(value: unknown, fallback = ''): string {
-    return typeof value === 'string' ? value : fallback;
 }
 
 function createEmptyAnalytics(startDate: string, endDate: string): UsageAnalytics {

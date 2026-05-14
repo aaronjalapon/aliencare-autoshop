@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom';
 interface AppLayoutProps {
     children?: ReactNode;
     breadcrumbs?: BreadcrumbItem[];
+    actions?: ReactNode;
 }
 
 export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => (

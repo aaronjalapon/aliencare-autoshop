@@ -3,8 +3,8 @@
  * Handles all reporting and analytics API calls to Laravel backend
  */
 
-import { Report } from '@/types/inventory';
-import { api, ApiResponse, PaginatedResponse } from './api';
+import { DashboardAnalytics, Report } from '@/types/inventory';
+import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
 export interface ReportFilters {
     report_type?: 'daily_usage' | 'monthly_procurement' | 'reconciliation' | 'low_stock' | 'reservation_summary';
@@ -26,44 +26,6 @@ export interface MonthlyProcurementRequest {
 export interface ReconciliationRequest {
     start_date: string;
     end_date: string;
-}
-
-export interface ReportsDashboardAnalytics {
-    inventory_value: number;
-    low_stock_count: number;
-    pending_reservations: number;
-    today_transactions: number;
-    weekly_sales: number;
-    monthly_procurement: number;
-    job_pipeline: {
-        completed: number;
-        in_progress: number;
-        queued: number;
-    };
-    total_items?: number;
-    total_value?: number;
-    active_reservations?: number;
-    recent_transactions?: Array<{
-        id: number;
-        item_id: number;
-        transaction_type: string;
-        quantity: number;
-        created_at: string;
-        inventory_item?: {
-            item_id: number | null;
-            item_name: string | null;
-        };
-    }>;
-    top_categories?: Array<{
-        category: string;
-        count: number;
-        value: number;
-    }>;
-    monthly_trends?: Array<{
-        month: string;
-        procurement_value: number;
-        usage_value: number;
-    }>;
 }
 
 export interface UsageAnalyticsResponse {
@@ -176,14 +138,7 @@ export interface ProcurementAnalyticsResponse {
 class ReportsService {
     // Get all reports with pagination and filters
     async getReports(filters: ReportFilters = {}): Promise<ApiResponse<PaginatedResponse<Report>>> {
-        const params: Record<string, string | number> = {};
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params[key] = String(value);
-            }
-        });
-
+        const params = buildQueryParams(filters as Record<string, unknown>);
         return api.get<ApiResponse<PaginatedResponse<Report>>>('/v1/reports', params);
     }
 
@@ -208,8 +163,8 @@ class ReportsService {
     }
 
     // Get dashboard analytics
-    async getDashboardAnalytics(): Promise<ApiResponse<ReportsDashboardAnalytics>> {
-        return api.get<ApiResponse<ReportsDashboardAnalytics>>('/v1/reports/analytics/dashboard');
+    async getDashboardAnalytics(): Promise<ApiResponse<DashboardAnalytics>> {
+        return api.get<ApiResponse<DashboardAnalytics>>('/v1/reports/analytics/dashboard');
     }
 
     // Get usage analytics for specific period
@@ -225,21 +180,10 @@ class ReportsService {
         });
     }
 
-    // Export report to PDF/Excel (if implemented in backend)
-    async exportReport(reportId: number, format: 'pdf' | 'excel'): Promise<Blob> {
-        const response = await fetch(`${window.location.origin}/api/v1/reports/${reportId}/export?format=${format}`, {
-            method: 'GET',
-            headers: {
-                Accept: format === 'pdf' ? 'application/pdf' : 'application/vnd.ms-excel',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`Export failed: ${response.statusText}`);
-        }
-
-        return response.blob();
+    // Export report to PDF/CSV
+    async exportReport(reportId: number, format: 'pdf' | 'csv'): Promise<Blob> {
+        const accept = format === 'pdf' ? 'text/html' : 'text/csv';
+        return api.getBlob(`/v1/reports/${reportId}/export`, { format }, accept);
     }
 }
 

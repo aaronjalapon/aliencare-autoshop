@@ -306,6 +306,191 @@ class PaymentController extends Controller
         return response()->json(['message' => 'OK']);
     }
 
+    // ── Frontdesk endpoints ──────────────────────────────────────────────
+
+    /**
+     * Create a Xendit hosted invoice from the frontdesk (billing/POS).
+     * Not scoped to the authenticated customer — staff can generate
+     * payment links for any customer.
+     */
+    public function createFrontdeskInvoice(Request $request, XenditService $xenditService): JsonResponse
+    {
+        Gate::authorize('manage-pos');
+
+        $transactionId = $request->input('transaction_id');
+
+        if ($transactionId) {
+            $transaction = CustomerTransaction::findOrFail($transactionId);
+            $transactionType = $transaction->type?->value ?? (string) $transaction->type;
+
+            if (! in_array($transactionType, [CustomerTransactionType::Invoice->value, CustomerTransactionType::ReservationFee->value], true)) {
+                return $this->errorResponse('Only invoice and reservation-fee transactions can be paid via Xendit.', 422);
+            }
+
+            if ($transaction->xendit_status === 'PAID') {
+                return $this->errorResponse('This transaction has already been paid.', 422);
+            }
+
+            // Reuse existing pending invoice
+            if ($transaction->payment_url && $transaction->xendit_status === 'PENDING') {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'payment_url' => $transaction->payment_url,
+                        'transaction_id' => $transaction->id,
+                        'xendit_invoice_id' => $transaction->xendit_invoice_id,
+                    ],
+                ]);
+            }
+        } else {
+            // Create a new Invoice transaction inline
+            $validated = $request->validate([
+                'customer_id' => ['required', 'integer', 'exists:customers,id'],
+                'amount' => ['required', 'numeric', 'min:0.01'],
+                'job_order_id' => ['nullable', 'integer', 'exists:job_orders,id'],
+                'payment_method' => ['nullable', 'string', 'max:50'],
+                'reference_number' => ['nullable', 'string', 'max:100'],
+                'notes' => ['nullable', 'string', 'max:500'],
+            ]);
+
+            $transaction = CustomerTransaction::create([
+                'customer_id' => (int) $validated['customer_id'],
+                'job_order_id' => $validated['job_order_id'] ?? null,
+                'type' => CustomerTransactionType::Invoice,
+                'amount' => (float) $validated['amount'],
+                'payment_method' => $validated['payment_method'] ?? null,
+                'reference_number' => $validated['reference_number'] ?? null,
+                'notes' => $validated['notes'] ?? 'Frontdesk online payment invoice',
+            ]);
+        }
+
+        $customer = Customer::findOrFail($transaction->customer_id);
+
+        try {
+            $paymentUrl = $xenditService->createInvoice($transaction, $customer);
+        } catch (PaymentGatewayException $e) {
+            return $this->paymentGatewayErrorResponse($e);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payment_url' => $paymentUrl,
+                'transaction_id' => $transaction->id,
+                'xendit_invoice_id' => $transaction->fresh()->xendit_invoice_id,
+            ],
+            'message' => 'Xendit payment link generated.',
+        ]);
+    }
+
+    /**
+     * Record an in-person payment (cash/card) from the frontdesk.
+     * Creates a Payment transaction and auto-settles the job order if fully paid.
+     */
+    public function recordPayment(Request $request): JsonResponse
+    {
+        Gate::authorize('manage-pos');
+
+        $validated = $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'job_order_id' => ['nullable', 'integer', 'exists:job_orders,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference_number' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $transaction = CustomerTransaction::create([
+            'customer_id' => (int) $validated['customer_id'],
+            'job_order_id' => $validated['job_order_id'] ?? null,
+            'type' => CustomerTransactionType::Payment,
+            'amount' => (float) $validated['amount'],
+            'payment_method' => $validated['payment_method'],
+            'reference_number' => $validated['reference_number'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'xendit_status' => null,
+            'paid_at' => now(),
+        ]);
+
+        $settled = false;
+        if ($validated['job_order_id'] ?? null) {
+            $this->settleJobOrderIfFullyPaid($transaction);
+            $jobOrder = JobOrder::find($validated['job_order_id']);
+            $settled = $jobOrder?->settled_flag ?? false;
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'transaction' => new \App\Http\Resources\CustomerTransactionResource($transaction),
+                'settled' => $settled,
+            ],
+            'message' => $settled
+                ? 'Payment recorded and job order settled.'
+                : 'Payment recorded successfully.',
+        ], 201);
+    }
+
+    /**
+     * Sync a single transaction's Xendit invoice status from the frontdesk.
+     * Useful when the customer confirms payment but the webhook hasn't arrived yet.
+     */
+    public function syncFrontdeskStatus(Request $request, XenditService $xenditService): JsonResponse
+    {
+        Gate::authorize('manage-pos');
+
+        $validated = $request->validate([
+            'transaction_id' => ['required', 'integer', 'exists:customer_transactions,id'],
+        ]);
+
+        $transaction = CustomerTransaction::findOrFail($validated['transaction_id']);
+
+        if (! $transaction->xendit_invoice_id) {
+            return $this->errorResponse('This transaction has no Xendit invoice to sync.', 422);
+        }
+
+        $snapshot = $xenditService->getInvoiceSnapshot($transaction->xendit_invoice_id);
+
+        if (! $snapshot) {
+            return $this->errorResponse('Unable to fetch invoice status from Xendit.', 502);
+        }
+
+        $status = $snapshot['status'] ?? null;
+        $paymentMethod = $snapshot['payment_method'] ?? null;
+
+        if (! is_string($status) || trim($status) === '') {
+            return $this->errorResponse('Invalid response from Xendit.', 502);
+        }
+
+        $normalizedStatus = trim($status);
+        $previousStatus = $transaction->xendit_status;
+
+        $transaction->update([
+            'xendit_status' => $normalizedStatus,
+            'payment_method' => is_string($paymentMethod) && trim($paymentMethod) !== ''
+                ? trim($paymentMethod)
+                : $transaction->payment_method,
+            'paid_at' => $normalizedStatus === 'PAID' ? now() : $transaction->paid_at,
+        ]);
+
+        if ($normalizedStatus === 'PAID' && $previousStatus !== 'PAID') {
+            $this->createRemainingBalanceTransaction($transaction);
+            $this->settleJobOrderIfFullyPaid($transaction);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'transaction' => new \App\Http\Resources\CustomerTransactionResource($transaction->fresh()),
+                'status_changed' => $normalizedStatus !== ($previousStatus ?? ''),
+                'xendit_status' => $normalizedStatus,
+            ],
+            'message' => $normalizedStatus === 'PAID'
+                ? 'Payment confirmed. Status synced from Xendit.'
+                : 'Status synced from Xendit.',
+        ]);
+    }
+
     /**
      * After a reservation fee is paid, create a pending invoice for the
      * remaining service balance (total service cost minus the reservation fee).
@@ -362,8 +547,9 @@ class PaymentController extends Controller
     }
 
     /**
-     * If the paid transaction belongs to a job order and all transactions
-     * for that job order are now PAID, mark the job order as settled.
+     * If the paid transaction belongs to a job order:
+     * 1. Auto-approve the job order if it's still pending_approval.
+     * 2. If all transactions for that job order are now PAID, mark as settled.
      */
     private function settleJobOrderIfFullyPaid(CustomerTransaction $transaction): void
     {
@@ -373,7 +559,20 @@ class PaymentController extends Controller
 
         $jobOrder = JobOrder::find($transaction->job_order_id);
 
-        if (! $jobOrder || $jobOrder->settled_flag) {
+        if (! $jobOrder) {
+            return;
+        }
+
+        // Auto-approve if the job order is still pending_approval
+        if ($jobOrder->status?->value === 'pending_approval') {
+            $jobOrder->update([
+                'status' => 'approved',
+                'approved_at' => now(),
+            ]);
+            Log::info('Payment webhook: job order '.$jobOrder->id.' auto-approved after payment confirmation.');
+        }
+
+        if ($jobOrder->settled_flag) {
             return;
         }
 
@@ -387,7 +586,7 @@ class PaymentController extends Controller
 
         if (! $hasPending) {
             $jobOrder->update(['settled_flag' => true]);
-            Log::info('Xendit webhook: job order '.$jobOrder->id.' fully settled.');
+            Log::info('Payment webhook: job order '.$jobOrder->id.' fully settled.');
         }
     }
 }

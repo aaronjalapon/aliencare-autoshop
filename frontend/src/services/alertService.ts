@@ -1,4 +1,5 @@
 import type { InventoryItemReference } from '@/types/inventory';
+import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 import {
     AlertCleanupResult,
     AlertGenerationResult,
@@ -6,7 +7,6 @@ import {
     normalizeAlerts,
     normalizeAlertStatistics,
 } from './inventoryWorkspaceNormalizers';
-import { api, ApiResponse, PaginatedResponse } from './api';
 
 export interface Alert {
     id: number;
@@ -54,13 +54,7 @@ export interface AlertFilters {
 class AlertService {
     // Get all alerts with pagination and filters
     async getAlerts(filters: AlertFilters = {}): Promise<ApiResponse<PaginatedResponse<Alert>>> {
-        const params: Record<string, string | number> = {};
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
-                params[key] = value.toString();
-            }
-        });
+        const params = buildQueryParams(filters as Record<string, unknown>);
 
         const response = await api.get<ApiResponse<PaginatedResponse<Alert>>>('/v1/alerts', params);
 

@@ -20,8 +20,8 @@ class PosCheckoutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
-            'payment_mode' => ['required', 'string', Rule::in(['cash', 'online'])],
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'payment_mode' => ['required', 'string', Rule::in(['cash', 'card', 'online'])],
             'notes' => ['nullable', 'string', 'max:500'],
             'cart' => ['required', 'array', 'min:1'],
             'cart.*.item_id' => ['required', 'integer', 'exists:inventories,item_id'],
@@ -35,10 +35,9 @@ class PosCheckoutRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'customer_id.required' => 'Please select a customer before checkout.',
             'customer_id.exists' => 'Selected customer does not exist.',
             'payment_mode.required' => 'Please choose a payment mode.',
-            'payment_mode.in' => 'Payment mode must be cash or online.',
+            'payment_mode.in' => 'Payment mode must be cash, card, or online.',
             'cart.required' => 'Cart is required for checkout.',
             'cart.min' => 'Add at least one item to the cart.',
             'cart.*.item_id.required' => 'Each cart item must include an item ID.',

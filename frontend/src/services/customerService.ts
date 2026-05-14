@@ -13,7 +13,7 @@ import {
     JobOrderReceiptUrl,
     Vehicle,
 } from '@/types/customer';
-import { api, ApiResponse, PaginatedResponse } from './api';
+import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
 export interface CustomerTransactionFilters {
     type?: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
@@ -169,36 +169,12 @@ class CustomerService {
         customerId: number,
         filters: CustomerTransactionFilters = {},
     ): Promise<ApiResponse<PaginatedResponse<CustomerTransaction>>> {
-        const params: Record<string, string | number> = {};
-
-        if (filters.type) params.type = filters.type;
-        if (filters.payment_state) params.payment_state = filters.payment_state;
-        if (filters.job_order_id) params.job_order_id = filters.job_order_id;
-        if (filters.reference_number) params.reference_number = filters.reference_number;
-        if (filters.search) params.search = filters.search;
-        if (filters.from_date) params.from_date = filters.from_date;
-        if (filters.to_date) params.to_date = filters.to_date;
-        if (filters.payment_method) params.payment_method = filters.payment_method;
-        if (filters.per_page) params.per_page = filters.per_page;
-        if (filters.page) params.page = filters.page;
-
+        const params = buildQueryParams(filters as Record<string, unknown>);
         return api.get<ApiResponse<PaginatedResponse<CustomerTransaction>>>(`/v1/customers/${customerId}/transactions`, params);
     }
 
     async getMyTransactions(filters: CustomerTransactionFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerTransaction>>> {
-        const params: Record<string, string | number> = {};
-
-        if (filters.type) params.type = filters.type;
-        if (filters.payment_state) params.payment_state = filters.payment_state;
-        if (filters.job_order_id) params.job_order_id = filters.job_order_id;
-        if (filters.reference_number) params.reference_number = filters.reference_number;
-        if (filters.search) params.search = filters.search;
-        if (filters.from_date) params.from_date = filters.from_date;
-        if (filters.to_date) params.to_date = filters.to_date;
-        if (filters.payment_method) params.payment_method = filters.payment_method;
-        if (filters.per_page) params.per_page = filters.per_page;
-        if (filters.page) params.page = filters.page;
-
+        const params = buildQueryParams(filters as Record<string, unknown>);
         return api.get<ApiResponse<PaginatedResponse<CustomerTransaction>>>('/v1/customer/transactions', params);
     }
 
@@ -219,15 +195,7 @@ class CustomerService {
     }
 
     async getMyBillingReceipts(filters: CustomerBillingReceiptFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>> {
-        const params: Record<string, string | number> = {};
-
-        if (filters.search) params.search = filters.search;
-        if (filters.from_date) params.from_date = filters.from_date;
-        if (filters.to_date) params.to_date = filters.to_date;
-        if (filters.payment_method) params.payment_method = filters.payment_method;
-        if (filters.per_page) params.per_page = filters.per_page;
-        if (filters.page) params.page = filters.page;
-
+        const params = buildQueryParams(filters as Record<string, unknown>);
         return api.get<ApiResponse<PaginatedResponse<CustomerBillingReceipt>>>('/v1/customer/billing/receipts', params);
     }
 

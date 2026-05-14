@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/AuthContext';
+import { type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -39,7 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
     customer: 'Customer',
 };
 
-export function PageHeader() {
+export function PageHeader({ actions }: { actions?: ReactNode }) {
     const { user } = useAuth();
     const { pathname } = useLocation();
 
@@ -48,15 +49,13 @@ export function PageHeader() {
     const roleLabel = user ? (ROLE_LABELS[user.role] ?? user.role) : '';
 
     return (
-        <>
-            {/* Role / Page title */}
-            <div className="px-6 pt-8 pb-2 md:px-6">
-                <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">{roleLabel}</span>
-                    <span className="text-sm text-muted-foreground/40">/</span>
-                    <h1 className="text-2xl font-bold capitalize">{pageLabel}</h1>
-                </div>
+        <div className="flex items-center justify-between px-6 pt-8 pb-2 md:px-6">
+            <div className="flex items-baseline gap-2">
+                <span className="text-sm font-medium text-muted-foreground">{roleLabel}</span>
+                <span className="text-sm text-muted-foreground/40">/</span>
+                <h1 className="text-2xl font-bold capitalize">{pageLabel}</h1>
             </div>
-        </>
+            {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
     );
 }

@@ -7,7 +7,7 @@ import { type PropsWithChildren } from 'react';
 
 export default function CustomerSidebarLayout({ children }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
-        <AppShell variant="sidebar">
+        <AppShell variant="sidebar" className="h-svh overflow-hidden">
             <CustomerSidebar />
             <AppContent variant="sidebar" className="overflow-hidden">
                 <PageHeader />

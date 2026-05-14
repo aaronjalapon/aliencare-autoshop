@@ -268,101 +268,101 @@ export default function Shop() {
                 <div className="profile-card flex min-h-0 flex-col rounded-xl p-5 xl:self-stretch">
                     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-0.5">
                         {/* Cart header */}
-                    <div className="flex shrink-0 items-center justify-between">
-                        <h2 className="flex items-center gap-2 text-base font-bold">
-                            <ShoppingCart className="h-4 w-4 text-[#d4af37]" />
-                            Cart
+                        <div className="flex shrink-0 items-center justify-between">
+                            <h2 className="flex items-center gap-2 text-base font-bold">
+                                <ShoppingCart className="h-4 w-4 text-[#d4af37]" />
+                                Cart
+                                {cartCount > 0 && (
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#d4af37] text-xs font-bold text-black">
+                                        {cartCount}
+                                    </span>
+                                )}
+                            </h2>
                             {cartCount > 0 && (
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#d4af37] text-xs font-bold text-black">
-                                    {cartCount}
-                                </span>
+                                <button onClick={() => setCart([])} className="text-xs text-muted-foreground transition-colors hover:text-red-400">
+                                    Clear all
+                                </button>
                             )}
-                        </h2>
-                        {cartCount > 0 && (
-                            <button onClick={() => setCart([])} className="text-xs text-muted-foreground transition-colors hover:text-red-400">
-                                Clear all
-                            </button>
-                        )}
-                    </div>
+                        </div>
 
-                    <div className="h-px shrink-0 bg-[#2a2a2e]" />
+                        <div className="h-px shrink-0 bg-[#2a2a2e]" />
 
-                    {/* Cart items — scrollable area */}
-                    <div className="flex min-h-0 flex-1 flex-col gap-3">
-                        {cart.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                                <ShoppingCart className="mb-2 h-8 w-8 opacity-20" />
-                                <p className="text-sm">Your cart is empty</p>
-                            </div>
-                        ) : (
-                            cart.map((item) => {
-                                const Icon = CATEGORY_ICONS[item.product.category] ?? Package;
-                                return (
-                                    <div key={item.product.id} className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10]/60 p-3">
-                                        <div className="flex items-start gap-2">
-                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#d4af37]/10">
-                                                <Icon className="h-3.5 w-3.5 text-[#d4af37]" />
-                                            </div>
-                                            <div className="flex min-w-0 flex-1 flex-col">
-                                                <p className="truncate text-xs font-semibold">{item.product.name}</p>
-                                                <p className="text-xs text-muted-foreground">₱{item.product.price.toLocaleString()}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => removeFromCart(item.product.id)}
-                                                className="shrink-0 text-muted-foreground transition-colors hover:text-red-500"
-                                            >
-                                                <X className="h-3.5 w-3.5" />
-                                            </button>
-                                        </div>
-                                        <div className="mt-2 flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5">
+                        {/* Cart items — scrollable area */}
+                        <div className="flex min-h-0 flex-1 flex-col gap-3">
+                            {cart.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                                    <ShoppingCart className="mb-2 h-8 w-8 opacity-20" />
+                                    <p className="text-sm">Your cart is empty</p>
+                                </div>
+                            ) : (
+                                cart.map((item) => {
+                                    const Icon = CATEGORY_ICONS[item.product.category] ?? Package;
+                                    return (
+                                        <div key={item.product.id} className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10]/60 p-3">
+                                            <div className="flex items-start gap-2">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#d4af37]/10">
+                                                    <Icon className="h-3.5 w-3.5 text-[#d4af37]" />
+                                                </div>
+                                                <div className="flex min-w-0 flex-1 flex-col">
+                                                    <p className="truncate text-xs font-semibold">{item.product.name}</p>
+                                                    <p className="text-xs text-muted-foreground">₱{item.product.price.toLocaleString()}</p>
+                                                </div>
                                                 <button
-                                                    onClick={() => updateQuantity(item.product.id, -1)}
-                                                    className="flex h-6 w-6 items-center justify-center rounded border border-[#2a2a2e] transition-colors hover:border-[#d4af37]/50 hover:text-foreground"
+                                                    onClick={() => removeFromCart(item.product.id)}
+                                                    className="shrink-0 text-muted-foreground transition-colors hover:text-red-500"
                                                 >
-                                                    <Minus className="h-3 w-3" />
-                                                </button>
-                                                <span className="min-w-6 text-center text-xs font-semibold">{item.quantity}</span>
-                                                <button
-                                                    onClick={() => updateQuantity(item.product.id, 1)}
-                                                    className="flex h-6 w-6 items-center justify-center rounded border border-[#2a2a2e] transition-colors hover:border-[#d4af37]/50 hover:text-foreground"
-                                                >
-                                                    <Plus className="h-3 w-3" />
+                                                    <X className="h-3.5 w-3.5" />
                                                 </button>
                                             </div>
-                                            <span className="text-xs font-bold">₱{(item.product.price * item.quantity).toLocaleString()}</span>
+                                            <div className="mt-2 flex items-center justify-between">
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => updateQuantity(item.product.id, -1)}
+                                                        className="flex h-6 w-6 items-center justify-center rounded border border-[#2a2a2e] transition-colors hover:border-[#d4af37]/50 hover:text-foreground"
+                                                    >
+                                                        <Minus className="h-3 w-3" />
+                                                    </button>
+                                                    <span className="min-w-6 text-center text-xs font-semibold">{item.quantity}</span>
+                                                    <button
+                                                        onClick={() => updateQuantity(item.product.id, 1)}
+                                                        className="flex h-6 w-6 items-center justify-center rounded border border-[#2a2a2e] transition-colors hover:border-[#d4af37]/50 hover:text-foreground"
+                                                    >
+                                                        <Plus className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                                <span className="text-xs font-bold">₱{(item.product.price * item.quantity).toLocaleString()}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
+                                    );
+                                })
+                            )}
+                        </div>
 
-                    {cart.length > 0 && (
-                        <>
-                            <div className="h-px shrink-0 bg-[#2a2a2e]" />
+                        {cart.length > 0 && (
+                            <>
+                                <div className="h-px shrink-0 bg-[#2a2a2e]" />
 
-                            {/* Order summary */}
-                            <div className="rounded-lg border border-[#2a2a2e] p-3">
-                                <p className="mb-2 text-xs font-semibold text-foreground">Order Summary</p>
-                                <div className="flex flex-col gap-1.5 text-xs">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Items ({cartCount})</span>
-                                        <span className="font-medium">₱{cartTotal.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Service fee</span>
-                                        <span className="font-medium text-green-400">Free</span>
-                                    </div>
-                                    <div className="my-0.5 h-px bg-[#2a2a2e]" />
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-semibold">Total</span>
-                                        <span className="text-base font-bold">₱{cartTotal.toLocaleString()}</span>
+                                {/* Order summary */}
+                                <div className="rounded-lg border border-[#2a2a2e] p-3">
+                                    <p className="mb-2 text-xs font-semibold text-foreground">Order Summary</p>
+                                    <div className="flex flex-col gap-1.5 text-xs">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-muted-foreground">Items ({cartCount})</span>
+                                            <span className="font-medium">₱{cartTotal.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-muted-foreground">Service fee</span>
+                                            <span className="font-medium text-green-400">Free</span>
+                                        </div>
+                                        <div className="my-0.5 h-px bg-[#2a2a2e]" />
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-semibold">Total</span>
+                                            <span className="text-base font-bold">₱{cartTotal.toLocaleString()}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )}
                     </div>
                     {cart.length > 0 && (
                         <div className="shrink-0 pt-4">

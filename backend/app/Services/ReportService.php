@@ -268,6 +268,31 @@ class ReportService implements ReportServiceInterface
             + (int) ($statusCounts[JobOrderStatus::PendingApproval->value] ?? 0)
             + (int) ($statusCounts[JobOrderStatus::Approved->value] ?? 0);
 
+        // Compute real monthly trends for the last 6 months.
+        $monthlyTrends = collect(range(5, 0))->map(function (int $monthsAgo) {
+            $monthStart = Carbon::today()->subMonths($monthsAgo)->startOfMonth();
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $procurementValue = (float) \App\Models\StockTransaction::query()
+                ->where('transaction_type', 'procurement')
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->get()
+                ->sum(fn ($t) => (int) $t->quantity * (float) ($t->inventory->unit_price ?? 0));
+
+            $usageValue = (float) \App\Models\StockTransaction::query()
+                ->where('transaction_type', '!=', 'procurement')
+                ->where('quantity', '<', 0)
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->get()
+                ->sum(fn ($t) => abs((int) $t->quantity) * (float) ($t->inventory->unit_price ?? 0));
+
+            return [
+                'month' => $monthStart->format('M Y'),
+                'procurement_value' => round($procurementValue, 2),
+                'usage_value' => round($usageValue, 2),
+            ];
+        })->values()->all();
+
         return [
             'inventory_value' => $inventoryValue,
             'low_stock_count' => $lowStockCount,
@@ -287,7 +312,7 @@ class ReportService implements ReportServiceInterface
             'active_reservations' => $activeReservations,
             'recent_transactions' => $recentTransactions,
             'top_categories' => $topCategories,
-            'monthly_trends' => [],
+            'monthly_trends' => $monthlyTrends,
         ];
     }
 

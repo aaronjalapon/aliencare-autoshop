@@ -6,6 +6,8 @@ namespace App\Contracts\Services;
 
 use App\Models\JobOrder;
 use App\Models\JobOrderItem;
+use App\Models\Mechanic;
+use App\Models\ServiceCatalog;
 
 interface JobOrderServiceInterface
 {
@@ -32,4 +34,39 @@ interface JobOrderServiceInterface
     public function addItemToJobOrder(int $jobOrderId, array $itemData): JobOrderItem;
 
     public function removeItemFromJobOrder(int $jobOrderId, int $itemId): bool;
+
+    /**
+     * @param  array<string, mixed>  $itemData
+     */
+    public function updateJobOrderItem(int $jobOrderId, int $itemId, array $itemData): JobOrderItem;
+
+    /**
+     * Check if a mechanic has no conflicting job orders at the given date and time.
+     */
+    public function isMechanicAvailableAt(int $mechanicId, string $date, string $time, ?int $excludeJobOrderId = null): bool;
+
+    /**
+     * Check if a bay has no conflicting job orders at the given date and time.
+     */
+    public function isBayAvailableAt(int $bayId, string $date, string $time, ?int $excludeJobOrderId = null): bool;
+
+    /**
+     * Get conflicting job orders for a mechanic at a given date/time window.
+     */
+    public function getConflictingJobOrdersForMechanic(int $mechanicId, string $date, string $targetTime, int $targetDurationMinutes, ?int $excludeJobOrderId): \Illuminate\Database\Eloquent\Collection;
+
+    /**
+     * Get conflicting job orders for a bay at a given date/time window.
+     */
+    public function getConflictingJobOrdersForBay(int $bayId, string $date, string $targetTime, int $targetDurationMinutes, ?int $excludeJobOrderId): \Illuminate\Database\Eloquent\Collection;
+
+    /**
+     * Get the service duration in minutes for a job order.
+     */
+    public function getServiceDuration(JobOrder $jobOrder): int;
+
+    /**
+     * Get the service-type match score (0-3) for a mechanic against a service.
+     */
+    public function getMechanicServiceMatchScore(Mechanic $mechanic, ?ServiceCatalog $service): int;
 }

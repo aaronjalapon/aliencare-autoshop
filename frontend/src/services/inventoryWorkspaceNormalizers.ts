@@ -1,5 +1,6 @@
-import type { AuditTransaction, InventoryItemReference, StockTransaction } from '@/types/inventory';
+import type { AuditTransaction, InventoryItem, InventoryItemReference, StockTransaction } from '@/types/inventory';
 import type { Alert, AlertStatistics } from './alertService';
+import { isRecord } from './api';
 
 export interface AlertGenerationResult {
     alerts_created: number;
@@ -11,8 +12,46 @@ export interface AlertCleanupResult {
     deleted_count: number;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
+function isInventoryItem(value: unknown): value is InventoryItem {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return (
+        typeof value.id === 'number' &&
+        typeof value.item_id === 'number' &&
+        typeof value.item_name === 'string' &&
+        typeof value.stock === 'number' &&
+        typeof value.reorder_level === 'number'
+    );
+}
+
+function normalizeInventoryItems(value: unknown): InventoryItem[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.filter(isInventoryItem);
+}
+
+export function normalizeLowStockAlertsData(payload: unknown): InventoryItem[] {
+    if (Array.isArray(payload)) {
+        return normalizeInventoryItems(payload);
+    }
+
+    if (!isRecord(payload)) {
+        return [];
+    }
+
+    if (Array.isArray(payload.alerts)) {
+        return normalizeInventoryItems(payload.alerts);
+    }
+
+    if (Array.isArray(payload.data)) {
+        return normalizeInventoryItems(payload.data);
+    }
+
+    return [];
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -139,16 +178,8 @@ export function normalizeAlerts(value: unknown): Alert[] {
 
 export function normalizeAlertStatistics(value: unknown): AlertStatistics {
     const record = isRecord(value) ? value : {};
-    const rawUrgency = isRecord(record.by_urgency)
-        ? record.by_urgency
-        : isRecord(record.alerts_by_urgency)
-          ? record.alerts_by_urgency
-          : {};
-    const rawTypes = isRecord(record.by_type)
-        ? record.by_type
-        : isRecord(record.alerts_by_type)
-          ? record.alerts_by_type
-          : {};
+    const rawUrgency = isRecord(record.by_urgency) ? record.by_urgency : isRecord(record.alerts_by_urgency) ? record.alerts_by_urgency : {};
+    const rawTypes = isRecord(record.by_type) ? record.by_type : isRecord(record.alerts_by_type) ? record.alerts_by_type : {};
     const alertsByUrgency = {
         critical: toNumber(rawUrgency.critical),
         high: toNumber(rawUrgency.high),

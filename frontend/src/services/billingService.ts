@@ -1,4 +1,4 @@
-import { BillingQueueItem } from '@/types/customer';
+import { BillingQueueItem, CustomerBillingReceipt } from '@/types/customer';
 import { api, ApiResponse, PaginatedResponse } from './api';
 
 export interface BillingQueueFilters {
@@ -20,6 +20,10 @@ class BillingService {
         if (filters.page) params.page = filters.page;
 
         return api.get<ApiResponse<PaginatedResponse<BillingQueueItem>>>('/v1/billing/queue', params);
+    }
+
+    async getReceiptDetail(transactionId: number): Promise<ApiResponse<CustomerBillingReceipt>> {
+        return api.get<ApiResponse<CustomerBillingReceipt>>(`/v1/billing/receipts/${transactionId}`);
     }
 }
 

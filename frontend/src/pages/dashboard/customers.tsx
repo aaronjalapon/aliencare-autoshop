@@ -14,6 +14,7 @@ import {
 } from '@/types/frontdesk/customers';
 import { Car, Check, Crown, Download, Loader2, Mail, Minus, Phone, Plus, Search, UserPlus, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type SegmentFilter = 'all' | 'active' | 'vip' | 'fleet' | 'inactive' | 'pending';
 type FormMode = 'create' | 'edit';
@@ -241,6 +242,8 @@ function TierChip({ tier }: { tier: TierBadge }) {
 }
 
 export default function Customers() {
+    const navigate = useNavigate();
+
     const [customers, setCustomers] = useState<FrontdeskCustomer[]>([]);
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
@@ -710,9 +713,9 @@ export default function Customers() {
                         </div>
                     )}
 
-                    <div className="grid min-h-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[1.9fr_0.72fr]">
-                        <div className="flex min-w-0 flex-col gap-3">
-                            <div className="flex flex-col gap-3 rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/80 p-3">
+                    <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-[1.9fr_0.72fr]">
+                        <div className="flex min-h-0 min-w-0 flex-col gap-3">
+                            <div className="flex shrink-0 flex-col gap-3 rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/80 p-3">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
@@ -747,7 +750,7 @@ export default function Customers() {
                                 </div>
                             </div>
 
-                            <div className="flex flex-wrap gap-1.5 rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/70 p-1.5">
+                            <div className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/70 p-1.5">
                                 {(
                                     [
                                         { key: 'all', label: 'All Customers' },
@@ -772,8 +775,8 @@ export default function Customers() {
                                 ))}
                             </div>
 
-                            <div className="overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/80">
-                                <div className="hidden grid-cols-[1.1fr_1.2fr_1.5fr_0.9fr_0.8fr_0.8fr] border-b border-[#2a2a2e] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
+                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/80">
+                                <div className="hidden shrink-0 items-center grid-cols-[1.1fr_1.2fr_1.5fr_0.9fr_0.8fr_0.8fr] border-b border-[#2a2a2e] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Customer</span>
                                     <span>Contact</span>
                                     <span>Primary Vehicle</span>
@@ -782,7 +785,7 @@ export default function Customers() {
                                     <span>Status</span>
                                 </div>
 
-                                <div className="max-h-140 overflow-y-auto">
+                                <div className="flex-1 overflow-y-auto">
                                     {isLoadingCustomers ? (
                                         <div className="flex items-center justify-center gap-2 px-5 py-20 text-sm text-muted-foreground">
                                             <Loader2 className="h-4 w-4 animate-spin" /> Loading customers...
@@ -797,7 +800,7 @@ export default function Customers() {
                                                 <button
                                                     key={customer.id}
                                                     onClick={() => setSelectedId(customer.id)}
-                                                    className={`grid w-full border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 lg:grid-cols-[1.1fr_1.2fr_1.5fr_0.9fr_0.8fr_0.8fr] ${
+                                                    className={`grid w-full items-center border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 lg:grid-cols-[1.1fr_1.2fr_1.5fr_0.9fr_0.8fr_0.8fr] ${
                                                         selected
                                                             ? 'bg-[#d4af37]/7 shadow-[inset_0_0_0_1px_rgba(212,175,55,0.55)]'
                                                             : 'hover:bg-[#1a1b20]/65'
@@ -860,241 +863,240 @@ export default function Customers() {
                         <aside className="flex min-h-0 flex-col rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
                             {selectedCustomer ? (
                                 <>
-                                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                                {selectedCustomer.code}
-                                            </p>
-                                            <h2 className="mt-2 text-2xl leading-tight font-bold">{selectedCustomer.full_name}</h2>
-                                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                                {buildCustomerBadges(selectedCustomer).map((tier) => (
-                                                    <TierChip key={`selected-${selectedCustomer.id}-${tier}`} tier={tier} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {isLoadingSelected && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                                        <button
-                                            disabled
-                                            className="mb-2 inline-flex w-full cursor-not-allowed items-center justify-center rounded-lg border border-[#2a2a2e] px-3 py-2 text-sm text-muted-foreground"
-                                        >
-                                            New Job Order (From Job Orders Page)
-                                        </button>
-                                        {selectedCustomer.account_status === 'pending' && (
-                                            <div className="mb-2 grid grid-cols-2 gap-2">
-                                                <button
-                                                    onClick={handleApproveCustomer}
-                                                    disabled={isApproving}
-                                                    className="inline-flex items-center justify-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1.5 text-xs font-semibold text-emerald-300 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    {isApproving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}{' '}
-                                                    Approve
-                                                </button>
-                                                <button
-                                                    onClick={openRejectModal}
-                                                    disabled={isRejecting}
-                                                    className="inline-flex items-center justify-center gap-1 rounded-md bg-red-500/15 px-2 py-1.5 text-xs font-semibold text-red-300 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    <X className="h-3 w-3" /> Reject
-                                                </button>
-                                            </div>
-                                        )}
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <button className="rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                                                Call
-                                            </button>
-                                            <button className="rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                                                SMS
-                                            </button>
-                                            <button className="rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                                                Email
-                                            </button>
-                                        </div>
-                                        <button
-                                            onClick={openEditCustomerModal}
-                                            className="mt-2 w-full rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                        >
-                                            Edit Customer
-                                        </button>
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                                        <div className="mb-3 flex items-center justify-between">
-                                            <p className="text-sm font-semibold">Contact Information</p>
-                                            <Minus className="h-3.5 w-3.5 text-muted-foreground" />
-                                        </div>
-                                        <div className="space-y-3 text-sm">
-                                            <div className="flex items-center justify-between gap-2 text-muted-foreground">
-                                                <span className="inline-flex items-center gap-1 text-xs uppercase">
-                                                    <Phone className="h-3.5 w-3.5" /> Phone
-                                                </span>
-                                                <span className="text-right text-foreground">{selectedCustomer.phone_number ?? 'Not set'}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2 text-muted-foreground">
-                                                <span className="inline-flex items-center gap-1 text-xs uppercase">
-                                                    <Mail className="h-3.5 w-3.5" /> Email
-                                                </span>
-                                                <span className="text-right text-foreground">{selectedCustomer.email ?? 'Not set'}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2 text-muted-foreground">
-                                                <span className="text-xs uppercase">Address</span>
-                                                <span className="text-right text-foreground">{selectedCustomer.address ?? 'Not set'}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2 text-muted-foreground">
-                                                <span className="text-xs uppercase">Customer Since</span>
-                                                <span className="text-right text-foreground">
-                                                    {formatRelativeTime(selectedCustomer.customer_since, 'Unknown')}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                                        <div className="mb-3 flex items-center justify-between">
-                                            <p className="text-sm font-semibold">Tier Rules</p>
-                                            <Crown className="h-3.5 w-3.5 text-[#d4af37]" />
-                                        </div>
-                                        <div className="rounded-md border border-dashed border-[#2a2a2e] bg-[#111217] p-2 text-xs text-muted-foreground">
-                                            Auto rules: VIP when total spent is at least P50,000; Fleet when vehicle count is at least 2.
-                                        </div>
-                                        <div className="mt-2 grid grid-cols-2 gap-2">
-                                            <button
-                                                onClick={() => setTierModeDraft('auto')}
-                                                className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
-                                                    tierModeDraft === 'auto'
-                                                        ? 'border-[#d4af37]/45 bg-[#d4af37]/15 text-[#d4af37]'
-                                                        : 'border-[#2a2a2e] text-muted-foreground hover:text-foreground'
-                                                }`}
-                                            >
-                                                Auto
-                                            </button>
-                                            <button
-                                                onClick={() => setTierModeDraft('manual')}
-                                                className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
-                                                    tierModeDraft === 'manual'
-                                                        ? 'border-[#d4af37]/45 bg-[#d4af37]/15 text-[#d4af37]'
-                                                        : 'border-[#2a2a2e] text-muted-foreground hover:text-foreground'
-                                                }`}
-                                            >
-                                                Manual
-                                            </button>
-                                        </div>
-
-                                        <div className="mt-2 grid grid-cols-2 gap-2">
-                                            {(['VIP', 'Fleet'] as CustomerTier[]).map((tier) => {
-                                                const checked = tierOverridesDraft.includes(tier);
-
-                                                return (
-                                                    <button
-                                                        key={tier}
-                                                        disabled={tierModeDraft !== 'manual'}
-                                                        onClick={() => handleToggleTierOverride(tier)}
-                                                        className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
-                                                            checked
-                                                                ? 'border-[#d4af37]/45 bg-[#d4af37]/15 text-[#d4af37]'
-                                                                : 'border-[#2a2a2e] text-muted-foreground'
-                                                        } ${tierModeDraft !== 'manual' ? 'cursor-not-allowed opacity-50' : 'hover:text-foreground'}`}
-                                                    >
-                                                        {tier}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <button
-                                            onClick={handleSaveTierSettings}
-                                            disabled={isSavingTiers}
-                                            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {isSavingTiers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}{' '}
-                                            Save Tier Settings
-                                        </button>
-                                    </div>
-
-                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                                        <div className="mb-3 flex items-center justify-between">
-                                            <p className="text-sm font-semibold">Vehicles ({selectedCustomer.vehicles?.length ?? 0})</p>
-                                            <button
-                                                onClick={openAddVehicleModal}
-                                                className="rounded-full border border-[#2a2a2e] p-1 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                            >
-                                                <Plus className="h-3 w-3" />
-                                            </button>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            {(selectedCustomer.vehicles ?? []).length === 0 ? (
-                                                <div className="rounded-lg border border-dashed border-[#2a2a2e] p-3 text-center text-xs text-muted-foreground">
-                                                    No vehicles registered.
+                                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                                    {selectedCustomer.code}
+                                                </p>
+                                                <h2 className="mt-2 text-2xl leading-tight font-bold">{selectedCustomer.full_name}</h2>
+                                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                    {buildCustomerBadges(selectedCustomer).map((tier) => (
+                                                        <TierChip key={`selected-${selectedCustomer.id}-${tier}`} tier={tier} />
+                                                    ))}
                                                 </div>
-                                            ) : (
-                                                (selectedCustomer.vehicles ?? []).map((vehicle) => (
-                                                    <div
-                                                        key={`${selectedCustomer.id}-${vehicle.id}`}
-                                                        className="rounded-lg border border-[#23252b] bg-[#111217] p-2.5"
+                                            </div>
+                                            {isLoadingSelected && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                            <button
+                                                onClick={() => navigate(`/job-orders?customer_id=${selectedCustomer.id}&new=1`)}
+                                                className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90"
+                                            >
+                                                <UserPlus className="h-4 w-4" /> New Job Order
+                                            </button>
+                                            {selectedCustomer.account_status === 'pending' && (
+                                                <div className="mb-2 grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={handleApproveCustomer}
+                                                        disabled={isApproving}
+                                                        className="inline-flex items-center justify-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1.5 text-xs font-semibold text-emerald-300 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                                                     >
-                                                        <div className="flex items-start justify-between">
-                                                            <button onClick={() => openEditVehicleModal(vehicle)} className="text-left">
-                                                                <p className="inline-flex items-center gap-1 text-sm font-semibold">
-                                                                    <Car className="h-3.5 w-3.5 text-[#d4af37]" />
-                                                                    {vehicle.make} {vehicle.model}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">{vehicle.year}</p>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteVehicle(vehicle)}
-                                                                disabled={deletingVehicleId === vehicle.id}
-                                                                className="rounded p-0.5 text-red-400/75 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
-                                                            >
-                                                                {deletingVehicleId === vehicle.id ? (
-                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                ) : (
-                                                                    <X className="h-3.5 w-3.5" />
-                                                                )}
-                                                            </button>
-                                                        </div>
-                                                        <div className="mt-2 space-y-1 text-xs">
-                                                            <div className="flex items-center justify-between text-muted-foreground">
-                                                                <span>Plate</span>
-                                                                <span className="text-foreground">{vehicle.plate_number}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-muted-foreground">
-                                                                <span>Last Service</span>
-                                                                <span className="text-foreground">
-                                                                    {formatRelativeTime(vehicle.last_service_at, 'No service yet')}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-muted-foreground">
-                                                                <span>Next Due</span>
-                                                                <span className="text-foreground">Needs scheduling</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
+                                                        {isApproving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}{' '}
+                                                        Approve
+                                                    </button>
+                                                    <button
+                                                        onClick={openRejectModal}
+                                                        disabled={isRejecting}
+                                                        className="inline-flex items-center justify-center gap-1 rounded-md bg-red-500/15 px-2 py-1.5 text-xs font-semibold text-red-300 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        <X className="h-3 w-3" /> Reject
+                                                    </button>
+                                                </div>
                                             )}
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button className="rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                                                    Call
+                                                </button>
+                                                <button className="rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                                                    SMS
+                                                </button>
+                                                <button className="rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                                                    Email
+                                                </button>
+                                            </div>
+                                            <button
+                                                onClick={openEditCustomerModal}
+                                                className="mt-2 w-full rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                            >
+                                                Edit Customer
+                                            </button>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <p className="text-sm font-semibold">Contact Information</p>
+                                                <Minus className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </div>
+                                            <div className="space-y-3 text-sm">
+                                                <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                                                    <span className="inline-flex items-center gap-1 text-xs uppercase">
+                                                        <Phone className="h-3.5 w-3.5" /> Phone
+                                                    </span>
+                                                    <span className="text-right text-foreground">{selectedCustomer.phone_number ?? 'Not set'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                                                    <span className="inline-flex items-center gap-1 text-xs uppercase">
+                                                        <Mail className="h-3.5 w-3.5" /> Email
+                                                    </span>
+                                                    <span className="text-right text-foreground">{selectedCustomer.email ?? 'Not set'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                                                    <span className="text-xs uppercase">Address</span>
+                                                    <span className="text-right text-foreground">{selectedCustomer.address ?? 'Not set'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                                                    <span className="text-xs uppercase">Customer Since</span>
+                                                    <span className="text-right text-foreground">
+                                                        {formatRelativeTime(selectedCustomer.customer_since, 'Unknown')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <p className="text-sm font-semibold">Tier Rules</p>
+                                                <Crown className="h-3.5 w-3.5 text-[#d4af37]" />
+                                            </div>
+                                            <div className="rounded-md border border-dashed border-[#2a2a2e] bg-[#111217] p-2 text-xs text-muted-foreground">
+                                                Auto rules: VIP when total spent is at least P50,000; Fleet when vehicle count is at least 2.
+                                            </div>
+                                            <div className="mt-2 grid grid-cols-2 gap-2">
+                                                <button
+                                                    onClick={() => setTierModeDraft('auto')}
+                                                    className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                                                        tierModeDraft === 'auto'
+                                                            ? 'border-[#d4af37]/45 bg-[#d4af37]/15 text-[#d4af37]'
+                                                            : 'border-[#2a2a2e] text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    Auto
+                                                </button>
+                                                <button
+                                                    onClick={() => setTierModeDraft('manual')}
+                                                    className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                                                        tierModeDraft === 'manual'
+                                                            ? 'border-[#d4af37]/45 bg-[#d4af37]/15 text-[#d4af37]'
+                                                            : 'border-[#2a2a2e] text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    Manual
+                                                </button>
+                                            </div>
+
+                                            <div className="mt-2 grid grid-cols-2 gap-2">
+                                                {(['VIP', 'Fleet'] as CustomerTier[]).map((tier) => {
+                                                    const checked = tierOverridesDraft.includes(tier);
+
+                                                    return (
+                                                        <button
+                                                            key={tier}
+                                                            disabled={tierModeDraft !== 'manual'}
+                                                            onClick={() => handleToggleTierOverride(tier)}
+                                                            className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                                                                checked
+                                                                    ? 'border-[#d4af37]/45 bg-[#d4af37]/15 text-[#d4af37]'
+                                                                    : 'border-[#2a2a2e] text-muted-foreground'
+                                                            } ${tierModeDraft !== 'manual' ? 'cursor-not-allowed opacity-50' : 'hover:text-foreground'}`}
+                                                        >
+                                                            {tier}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <button
+                                                onClick={handleSaveTierSettings}
+                                                disabled={isSavingTiers}
+                                                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {isSavingTiers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}{' '}
+                                                Save Tier Settings
+                                            </button>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <p className="text-sm font-semibold">Vehicles ({selectedCustomer.vehicles?.length ?? 0})</p>
+                                                <button
+                                                    onClick={openAddVehicleModal}
+                                                    className="rounded-full border border-[#2a2a2e] p-1 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                                >
+                                                    <Plus className="h-3 w-3" />
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {(selectedCustomer.vehicles ?? []).length === 0 ? (
+                                                    <div className="rounded-lg border border-dashed border-[#2a2a2e] p-3 text-center text-xs text-muted-foreground">
+                                                        No vehicles registered.
+                                                    </div>
+                                                ) : (
+                                                    (selectedCustomer.vehicles ?? []).map((vehicle) => (
+                                                        <div
+                                                            key={`${selectedCustomer.id}-${vehicle.id}`}
+                                                            className="rounded-lg border border-[#23252b] bg-[#111217] p-2.5"
+                                                        >
+                                                            <div className="flex items-start justify-between">
+                                                                <button onClick={() => openEditVehicleModal(vehicle)} className="text-left">
+                                                                    <p className="inline-flex items-center gap-1 text-sm font-semibold">
+                                                                        <Car className="h-3.5 w-3.5 text-[#d4af37]" />
+                                                                        {vehicle.make} {vehicle.model}
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground">{vehicle.year}</p>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteVehicle(vehicle)}
+                                                                    disabled={deletingVehicleId === vehicle.id}
+                                                                    className="rounded p-0.5 text-red-400/75 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                >
+                                                                    {deletingVehicleId === vehicle.id ? (
+                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                    ) : (
+                                                                        <X className="h-3.5 w-3.5" />
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                            <div className="mt-2 space-y-1 text-xs">
+                                                                <div className="flex items-center justify-between text-muted-foreground">
+                                                                    <span>Plate</span>
+                                                                    <span className="text-foreground">{vehicle.plate_number}</span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between text-muted-foreground">
+                                                                    <span>Last Service</span>
+                                                                    <span className="text-foreground">
+                                                                        {formatRelativeTime(vehicle.last_service_at, 'No service yet')}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between text-muted-foreground">
+                                                                    <span>Next Due</span>
+                                                                    <span className="text-foreground">Needs scheduling</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-
-                                </div>
-                                <div className="shrink-0 pt-4">
-                                    <button
-                                        onClick={handleToggleActivation}
-                                        disabled={isTogglingActivation}
-                                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isTogglingActivation ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : selectedCustomer.is_active ? (
-                                            <Crown className="h-4 w-4" />
-                                        ) : (
-                                            <Crown className="h-4 w-4 text-[#d4af37]" />
-                                        )}
-                                        {selectedCustomer.is_active ? 'Deactivate Customer' : 'Activate Customer'}
-                                    </button>
-                                </div>
+                                    <div className="shrink-0 pt-4">
+                                        <button
+                                            onClick={handleToggleActivation}
+                                            disabled={isTogglingActivation}
+                                            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isTogglingActivation ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : selectedCustomer.is_active ? (
+                                                <Crown className="h-4 w-4" />
+                                            ) : (
+                                                <Crown className="h-4 w-4 text-[#d4af37]" />
+                                            )}
+                                            {selectedCustomer.is_active ? 'Deactivate Customer' : 'Activate Customer'}
+                                        </button>
+                                    </div>
                                 </>
                             ) : (
                                 <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-[#2a2a2e] p-6 text-sm text-muted-foreground">

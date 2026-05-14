@@ -1,7 +1,7 @@
 import { CustomerTransaction } from '@/types/customer';
-import { api, ApiResponse, PaginatedResponse } from './api';
+import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
-export type PosPaymentMode = 'cash' | 'online';
+export type PosPaymentMode = 'cash' | 'card' | 'online';
 
 export interface PosCheckoutCartItem {
     item_id: number;
@@ -9,7 +9,7 @@ export interface PosCheckoutCartItem {
 }
 
 export interface PosCheckoutPayload {
-    customer_id: number;
+    customer_id?: number;
     payment_mode: PosPaymentMode;
     cart: PosCheckoutCartItem[];
     notes?: string;
@@ -38,6 +38,7 @@ export interface PosCheckoutSummary {
 export interface PosCheckoutResponse {
     transaction: CustomerTransaction;
     checkout: PosCheckoutSummary;
+    customer_name?: string | null;
 }
 
 export interface PosTransactionFilters {
@@ -55,15 +56,7 @@ class PosService {
     }
 
     async getTransactions(filters: PosTransactionFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerTransaction>>> {
-        const params: Record<string, string | number> = {};
-
-        if (filters.customer_id) params.customer_id = filters.customer_id;
-        if (filters.payment_mode) params.payment_mode = filters.payment_mode;
-        if (filters.payment_state) params.payment_state = filters.payment_state;
-        if (filters.search) params.search = filters.search;
-        if (filters.per_page) params.per_page = filters.per_page;
-        if (filters.page) params.page = filters.page;
-
+        const params = buildQueryParams(filters as Record<string, unknown>);
         return api.get<ApiResponse<PaginatedResponse<CustomerTransaction>>>('/v1/pos/transactions', params);
     }
 }

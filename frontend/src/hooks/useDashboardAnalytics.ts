@@ -3,7 +3,7 @@
  * Provides real-time dashboard metrics with loading states and error handling
  */
 
-import { dashboardService } from '@/services/dashboardService';
+import { reportsService } from '@/services/reportsService';
 import { DashboardAnalytics } from '@/types/inventory';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -16,7 +16,7 @@ export function useDashboardAnalytics() {
         try {
             setLoading(true);
             setError(null);
-            const response = await dashboardService.getDashboardAnalytics();
+            const response = await reportsService.getDashboardAnalytics();
             setData(response.data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch dashboard analytics');

@@ -2,12 +2,13 @@ import AppLayout from '@/components/layout/app-layout';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { inventoryService, type NewInventoryItem } from '@/services/inventoryService';
-import { frontdeskJobOrderService } from '@/services/jobOrderService';
+import { jobOrderService } from '@/services/jobOrderService';
 import { posService, type PosPaymentMode } from '@/services/posService';
 import { type BreadcrumbItem } from '@/types';
 import type { CustomerProfile, CustomerTransaction } from '@/types/customer';
 import type { InventoryItem } from '@/types/inventory';
-import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, PencilLine, Plus, ReceiptText, Search, ShoppingCart, Trash2, X } from 'lucide-react';
+import { buildPosReceiptHtml, type PosReceiptData } from '@/lib/receipt-print';
+import { Banknote, Check, Copy, CreditCard, ExternalLink, Loader2, Plus, Printer, QrCode, ReceiptText, Search, ShoppingCart, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Point of Sale', href: '/pos' }];
@@ -154,6 +155,8 @@ export default function PointOfSale() {
 
     const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
     const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
+    const [amountTendered, setAmountTendered] = useState('');
+    const [cardReference, setCardReference] = useState('');
     const [checkoutNotes, setCheckoutNotes] = useState('');
 
     const [showProductModal, setShowProductModal] = useState(false);
@@ -162,14 +165,11 @@ export default function PointOfSale() {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formState, setFormState] = useState<ProductFormState>(initialFormState);
     const [walkInFormState, setWalkInFormState] = useState<WalkInFormState>(initialWalkInFormState);
-    const [deleteTarget, setDeleteTarget] = useState<ProductRecord | null>(null);
-
     const [isLoadingProducts, setIsLoadingProducts] = useState(true);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
     const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [isSavingWalkInCustomer, setIsSavingWalkInCustomer] = useState(false);
-    const [isDeletingProduct, setIsDeletingProduct] = useState(false);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
 
     const [pageError, setPageError] = useState<string | null>(null);
@@ -180,6 +180,8 @@ export default function PointOfSale() {
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
     const [checkoutPaymentUrl, setCheckoutPaymentUrl] = useState<string | null>(null);
+    const [lastCheckoutReceipt, setLastCheckoutReceipt] = useState<PosReceiptData | null>(null);
+    const [isPrintingReceipt, setIsPrintingReceipt] = useState(false);
 
     const loadProducts = useCallback(async () => {
         setIsLoadingProducts(true);
@@ -199,7 +201,7 @@ export default function PointOfSale() {
         setIsLoadingCustomers(true);
 
         try {
-            const response = await frontdeskJobOrderService.getCustomers({ per_page: 200 });
+            const response = await jobOrderService.getCustomers({ per_page: 200 });
             const nextCustomers = (response.data.data ?? []).filter(
                 (customer) => customer.account_status !== 'rejected' && customer.account_status !== 'deleted',
             );
@@ -310,6 +312,13 @@ export default function PointOfSale() {
         };
     }, [cartLines]);
 
+    const change = useMemo(() => {
+        if (paymentMode !== 'cash') return 0;
+        const tendered = Number.parseFloat(amountTendered);
+        if (!Number.isFinite(tendered)) return 0;
+        return Math.max(0, tendered - cartSummary.total);
+    }, [paymentMode, amountTendered, cartSummary.total]);
+
     const openCreateProductModal = () => {
         setProductMode('create');
         setEditingId(null);
@@ -317,15 +326,6 @@ export default function PointOfSale() {
             ...initialFormState,
             category: categoryOptions[0] ?? 'General Parts',
         });
-        setProductFormErrors({});
-        setProductFormErrorMessage(null);
-        setShowProductModal(true);
-    };
-
-    const openEditProductModal = (product: ProductRecord) => {
-        setProductMode('edit');
-        setEditingId(product.id);
-        setFormState(toFormState(product));
         setProductFormErrors({});
         setProductFormErrorMessage(null);
         setShowProductModal(true);
@@ -361,7 +361,7 @@ export default function PointOfSale() {
         setWalkInFormErrorMessage(null);
 
         try {
-            const response = await frontdeskJobOrderService.createCustomer({
+            const response = await jobOrderService.createCustomer({
                 first_name: firstName,
                 last_name: lastName,
                 phone_number: phoneNumber,
@@ -456,31 +456,6 @@ export default function PointOfSale() {
         }
     };
 
-    const deleteProduct = async () => {
-        if (!deleteTarget) return;
-
-        setIsDeletingProduct(true);
-
-        try {
-            await inventoryService.deleteInventoryItem(String(deleteTarget.id));
-
-            setCart((prev) => prev.filter((line) => line.productId !== deleteTarget.id));
-            setCheckoutNotice(`Product ${deleteTarget.name} was discontinued.`);
-
-            if (selectedId === deleteTarget.id) {
-                setSelectedId(0);
-            }
-
-            setDeleteTarget(null);
-            await loadProducts();
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to delete product right now.';
-            setCheckoutError(message);
-        } finally {
-            setIsDeletingProduct(false);
-        }
-    };
-
     const addToCart = (product: ProductRecord) => {
         if (!product.isActive) return;
 
@@ -511,9 +486,38 @@ export default function PointOfSale() {
 
     const clearCart = () => {
         setCart([]);
+        setAmountTendered('');
+        setCardReference('');
         setCheckoutError(null);
         setCheckoutNotice(null);
         setCheckoutPaymentUrl(null);
+        setLastCheckoutReceipt(null);
+    };
+
+    const handlePrintReceipt = () => {
+        if (!lastCheckoutReceipt || isPrintingReceipt) return;
+
+        const pw = window.open('', '_blank', 'width=780,height=700');
+        if (!pw) return;
+        pw.document.write('<html><body style="font-family:Arial,sans-serif;text-align:center;padding:40px"><p>Loading receipt...</p></body></html>');
+
+        try {
+            setIsPrintingReceipt(true);
+            pw.document.close();
+            pw.document.open();
+            pw.document.write(buildPosReceiptHtml(lastCheckoutReceipt));
+            pw.document.close();
+            pw.focus();
+            setTimeout(() => {
+                pw.print();
+                pw.close();
+                setIsPrintingReceipt(false);
+            }, 400);
+        } catch {
+            pw.document.write('<p style="color:red">Failed to load receipt.</p>');
+            pw.document.close();
+            setIsPrintingReceipt(false);
+        }
     };
 
     const checkout = async () => {
@@ -522,9 +526,21 @@ export default function PointOfSale() {
             return;
         }
 
-        if (!selectedCustomerId) {
-            setCheckoutError('Select or add a customer before checkout.');
+        if (paymentMode === 'online' && !selectedCustomerId) {
+            setCheckoutError('A customer is required for online payments. Please select or add a walk-in customer.');
             return;
+        }
+
+        if (paymentMode === 'cash') {
+            const tendered = Number.parseFloat(amountTendered);
+            if (!Number.isFinite(tendered) || tendered <= 0) {
+                setCheckoutError('Please enter the amount tendered.');
+                return;
+            }
+            if (tendered < cartSummary.total) {
+                setCheckoutError(`Amount tendered (${formatPeso(tendered)}) is less than the total (${formatPeso(cartSummary.total)}).`);
+                return;
+            }
         }
 
         setIsCheckingOut(true);
@@ -533,22 +549,63 @@ export default function PointOfSale() {
         setCheckoutPaymentUrl(null);
 
         try {
-            const response = await posService.checkout({
-                customer_id: selectedCustomerId,
+            const payload: {
+                customer_id?: number;
+                payment_mode: PosPaymentMode;
+                notes?: string;
+                cart: { item_id: number; quantity: number }[];
+            } = {
                 payment_mode: paymentMode,
                 notes: checkoutNotes.trim() || undefined,
                 cart: cart.map((line) => ({
                     item_id: line.productId,
                     quantity: line.quantity,
                 })),
-            });
+            };
+            if (selectedCustomerId) {
+                payload.customer_id = selectedCustomerId;
+            }
+
+            const response = await posService.checkout(payload);
 
             const summary = response.data.checkout;
+            const customerName = response.data.customer_name;
+            const transactionId = response.data.transaction.id;
 
             setCart([]);
+            setAmountTendered('');
+            setCardReference('');
             setCheckoutNotes('');
-            setCheckoutNotice(`Checkout ${summary.reference_number} completed for ${formatPeso(summary.total)}.`);
+
+            let notice = `Checkout ${summary.reference_number} completed for ${formatPeso(summary.total)}.`;
+            if (paymentMode === 'cash' && change > 0) {
+                notice += ` Change due: ${formatPeso(change)}.`;
+            }
+            if (customerName) {
+                notice += ` Customer: ${customerName}.`;
+            }
+            setCheckoutNotice(notice);
             setCheckoutPaymentUrl(summary.payment_url);
+
+            setLastCheckoutReceipt({
+                referenceNumber: summary.reference_number,
+                transactionId,
+                customerName: customerName ?? null,
+                paymentMethod: paymentMode,
+                itemCount: summary.item_count,
+                subtotal: summary.subtotal,
+                total: summary.total,
+                lineItems: summary.line_items.map((li) => ({
+                    itemName: li.item_name,
+                    sku: li.sku,
+                    quantity: li.quantity,
+                    unitPrice: li.unit_price,
+                    lineTotal: li.line_total,
+                })),
+                amountTendered: paymentMode === 'cash' ? Number.parseFloat(amountTendered) : undefined,
+                change: paymentMode === 'cash' ? change : undefined,
+                checkoutNotes: checkoutNotes.trim() || undefined,
+            });
 
             await Promise.all([loadProducts(), loadRecentTransactions()]);
         } catch (error) {
@@ -570,45 +627,11 @@ export default function PointOfSale() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
                 <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-5 overflow-hidden">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                        <div>
-                            <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Frontdesk Workspace</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Counter sales made simple — ring up products, process payments, and keep the shelves stocked.
-                            </p>
-                        </div>
-                        <button
-                            onClick={openCreateProductModal}
-                            className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90"
-                        >
-                            <Plus className="h-4 w-4" /> Add Product
-                        </button>
-                    </div>
-
                     {pageError && <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm text-red-300">{pageError}</div>}
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Catalog Size</p>
-                            <p className="mt-2 text-3xl font-bold">{totals.totalProducts}</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Active Products</p>
-                            <p className="mt-2 text-3xl font-bold">{totals.activeProducts}</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Low Stock Lines</p>
-                            <p className="mt-2 text-3xl font-bold">{totals.lowStockProducts}</p>
-                        </div>
-                        <div className="profile-card rounded-xl p-4">
-                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Inventory Value</p>
-                            <p className="mt-2 text-3xl font-bold">{formatPeso(totals.inventoryValue)}</p>
-                        </div>
-                    </div>
-
-                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[1.45fr_1fr]">
-                        <div className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex flex-col gap-3">
+                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden lg:grid-cols-[1.45fr_1fr]">
+                        <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
+                            <div className="flex shrink-0 flex-col gap-3 mb-4">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
@@ -639,17 +662,17 @@ export default function PointOfSale() {
                                 </div>
                             </div>
 
-                            <div className="overflow-hidden rounded-xl border border-[#2a2a2e]">
-                                <div className="hidden grid-cols-[1.1fr_0.9fr_0.7fr_0.7fr_1fr_1fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
+                            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#2a2a2e]">
+                                <div className="hidden shrink-0 items-center grid-cols-[1.1fr_0.9fr_0.7fr_0.7fr_1fr_0.55fr] border-b border-[#2a2a2e] bg-[#0d0d10] px-4 py-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase lg:grid">
                                     <span>Product</span>
                                     <span>Category</span>
                                     <span>Price</span>
                                     <span>Stock</span>
                                     <span>Status</span>
-                                    <span>Actions</span>
+                                    <span></span>
                                 </div>
 
-                                <div className="max-h-140 overflow-y-auto">
+                                <div className="flex-1 overflow-y-auto">
                                     {isLoadingProducts ? (
                                         <div className="flex items-center justify-center gap-2 px-5 py-16 text-sm text-muted-foreground">
                                             <Loader2 className="h-4 w-4 animate-spin" /> Loading products...
@@ -666,7 +689,7 @@ export default function PointOfSale() {
                                                 <button
                                                     key={product.id}
                                                     onClick={() => setSelectedId(product.id)}
-                                                    className={`grid w-full border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 lg:grid-cols-[1.1fr_0.9fr_0.7fr_0.7fr_1fr_1fr] ${
+                                                    className={`grid w-full items-center border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 lg:grid-cols-[1.1fr_0.9fr_0.7fr_0.7fr_1fr_0.55fr] ${
                                                         selected
                                                             ? 'bg-[#d4af37]/7 shadow-[inset_0_0_0_1px_rgba(212,175,55,0.55)]'
                                                             : 'hover:bg-[#1a1b20]/65'
@@ -712,24 +735,6 @@ export default function PointOfSale() {
                                                         >
                                                             <ShoppingCart className="h-3.5 w-3.5" /> Add
                                                         </button>
-                                                        <button
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                openEditProductModal(product);
-                                                            }}
-                                                            className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                                        >
-                                                            <PencilLine className="h-3.5 w-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                setDeleteTarget(product);
-                                                            }}
-                                                            className="inline-flex items-center gap-1 rounded-md border border-red-500/30 px-2 py-1 text-[11px] font-semibold text-red-400 transition-colors hover:bg-red-500/10"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </button>
                                                     </div>
                                                 </button>
                                             );
@@ -740,224 +745,348 @@ export default function PointOfSale() {
                         </div>
 
                         <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
-                            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-base font-semibold">Current Ticket</h2>
-                                <ReceiptText className="h-4 w-4 text-[#d4af37]" />
-                            </div>
-
-                            {checkoutNotice && (
-                                <div className="mb-3 rounded-lg border border-[#d4af37]/35 bg-[#d4af37]/10 px-3 py-2 text-xs text-[#f3d886]">
-                                    {checkoutNotice}
+                            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-base font-semibold">Current Ticket</h2>
+                                    <ReceiptText className="h-4 w-4 text-[#d4af37]" />
                                 </div>
-                            )}
 
-                            {cartLines.length === 0 ? (
-                                <div className="rounded-xl border border-dashed border-[#2a2a2e] p-5 text-center text-sm text-muted-foreground">
-                                    No product added to ticket yet.
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {cartLines.map((line) => (
-                                        <div key={line.product.id} className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div>
-                                                    <p className="text-sm font-semibold">{line.product.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{formatPeso(line.product.unitPrice)} each</p>
+                                <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
+                                    <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Customer & Payment</p>
+
+                                    <select
+                                        value={selectedCustomerId ? String(selectedCustomerId) : ''}
+                                        onChange={(event) => setSelectedCustomerId(event.target.value ? Number(event.target.value) : null)}
+                                        className="mt-2 h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                    >
+                                        <option value="">Walk-in (no customer)</option>
+                                        {customers.map((customer) => (
+                                            <option key={customer.id} value={customer.id}>
+                                                {customerLabel(customer)}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <button
+                                        onClick={openWalkInModal}
+                                        className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" /> Add Walk-In Customer
+                                    </button>
+
+                                    {isLoadingCustomers && <p className="mt-2 text-xs text-muted-foreground">Loading customer list...</p>}
+
+                                    {selectedCustomer && (
+                                        <p className="mt-2 text-xs text-muted-foreground">
+                                            {customerLabel(selectedCustomer)}
+                                            {selectedCustomer.phone_number ? ` • ${selectedCustomer.phone_number}` : ''}
+                                        </p>
+                                    )}
+
+                                    <p className="mt-3 mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Payment Method</p>
+
+                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                        <button
+                                            onClick={() => setPaymentMode('cash')}
+                                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 font-semibold transition-colors ${
+                                                paymentMode === 'cash'
+                                                    ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
+                                                    : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+                                            }`}
+                                        >
+                                            <Banknote className="h-3.5 w-3.5" /> Cash
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentMode('card')}
+                                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 font-semibold transition-colors ${
+                                                paymentMode === 'card'
+                                                    ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
+                                                    : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+                                            }`}
+                                        >
+                                            <CreditCard className="h-3.5 w-3.5" /> Card
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentMode('online')}
+                                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 font-semibold transition-colors ${
+                                                paymentMode === 'online'
+                                                    ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
+                                                    : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+                                            }`}
+                                        >
+                                            <QrCode className="h-3.5 w-3.5" /> Online
+                                        </button>
+                                    </div>
+
+                                    {paymentMode === 'cash' && (
+                                        <div className="mt-3 space-y-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                            <div>
+                                                <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Amount Tendered</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₱</span>
+                                                    <input
+                                                        value={amountTendered}
+                                                        onChange={(e) => setAmountTendered(e.target.value)}
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        placeholder="0.00"
+                                                        className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] pl-8 pr-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                                    />
                                                 </div>
-                                                <button
-                                                    onClick={() => updateCartQuantity(line.product.id, 0)}
-                                                    className="rounded-md border border-[#2a2a2e] p-1 text-muted-foreground transition-colors hover:border-red-500/40 hover:text-red-400"
-                                                >
-                                                    <X className="h-3.5 w-3.5" />
-                                                </button>
                                             </div>
 
-                                            <div className="mt-3 flex items-center justify-between">
-                                                <div className="inline-flex items-center rounded-md border border-[#2a2a2e] bg-[#0a0b0f]">
-                                                    <button
-                                                        onClick={() => updateCartQuantity(line.product.id, line.quantity - 1)}
-                                                        className="px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                                            {Number.parseFloat(amountTendered) > 0 && (
+                                                <div className="flex items-center justify-between rounded-md bg-[#090a0d] px-3 py-2">
+                                                    <span className="text-sm text-muted-foreground">Change Due</span>
+                                                    <span
+                                                        className={`text-lg font-bold ${change > 0 ? 'text-emerald-400' : 'text-muted-foreground'}`}
                                                     >
-                                                        -
-                                                    </button>
-                                                    <span className="px-2 text-sm font-semibold">{line.quantity}</span>
-                                                    <button
-                                                        onClick={() => updateCartQuantity(line.product.id, line.quantity + 1)}
-                                                        className="px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                                                    >
-                                                        +
-                                                    </button>
+                                                        {formatPeso(change)}
+                                                    </span>
                                                 </div>
-                                                <p className="text-sm font-semibold text-[#d4af37]">{formatPeso(line.lineTotal)}</p>
-                                            </div>
+                                            )}
                                         </div>
-                                    ))}
+                                    )}
+
+                                    {paymentMode === 'card' && (
+                                        <div className="mt-3">
+                                            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Terminal Reference</label>
+                                            <input
+                                                value={cardReference}
+                                                onChange={(e) => setCardReference(e.target.value)}
+                                                placeholder="Terminal ID / receipt number"
+                                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <textarea
+                                        value={checkoutNotes}
+                                        onChange={(event) => setCheckoutNotes(event.target.value)}
+                                        rows={2}
+                                        placeholder="Optional checkout note"
+                                        className="mt-3 w-full rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs focus:border-[#d4af37] focus:outline-none"
+                                    />
                                 </div>
-                            )}
 
-                            <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Customer & Payment</p>
-
-                                <select
-                                    value={selectedCustomerId ? String(selectedCustomerId) : ''}
-                                    onChange={(event) => setSelectedCustomerId(event.target.value ? Number(event.target.value) : null)}
-                                    className="mt-2 h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                                >
-                                    <option value="">Select customer</option>
-                                    {customers.map((customer) => (
-                                        <option key={customer.id} value={customer.id}>
-                                            {customerLabel(customer)}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                <button
-                                    onClick={openWalkInModal}
-                                    className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                                >
-                                    <Plus className="h-3.5 w-3.5" /> Add Walk-In Customer
-                                </button>
-
-                                {isLoadingCustomers && <p className="mt-2 text-xs text-muted-foreground">Loading customer list...</p>}
-                                {!isLoadingCustomers && customers.length === 0 && (
-                                    <p className="mt-2 text-xs text-amber-300">No customers available yet. Add a walk-in customer to continue.</p>
+                                {checkoutNotice && !lastCheckoutReceipt && (
+                                    <div className="rounded-lg border border-[#d4af37]/35 bg-[#d4af37]/10 px-3 py-2 text-xs text-[#f3d886]">
+                                        {checkoutNotice}
+                                    </div>
                                 )}
 
-                                {selectedCustomer && (
-                                    <p className="mt-2 text-xs text-muted-foreground">
-                                        {customerLabel(selectedCustomer)}
-                                        {selectedCustomer.phone_number ? ` • ${selectedCustomer.phone_number}` : ''}
-                                    </p>
+                                {lastCheckoutReceipt && (
+                                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="rounded-full bg-emerald-500/10 p-3">
+                                                <Check className="h-10 w-10 text-emerald-400" />
+                                            </div>
+                                            <p className="text-base font-bold text-emerald-400">Sale Complete</p>
+                                            <p className="text-center text-sm text-muted-foreground">
+                                                {formatPeso(lastCheckoutReceipt.total)} via{' '}
+                                                {lastCheckoutReceipt.paymentMethod.charAt(0).toUpperCase() + lastCheckoutReceipt.paymentMethod.slice(1)}
+                                                {lastCheckoutReceipt.change !== undefined && lastCheckoutReceipt.change > 0 && (
+                                                    <> &middot; Change: {formatPeso(lastCheckoutReceipt.change)}</>
+                                                )}
+                                            </p>
+                                            {checkoutNotice && (
+                                                <p className="text-center text-xs text-muted-foreground">{checkoutNotice}</p>
+                                            )}
+                                        </div>
+                                        <div className="mt-4 space-y-2">
+                                            <button
+                                                onClick={handlePrintReceipt}
+                                                disabled={isPrintingReceipt}
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {isPrintingReceipt ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Printer className="h-4 w-4" />
+                                                )}
+                                                Print Receipt
+                                            </button>
+                                            <button
+                                                onClick={clearCart}
+                                                className="w-full rounded-lg border border-[#2a2a2e] px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                            >
+                                                New Sale
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
 
-                                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                    <button
-                                        onClick={() => setPaymentMode('cash')}
-                                        className={`rounded-md border px-3 py-2 font-semibold transition-colors ${
-                                            paymentMode === 'cash'
-                                                ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
-                                                : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
-                                        }`}
-                                    >
-                                        Cash
-                                    </button>
-                                    <button
-                                        onClick={() => setPaymentMode('online')}
-                                        className={`rounded-md border px-3 py-2 font-semibold transition-colors ${
-                                            paymentMode === 'online'
-                                                ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
-                                                : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
-                                        }`}
-                                    >
-                                        Online
-                                    </button>
-                                </div>
-
-                                <textarea
-                                    value={checkoutNotes}
-                                    onChange={(event) => setCheckoutNotes(event.target.value)}
-                                    rows={2}
-                                    placeholder="Optional checkout note"
-                                    className="mt-3 w-full rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs focus:border-[#d4af37] focus:outline-none"
-                                />
-                            </div>
-
-                            <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
-                                <div className="flex items-center justify-between text-muted-foreground">
-                                    <span>Items</span>
-                                    <span>{cartSummary.itemCount}</span>
-                                </div>
-                                <div className="mt-1 flex items-center justify-between text-muted-foreground">
-                                    <span>Subtotal</span>
-                                    <span>{formatPeso(cartSummary.subtotal)}</span>
-                                </div>
-                                <div className="mt-2 flex items-center justify-between border-t border-[#2a2a2e] pt-2 text-base font-semibold">
-                                    <span>Total</span>
-                                    <span className="text-[#d4af37]">{formatPeso(cartSummary.total)}</span>
-                                </div>
-                            </div>
-
-                            {checkoutError && (
-                                <div className="mt-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                                    {checkoutError}
-                                </div>
-                            )}
-
-                            {checkoutPaymentUrl && (
-                                <button
-                                    onClick={() => window.open(checkoutPaymentUrl, '_blank', 'noopener,noreferrer')}
-                                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#d4af37]/40 px-4 py-2 text-xs font-semibold text-[#f6d778] transition-colors hover:bg-[#d4af37]/10"
-                                >
-                                    <ExternalLink className="h-3.5 w-3.5" /> Open Payment Link
-                                </button>
-                            )}
-
-                            {selectedProduct && (
-                                <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
-                                    <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Selected Product</p>
-                                    <p className="mt-2 font-semibold">{selectedProduct.name}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">{selectedProduct.description || 'No description set.'}</p>
-                                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                                        <span>SKU: {selectedProduct.sku}</span>
-                                        <span>Stock: {selectedProduct.stock}</span>
+                                {cartLines.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-[#2a2a2e] p-5 text-center text-sm text-muted-foreground">
+                                        No product added to ticket yet.
                                     </div>
-                                </div>
-                            )}
-
-                            <div className="mt-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Recent POS Transactions</p>
-
-                                {isLoadingTransactions ? (
-                                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading recent sales...
-                                    </div>
-                                ) : recentTransactions.length === 0 ? (
-                                    <p className="mt-2 text-xs text-muted-foreground">No POS transactions yet.</p>
                                 ) : (
-                                    <div className="mt-2 space-y-2">
-                                        {recentTransactions.map((transaction) => (
-                                            <div key={transaction.id} className="rounded-md border border-[#2a2a2e] px-2.5 py-2 text-xs">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <p className="font-semibold text-foreground">
-                                                        {transaction.reference_number ?? `Transaction #${transaction.id}`}
-                                                    </p>
-                                                    <p className="font-semibold text-[#d4af37]">{formatPeso(Number(transaction.amount))}</p>
+                                    <div className="space-y-2">
+                                        {cartLines.map((line) => (
+                                            <div key={line.product.id} className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <p className="text-sm font-semibold">{line.product.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{formatPeso(line.product.unitPrice)} each</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => updateCartQuantity(line.product.id, 0)}
+                                                        className="rounded-md border border-[#2a2a2e] p-1 text-muted-foreground transition-colors hover:border-red-500/40 hover:text-red-400"
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </button>
                                                 </div>
-                                                <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                                                    <span>{(transaction.payment_method || 'unknown').toUpperCase()}</span>
-                                                    <span>{transaction.xendit_status || 'PENDING'}</span>
+
+                                                <div className="mt-3 flex items-center justify-between">
+                                                    <div className="inline-flex items-center rounded-md border border-[#2a2a2e] bg-[#0a0b0f]">
+                                                        <button
+                                                            onClick={() => updateCartQuantity(line.product.id, line.quantity - 1)}
+                                                            className="px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <span className="px-2 text-sm font-semibold">{line.quantity}</span>
+                                                        <button
+                                                            onClick={() => updateCartQuantity(line.product.id, line.quantity + 1)}
+                                                            className="px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-sm font-semibold text-[#d4af37]">{formatPeso(line.lineTotal)}</p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
-                            </div>
-                        </div>
-                        <div className="shrink-0 grid gap-2 pt-4">
-                            <button
-                                onClick={checkout}
-                                disabled={isCheckingOut}
-                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90"
-                            >
-                                {isCheckingOut ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" /> Processing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="h-4 w-4" />{' '}
-                                        {paymentMode === 'online' ? 'Create Payment Link' : 'Charge Customer'}
-                                    </>
+
+                                {selectedProduct && (
+                                    <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
+                                        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Selected Product</p>
+                                        <p className="mt-2 font-semibold">{selectedProduct.name}</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">{selectedProduct.description || 'No description set.'}</p>
+                                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                                            <span>SKU: {selectedProduct.sku}</span>
+                                            <span>Stock: {selectedProduct.stock}</span>
+                                        </div>
+                                    </div>
                                 )}
-                            </button>
-                            <button
-                                onClick={clearCart}
-                                className="rounded-lg border border-[#2a2a2e] px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                            >
-                                Clear Ticket
-                            </button>
-                        </div>
+
+                                <div className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-3 text-sm">
+                                    <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Recent POS Transactions</p>
+
+                                    {isLoadingTransactions ? (
+                                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading recent sales...
+                                        </div>
+                                    ) : recentTransactions.length === 0 ? (
+                                        <p className="mt-2 text-xs text-muted-foreground">No POS transactions yet.</p>
+                                    ) : (
+                                        <div className="mt-2 space-y-2">
+                                            {recentTransactions.map((transaction) => (
+                                                <div key={transaction.id} className="rounded-md border border-[#2a2a2e] px-2.5 py-2 text-xs">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <p className="font-semibold text-foreground">
+                                                            {transaction.reference_number ?? `Transaction #${transaction.id}`}
+                                                        </p>
+                                                        <p className="font-semibold text-[#d4af37]">{formatPeso(Number(transaction.amount))}</p>
+                                                    </div>
+                                                    <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                        <span>{(transaction.payment_method || 'unknown').toUpperCase()}</span>
+                                                        <span>{transaction.xendit_status || 'PENDING'}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Sticky footer: only critical checkout actions */}
+                            <div className="shrink-0 border-t border-[#2a2a2e] pt-3 mt-3 space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">{cartSummary.itemCount} item{cartSummary.itemCount !== 1 ? 's' : ''}</span>
+                                    <span className="text-base font-bold text-[#d4af37]">{formatPeso(cartSummary.total)}</span>
+                                </div>
+
+                                {checkoutError && (
+                                    <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                                        {checkoutError}
+                                    </div>
+                                )}
+
+                                {checkoutPaymentUrl && (
+                                    <div className="rounded-lg border border-[#d4af37]/35 bg-[#d4af37]/10 p-2 space-y-2">
+                                        <p className="text-xs font-semibold text-emerald-400">Payment link ready</p>
+                                        <div className="flex justify-center rounded-lg bg-white p-1.5">
+                                            <img
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(checkoutPaymentUrl)}`}
+                                                alt="Payment QR Code"
+                                                className="h-[140px] w-[140px]"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="flex-1 truncate text-[11px] text-muted-foreground">{checkoutPaymentUrl}</p>
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await navigator.clipboard.writeText(checkoutPaymentUrl);
+                                                    } catch {
+                                                        const textarea = document.createElement('textarea');
+                                                        textarea.value = checkoutPaymentUrl;
+                                                        textarea.style.position = 'fixed';
+                                                        textarea.style.opacity = '0';
+                                                        document.body.appendChild(textarea);
+                                                        textarea.select();
+                                                        document.execCommand('copy');
+                                                        document.body.removeChild(textarea);
+                                                    }
+                                                }}
+                                                className="shrink-0 rounded-md border border-[#2a2a2e] p-1.5 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                            >
+                                                <Copy className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => window.open(checkoutPaymentUrl, '_blank', 'noopener,noreferrer')}
+                                                className="shrink-0 rounded-md border border-[#2a2a2e] p-1.5 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                            >
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={checkout}
+                                    disabled={isCheckingOut}
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] px-4 py-2.5 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isCheckingOut ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" /> Processing...
+                                        </>
+                                    ) : paymentMode === 'cash' ? (
+                                        <>
+                                            <Banknote className="h-4 w-4" /> Charge {formatPeso(cartSummary.total)}
+                                        </>
+                                    ) : paymentMode === 'card' ? (
+                                        <>
+                                            <CreditCard className="h-4 w-4" /> Process {formatPeso(cartSummary.total)}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <QrCode className="h-4 w-4" /> Create Payment Link
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={clearCart}
+                                    className="w-full rounded-lg border border-[#2a2a2e] px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                >
+                                    Clear Ticket
+                                </button>
+                            </div>
                         </aside>
                     </div>
                 </div>
@@ -1182,36 +1311,6 @@ export default function PointOfSale() {
                 </div>
             )}
 
-            {deleteTarget && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setDeleteTarget(null)}>
-                    <div className="profile-card w-full max-w-md rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-                        <div className="mb-3 flex items-center gap-2 text-red-400">
-                            <AlertTriangle className="h-5 w-5" />
-                            <h3 className="text-base font-semibold">Delete product</h3>
-                        </div>
-
-                        <p className="text-sm text-muted-foreground">
-                            You are deleting <span className="font-semibold text-foreground">{deleteTarget.name}</span>. This action cannot be undone.
-                        </p>
-
-                        <div className="mt-5 flex justify-end gap-2">
-                            <button
-                                onClick={() => setDeleteTarget(null)}
-                                className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={deleteProduct}
-                                disabled={isDeletingProduct}
-                                className="rounded-lg border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/10"
-                            >
-                                {isDeletingProduct ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </AppLayout>
     );
 }

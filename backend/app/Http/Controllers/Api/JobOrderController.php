@@ -13,14 +13,19 @@ use App\Http\Requests\Api\JobOrder\AddJobOrderItemRequest;
 use App\Http\Requests\Api\JobOrder\SettleJobOrderRequest;
 use App\Http\Requests\Api\JobOrder\StartJobOrderRequest;
 use App\Http\Requests\Api\JobOrder\StoreJobOrderRequest;
+use App\Http\Requests\Api\JobOrder\UpdateJobOrderItemRequest;
 use App\Http\Requests\Api\JobOrder\UpdateJobOrderRequest;
 use App\Http\Resources\JobOrderItemResource;
 use App\Http\Resources\JobOrderResource;
+use App\Models\BookingSlot;
 use App\Models\JobOrder;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 
 class JobOrderController extends Controller
 {
@@ -72,6 +77,85 @@ class JobOrderController extends Controller
                 'message' => 'Failed to create job order: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    public function slotAvailability(Request $request): JsonResponse
+    {
+        $this->authorizeManageJobOrders();
+
+        $arrivalDate = $request->query('arrival_date', now()->toDateString());
+
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $arrivalDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid date format. Use Y-m-d.',
+            ], 422);
+        }
+
+        if (! Schema::hasTable('booking_slots')) {
+            return response()->json([
+                'success' => true,
+                'data' => ['arrival_date' => $arrivalDate, 'slots' => []],
+                'message' => 'Booking slots not configured.',
+            ]);
+        }
+
+        $slotSettings = BookingSlot::query()->active()->ordered()->get(['time', 'capacity']);
+
+        if ($slotSettings->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => ['arrival_date' => $arrivalDate, 'slots' => []],
+            ]);
+        }
+
+        $slotTimes = $slotSettings->pluck('time')->all();
+
+        $bookedByTime = JobOrder::query()
+            ->whereDate('arrival_date', $arrivalDate)
+            ->whereIn('arrival_time', $slotTimes)
+            ->where(function ($query) {
+                $query
+                    ->whereIn('status', ['approved', 'in_progress', 'completed', 'settled'])
+                    ->orWhere(function ($q) {
+                        $q->whereIn('status', ['created', 'pending_approval'])
+                            ->where(function ($inner) {
+                                $inner->whereNull('reservation_expires_at')
+                                    ->orWhere('reservation_expires_at', '>', now())
+                                    ->orWhereExists(function ($txn) {
+                                        $txn->select(DB::raw('1'))
+                                            ->from('customer_transactions')
+                                            ->whereColumn('customer_transactions.job_order_id', 'job_orders.id')
+                                            ->where('customer_transactions.xendit_status', 'PAID');
+                                    });
+                            });
+                    });
+            })
+            ->selectRaw('arrival_time, COUNT(*) as booked_count')
+            ->groupBy('arrival_time')
+            ->pluck('booked_count', 'arrival_time');
+
+        $slots = $slotSettings->map(function (BookingSlot $slot) use ($bookedByTime): array {
+            $bookedCount = (int) ($bookedByTime[$slot->time] ?? 0);
+            $slotsLeft = max($slot->capacity - $bookedCount, 0);
+
+            return [
+                'time' => $slot->time,
+                'label' => Carbon::createFromFormat('H:i', $slot->time)->format('g:i A'),
+                'status' => $slotsLeft > 0 ? 'available' : 'full',
+                'slots_left' => $slotsLeft,
+                'capacity' => (int) $slot->capacity,
+                'booked' => $bookedCount,
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'arrival_date' => $arrivalDate,
+                'slots' => $slots,
+            ],
+        ]);
     }
 
     public function show(int $id): JsonResponse
@@ -249,6 +333,23 @@ class JobOrderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Item removed from job order.',
+            ]);
+        } catch (JobOrderNotFoundException|JobOrderStateException $e) {
+            return $e->render();
+        }
+    }
+
+    public function updateItem(UpdateJobOrderItemRequest $request, int $id, int $itemId): JsonResponse
+    {
+        $this->authorizeManageJobOrders();
+
+        try {
+            $item = $this->jobOrderService->updateJobOrderItem($id, $itemId, $request->validated());
+
+            return response()->json([
+                'success' => true,
+                'data' => new JobOrderItemResource($item),
+                'message' => 'Item updated successfully.',
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
             return $e->render();

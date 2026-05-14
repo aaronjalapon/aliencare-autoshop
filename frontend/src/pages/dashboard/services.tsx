@@ -1,9 +1,11 @@
 import AppLayout from '@/components/layout/app-layout';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
+import { inventoryService } from '@/services/inventoryService';
 import { ServiceCatalogMutationPayload, serviceCatalogService } from '@/services/serviceCatalogService';
 import { type BreadcrumbItem } from '@/types';
 import { type ServiceCatalogItem } from '@/types/customer';
+import { type InventoryItem } from '@/types/inventory';
 import { AlertCircle, Check, Loader2, PencilLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -25,13 +27,15 @@ interface ServiceFormState {
     rating: string;
     ratingCount: string;
     featuresText: string;
-    includesText: string;
+    selectedIncludeItems: SelectedItem[];
     recommended: boolean;
     recommendedNote: string;
     isActive: boolean;
 }
 
 type ServiceFormErrors = Partial<Record<keyof ServiceFormState, string>>;
+
+type SelectedItem = Pick<InventoryItem, 'item_id' | 'item_name' | 'sku' | 'unit_price' | 'stock'>;
 
 const categoryOptions: Array<{ value: ServiceCategory; label: string }> = [
     { value: 'maintenance', label: 'Maintenance' },
@@ -51,7 +55,7 @@ const initialFormState: ServiceFormState = {
     rating: '0',
     ratingCount: '0',
     featuresText: '',
-    includesText: '',
+    selectedIncludeItems: [],
     recommended: false,
     recommendedNote: '',
     isActive: true,
@@ -85,7 +89,7 @@ function toFormState(service: ServiceCatalogItem): ServiceFormState {
         rating: service.rating.toString(),
         ratingCount: service.rating_count.toString(),
         featuresText: service.features.join('\n'),
-        includesText: service.includes.join('\n'),
+        selectedIncludeItems: [],
         recommended: service.recommended,
         recommendedNote: service.recommended_note ?? '',
         isActive: service.is_active,
@@ -104,7 +108,6 @@ const apiFieldToFormField: Record<string, keyof ServiceFormState> = {
     rating: 'rating',
     rating_count: 'ratingCount',
     features: 'featuresText',
-    includes: 'includesText',
     recommended: 'recommended',
     recommended_note: 'recommendedNote',
     is_active: 'isActive',
@@ -141,7 +144,7 @@ function toMutationPayload(form: ServiceFormState): ServiceCatalogMutationPayloa
         recommended_note: form.recommended ? form.recommendedNote.trim() || null : null,
         is_active: form.isActive,
         features: toLineList(form.featuresText),
-        includes: toLineList(form.includesText),
+        includes: form.selectedIncludeItems.map((i) => i.item_name),
         rating: Number.isFinite(parsedRating) ? parsedRating : 0,
         rating_count: Number.isFinite(parsedRatingCount) ? parsedRatingCount : 0,
     };
@@ -167,6 +170,63 @@ export default function Services() {
     const [deleteTarget, setDeleteTarget] = useState<ServiceCatalogItem | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [isDeactivating, setIsDeactivating] = useState(false);
+
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+    const [includesSearchTerm, setIncludesSearchTerm] = useState('');
+
+    const loadInventory = useCallback(async () => {
+        try {
+            const response = await inventoryService.getInventoryItems({ per_page: 200 });
+            setInventoryItems(
+                (response.data.data ?? []).filter(
+                    (item) => item.status === 'active' && item.stock > 0,
+                ),
+            );
+        } catch {
+            setInventoryItems([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadInventory();
+    }, [loadInventory]);
+
+    const matchIncludesToInventory = useCallback(
+        (includes: string[]): SelectedItem[] =>
+            includes.map((name) => {
+                const match = inventoryItems.find(
+                    (inv) => inv.item_name.toLowerCase() === name.toLowerCase(),
+                );
+                if (match) {
+                    return {
+                        item_id: match.item_id,
+                        item_name: match.item_name,
+                        sku: match.sku,
+                        unit_price: match.unit_price,
+                        stock: match.stock,
+                    };
+                }
+                return { item_id: -1, item_name: name, sku: null, unit_price: 0, stock: 0 };
+            }),
+        [inventoryItems],
+    );
+
+    const filteredInventory = useMemo(() => {
+        const normalized = includesSearchTerm.trim().toLowerCase();
+        const selectedIds = new Set(formState.selectedIncludeItems.map((i) => i.item_id));
+        const candidates = inventoryItems.filter((item) => !selectedIds.has(item.item_id));
+        if (!normalized) return candidates.slice(0, 25);
+        return candidates
+            .filter((item) => {
+                const haystack = [item.item_name, item.sku ?? '', item.description ?? '']
+                    .join(' ')
+                    .toLowerCase();
+                return haystack.includes(normalized);
+            })
+            .slice(0, 25);
+    }, [inventoryItems, includesSearchTerm, formState.selectedIncludeItems]);
+
+    const showIncludesDropdown = includesSearchTerm.trim().length > 0 && filteredInventory.length > 0;
 
     const loadServices = useCallback(async () => {
         try {
@@ -223,6 +283,7 @@ export default function Services() {
         setShowFormModal(false);
         setFormErrors({});
         setSubmitError(null);
+        setIncludesSearchTerm('');
     };
 
     const openCreateModal = () => {
@@ -231,15 +292,20 @@ export default function Services() {
         setFormState(initialFormState);
         setFormErrors({});
         setSubmitError(null);
+        setIncludesSearchTerm('');
         setShowFormModal(true);
     };
 
     const openEditModal = (service: ServiceCatalogItem) => {
         setFormMode('edit');
         setEditingServiceId(service.id);
-        setFormState(toFormState(service));
+        setFormState({
+            ...toFormState(service),
+            selectedIncludeItems: matchIncludesToInventory(service.includes),
+        });
         setFormErrors({});
         setSubmitError(null);
+        setIncludesSearchTerm('');
         setShowFormModal(true);
     };
 
@@ -347,9 +413,9 @@ export default function Services() {
                         </div>
                     </div>
 
-                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[1.45fr_1fr]">
+                    <div className="grid min-h-0 flex-1 gap-5 overflow-hidden lg:grid-cols-[1.45fr_1fr]">
                         <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
-                            <div className="mb-4 flex flex-col gap-3">
+                            <div className="mb-4 flex shrink-0 flex-col gap-3">
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
@@ -475,117 +541,148 @@ export default function Services() {
                         </div>
 
                         <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
-                            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                            <h2 className="text-base font-semibold">Service Details</h2>
                             {isLoadingServices ? (
-                                <div className="mt-6 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#2a2a2e] p-6 text-sm text-muted-foreground">
-                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading service details...
+                                <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading details...
                                 </div>
                             ) : selectedService ? (
-                                <div className="mt-4 space-y-4 text-sm">
-                                    <div>
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className="text-lg font-bold">{selectedService.name}</p>
-                                                <div className="mt-1 flex items-center gap-2">
-                                                    <p className="text-xs text-muted-foreground">{formatCategory(selectedService.category)}</p>
+                                <>
+                                    {/* Header — always visible */}
+                                    <div className="shrink-0 space-y-4 pb-4 border-b border-[#2a2a2e]">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <h2 className="text-lg font-bold leading-snug">{selectedService.name}</h2>
+                                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                    <span className="rounded-full border border-[#2a2a2e] bg-[#0d0d10] px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                                        {formatCategory(selectedService.category)}
+                                                    </span>
                                                     <span
                                                         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                                                             selectedService.is_active
-                                                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                                                                : 'border-red-500/40 bg-red-500/10 text-red-300'
+                                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                                                                : 'border-red-500/30 bg-red-500/10 text-red-300'
                                                         }`}
                                                     >
                                                         {selectedService.is_active ? 'Active' : 'Inactive'}
                                                     </span>
+                                                    {selectedService.recommended && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-2 py-0.5 text-[10px] font-semibold text-[#d4af37]">
+                                                            <Sparkles className="h-3 w-3" /> Recommended
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <span className="rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-2 py-1 text-xs font-semibold text-[#d4af37]">
-                                                P{selectedService.price_fixed.toLocaleString('en-US')}
-                                            </span>
+                                            <div className="shrink-0 rounded-xl border border-[#d4af37]/30 bg-[#d4af37]/10 px-4 py-3 text-center">
+                                                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Price</p>
+                                                <p className="mt-0.5 text-xl font-bold text-[#d4af37]">
+                                                    P{selectedService.price_fixed.toLocaleString('en-US')}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <p className="mt-3 text-sm text-muted-foreground">
-                                            {selectedService.description || 'No description available.'}
+
+                                        {selectedService.description && (
+                                            <p className="text-sm leading-relaxed text-muted-foreground">{selectedService.description}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Scrollable details */}
+                                    <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                                        {/* Quick stats */}
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5 text-center">
+                                                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Duration</p>
+                                                <p className="mt-1 text-sm font-bold text-foreground">{selectedService.duration}</p>
+                                                <p className="text-[10px] text-muted-foreground">{selectedService.estimated_duration}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5 text-center">
+                                                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Queue</p>
+                                                <p className="mt-1 text-sm font-bold text-foreground">{selectedService.queue_label || '—'}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5 text-center">
+                                                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Rating</p>
+                                                <p className="mt-1 text-sm font-bold text-foreground">
+                                                    {selectedService.rating_count > 0
+                                                        ? `${selectedService.rating.toFixed(1)}`
+                                                        : '—'}
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {selectedService.rating_count > 0 ? `${selectedService.rating_count} reviews` : 'No reviews'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Features */}
+                                        <div>
+                                            <p className="mb-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Features</p>
+                                            {selectedService.features.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedService.features.map((feature) => (
+                                                        <span
+                                                            key={feature}
+                                                            className="inline-flex items-center gap-1 rounded-full border border-[#2a2a2e] bg-[#0d0d10] px-2.5 py-1 text-xs text-muted-foreground"
+                                                        >
+                                                            {feature}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground/50 italic">No features listed.</p>
+                                            )}
+                                        </div>
+
+                                        {/* Includes */}
+                                        <div>
+                                            <p className="mb-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Includes</p>
+                                            {selectedService.includes.length > 0 ? (
+                                                <div className="space-y-1.5">
+                                                    {selectedService.includes.map((item) => (
+                                                        <div key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
+                                                            <span>{item}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground/50 italic">No included items listed.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Sticky actions */}
+                                    <div className="flex shrink-0 items-center gap-2 pt-4 border-t border-[#2a2a2e]">
+                                        <button
+                                            onClick={() => openEditModal(selectedService)}
+                                            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-4 py-2.5 text-sm font-semibold transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                        >
+                                            <PencilLine className="h-4 w-4" /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setDeleteError(null);
+                                                setDeleteTarget(selectedService);
+                                            }}
+                                            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/10"
+                                        >
+                                            <Trash2 className="h-4 w-4" /> Deactivate
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-[#2a2a2e]">
+                                        <Search className="h-6 w-6 text-muted-foreground/40" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-muted-foreground">No Service Selected</p>
+                                        <p className="mt-1 text-xs text-muted-foreground/60">
+                                            Select a service from the list to view details, pricing, and what's included.
                                         </p>
                                     </div>
-
-                                    <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                                        <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5">
-                                            <p className="font-semibold text-foreground">Duration</p>
-                                            <p>{selectedService.duration}</p>
-                                            <p>{selectedService.estimated_duration}</p>
-                                        </div>
-                                        <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-2.5">
-                                            <p className="font-semibold text-foreground">Queue Label</p>
-                                            <p>{selectedService.queue_label || 'Not set'}</p>
-                                            <p className="mt-1">
-                                                Rating: {selectedService.rating.toFixed(1)} ({selectedService.rating_count})
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Features</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {selectedService.features.length > 0 ? (
-                                                selectedService.features.map((feature) => (
-                                                    <span
-                                                        key={feature}
-                                                        className="rounded-full border border-[#2a2a2e] px-2 py-1 text-xs text-muted-foreground"
-                                                    >
-                                                        {feature}
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground">No features listed.</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Includes</p>
-                                        <div className="space-y-1.5">
-                                            {selectedService.includes.length > 0 ? (
-                                                selectedService.includes.map((item) => (
-                                                    <div key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                        <Check className="h-3.5 w-3.5 text-[#d4af37]" /> {item}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground">No included line items.</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                </div>
-                            ) : (
-                                <div className="mt-6 rounded-lg border border-dashed border-[#2a2a2e] p-6 text-center text-sm text-muted-foreground">
-                                    Select a service from the list to inspect details.
                                 </div>
                             )}
                         </div>
-                        {selectedService && (
-                            <div className="shrink-0 flex items-center gap-2 pt-4">
-                                <button
-                                    onClick={() => openEditModal(selectedService)}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-[#d4af37]/40"
-                                >
-                                    <PencilLine className="h-3.5 w-3.5" /> Edit Service
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setDeleteError(null);
-                                        setDeleteTarget(selectedService);
-                                    }}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10"
-                                >
-                                    <Trash2 className="h-3.5 w-3.5" /> Deactivate
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
-            </div>
             </div>
 
             {showFormModal && (
@@ -766,32 +863,107 @@ export default function Services() {
                                 {getFieldError('description') && <p className="text-xs text-red-400">{getFieldError('description')}</p>}
                             </label>
 
-                            <div className="grid gap-3 md:grid-cols-2">
-                                <label className="block space-y-1.5 text-sm">
-                                    <span className="text-xs font-semibold text-muted-foreground">Features (comma or new line)</span>
-                                    <textarea
-                                        value={formState.featuresText}
-                                        onChange={(event) => setFormState((prev) => ({ ...prev, featuresText: event.target.value }))}
-                                        rows={4}
-                                        className={`w-full rounded-lg border bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
-                                            getFieldError('featuresText') ? 'border-red-500/60' : 'border-[#2a2a2e]'
-                                        }`}
-                                    />
-                                    {getFieldError('featuresText') && <p className="text-xs text-red-400">{getFieldError('featuresText')}</p>}
-                                </label>
+                            <label className="block space-y-1.5 text-sm">
+                                <span className="text-xs font-semibold text-muted-foreground">Features (comma or new line)</span>
+                                <textarea
+                                    value={formState.featuresText}
+                                    onChange={(event) => setFormState((prev) => ({ ...prev, featuresText: event.target.value }))}
+                                    rows={3}
+                                    className={`w-full rounded-lg border bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
+                                        getFieldError('featuresText') ? 'border-red-500/60' : 'border-[#2a2a2e]'
+                                    }`}
+                                />
+                                {getFieldError('featuresText') && <p className="text-xs text-red-400">{getFieldError('featuresText')}</p>}
+                            </label>
 
-                                <label className="block space-y-1.5 text-sm">
-                                    <span className="text-xs font-semibold text-muted-foreground">Includes (comma or new line)</span>
-                                    <textarea
-                                        value={formState.includesText}
-                                        onChange={(event) => setFormState((prev) => ({ ...prev, includesText: event.target.value }))}
-                                        rows={4}
-                                        className={`w-full rounded-lg border bg-[#0d0d10] px-3 py-2 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none ${
-                                            getFieldError('includesText') ? 'border-red-500/60' : 'border-[#2a2a2e]'
-                                        }`}
+                            <div className="space-y-2 text-sm">
+                                <span className="text-xs font-semibold text-muted-foreground">Includes (select from inventory)</span>
+
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                                    <input
+                                        value={includesSearchTerm}
+                                        onChange={(e) => setIncludesSearchTerm(e.target.value)}
+                                        placeholder="Search inventory by name or SKU..."
+                                        className="h-9 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] pr-8 pl-8 text-sm focus:border-[#d4af37] focus:outline-none"
+                                        autoComplete="off"
                                     />
-                                    {getFieldError('includesText') && <p className="text-xs text-red-400">{getFieldError('includesText')}</p>}
-                                </label>
+                                    {includesSearchTerm && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIncludesSearchTerm('')}
+                                            className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {showIncludesDropdown && (
+                                    <div className="max-h-40 overflow-y-auto rounded-lg border border-[#2a2a2e] bg-[#0d0d10]">
+                                        {filteredInventory.map((inv) => (
+                                            <button
+                                                key={inv.item_id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormState((prev) => ({
+                                                        ...prev,
+                                                        selectedIncludeItems: [
+                                                            ...prev.selectedIncludeItems,
+                                                            {
+                                                                item_id: inv.item_id,
+                                                                item_name: inv.item_name,
+                                                                sku: inv.sku,
+                                                                unit_price: inv.unit_price,
+                                                                stock: inv.stock,
+                                                            },
+                                                        ],
+                                                    }));
+                                                    setIncludesSearchTerm('');
+                                                }}
+                                                className="flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors hover:bg-[#1a1b20]"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-semibold text-foreground">{inv.item_name}</p>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        {inv.sku ?? `INV-${String(inv.item_id).padStart(6, '0')}`}
+                                                    </p>
+                                                </div>
+                                                <div className="ml-3 shrink-0 text-right">
+                                                    <p className="font-semibold text-[#d4af37]">P{inv.unit_price.toLocaleString('en-US')}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{inv.stock} in stock</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {formState.selectedIncludeItems.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {formState.selectedIncludeItems.map((item) => (
+                                            <span
+                                                key={item.item_id}
+                                                className="inline-flex items-center gap-1 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/7 px-2.5 py-1 text-xs text-muted-foreground"
+                                            >
+                                                <span className="font-medium text-foreground">{item.item_name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setFormState((prev) => ({
+                                                            ...prev,
+                                                            selectedIncludeItems: prev.selectedIncludeItems.filter(
+                                                                (i) => i.item_id !== item.item_id,
+                                                            ),
+                                                        }))
+                                                    }
+                                                    className="ml-0.5 text-muted-foreground hover:text-red-400 transition-colors"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid gap-3 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3 md:grid-cols-2">

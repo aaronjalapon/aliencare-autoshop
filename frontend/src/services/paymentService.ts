@@ -64,6 +64,57 @@ class PaymentService {
     async shopPayAtShop(amount: number, notes?: string): Promise<ApiResponse<ShopPayAtShopResponse>> {
         return api.post<ApiResponse<ShopPayAtShopResponse>>('/v1/shop/pay-at-shop', { amount, notes });
     }
+
+    // ── Frontdesk payment endpoints ──────────────────────────────────────
+
+    /**
+     * Creates a Xendit hosted invoice from the frontdesk (billing/POS).
+     * Staff can generate payment links for any customer.
+     */
+    async createFrontdeskInvoice(payload: {
+        transaction_id?: number;
+        customer_id?: number;
+        amount?: number;
+        job_order_id?: number;
+        payment_method?: string;
+        reference_number?: string;
+        notes?: string;
+    }): Promise<ApiResponse<{
+        payment_url: string;
+        transaction_id: number;
+        xendit_invoice_id: string;
+    }>> {
+        return api.post('/v1/payments/frontdesk/invoice', payload);
+    }
+
+    /**
+     * Records an in-person payment (cash/card) from the frontdesk.
+     * Creates a Payment transaction and auto-settles the job order if fully paid.
+     */
+    async recordPayment(payload: {
+        customer_id: number;
+        job_order_id?: number;
+        amount: number;
+        payment_method: string;
+        reference_number?: string;
+        notes?: string;
+    }): Promise<ApiResponse<{
+        transaction: any;
+        settled: boolean;
+    }>> {
+        return api.post('/v1/payments/record', payload);
+    }
+
+    /**
+     * Syncs a single transaction's Xendit invoice status from the frontdesk.
+     */
+    async syncFrontdeskStatus(transactionId: number): Promise<ApiResponse<{
+        transaction: any;
+        status_changed: boolean;
+        xendit_status: string;
+    }>> {
+        return api.post('/v1/payments/frontdesk/sync', { transaction_id: transactionId });
+    }
 }
 
 export const paymentService = new PaymentService();

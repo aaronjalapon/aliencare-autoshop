@@ -71,7 +71,7 @@ class BillingQueueController extends Controller
         END";
 
         $serviceRows = DB::table('job_orders')
-            ->leftJoin('customers', 'customers.id', '=', 'job_orders.customer_id')
+            ->join('customers', 'customers.id', '=', 'job_orders.customer_id')
             ->leftJoin('vehicles', 'vehicles.id', '=', 'job_orders.vehicle_id')
             ->leftJoin('users as advisors', 'advisors.id', '=', 'job_orders.approved_by')
             ->selectRaw("'job_order' as entity_type")
@@ -133,7 +133,7 @@ class BillingQueueController extends Controller
         END";
 
         $posRows = DB::table('customer_transactions')
-            ->leftJoin('customers', 'customers.id', '=', 'customer_transactions.customer_id')
+            ->join('customers', 'customers.id', '=', 'customer_transactions.customer_id')
             ->selectRaw("'pos_transaction' as entity_type")
             ->selectRaw('customer_transactions.id as entity_id')
             ->selectRaw('customer_transactions.customer_id as customer_id')

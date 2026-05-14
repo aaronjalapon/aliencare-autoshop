@@ -158,7 +158,8 @@ export function UsageReports() {
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Parts Usage</h1>
                     <p className="text-muted-foreground">
-                        See which parts are being used, how much they cost, and spot usage trends. ({data.date_range.start_date} to {data.date_range.end_date})
+                        See which parts are being used, how much they cost, and spot usage trends. ({data.date_range.start_date} to{' '}
+                        {data.date_range.end_date})
                     </p>
                 </div>
                 <div className="flex gap-4">
@@ -520,9 +521,7 @@ export function UsageReports() {
                         </TableBody>
                     </Table>
                 </div>
-                {usageItems.length === 0 && (
-                    <div className="py-8 text-center text-muted-foreground">No usage data for this period and category</div>
-                )}
+                {usageItems.length === 0 && <div className="py-8 text-center text-muted-foreground">No usage data for this period and category</div>}
             </div>
         </div>
     );

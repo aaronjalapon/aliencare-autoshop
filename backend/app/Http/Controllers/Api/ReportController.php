@@ -232,6 +232,104 @@ class ReportController extends Controller
     }
 
     /**
+     * Export a report as CSV or PDF.
+     */
+    public function exportReport(int $id): JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        Gate::authorize('view-reports');
+
+        try {
+            $report = $this->reportService->getReport($id);
+            $format = request()->get('format', 'csv');
+
+            if ($format === 'pdf') {
+                return $this->streamPdfReport($report);
+            }
+
+            return $this->streamCsvReport($report);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export report: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function streamCsvReport(\App\Models\Report $report): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $data = $report->data_summary ?? [];
+        $filename = sprintf('%s-%s.csv', $report->report_type, $report->report_date);
+
+        return response()->streamDownload(function () use ($data, $report) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Report Type', $report->report_type]);
+            fputcsv($handle, ['Report Date', $report->report_date]);
+            fputcsv($handle, ['Generated', $report->generated_date?->toDateTimeString() ?? '']);
+            fputcsv($handle, []);
+
+            foreach ($data as $key => $value) {
+                if (is_array($value)) {
+                    fputcsv($handle, [ucwords(str_replace('_', ' ', $key))]);
+                    foreach ($value as $subKey => $subValue) {
+                        $row = is_array($subValue) ? $subValue : [$subKey => $subValue];
+                        fputcsv($handle, array_merge(array_keys($row), array_values($row)));
+                    }
+                    fputcsv($handle, []);
+                } else {
+                    fputcsv($handle, [ucwords(str_replace('_', ' ', $key)), $value]);
+                }
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    private function streamPdfReport(\App\Models\Report $report): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        // Simple HTML-to-PDF via browser print; we stream an HTML page.
+        $data = $report->data_summary ?? [];
+        $filename = sprintf('%s-%s.html', $report->report_type, $report->report_date);
+
+        return response()->streamDownload(function () use ($data, $report) {
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Report</title>';
+            echo '<style>body{font-family:sans-serif;padding:2rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f5f5f5}</style></head><body>';
+            echo '<h1>' . htmlspecialchars(ucwords(str_replace('_', ' ', $report->report_type))) . '</h1>';
+            echo '<p>Date: ' . htmlspecialchars($report->report_date) . '</p>';
+            echo '<p>Generated: ' . htmlspecialchars($report->generated_date?->toDateTimeString() ?? '') . '</p>';
+
+            foreach ($data as $key => $value) {
+                echo '<h3>' . htmlspecialchars(ucwords(str_replace('_', ' ', (string) $key))) . '</h3>';
+                if (is_array($value)) {
+                    echo '<table><thead><tr>';
+                    $headers = [];
+                    foreach ($value as $item) {
+                        if (is_array($item)) {
+                            $headers = array_keys($item);
+                            break;
+                        }
+                    }
+                    foreach ($headers as $h) {
+                        echo '<th>' . htmlspecialchars(ucwords(str_replace('_', ' ', $h))) . '</th>';
+                    }
+                    echo '</tr></thead><tbody>';
+                    foreach ($value as $item) {
+                        echo '<tr>';
+                        foreach ($headers as $h) {
+                            echo '<td>' . htmlspecialchars((string) ($item[$h] ?? '')) . '</td>';
+                        }
+                        echo '</tr>';
+                    }
+                    echo '</tbody></table>';
+                } else {
+                    echo '<p>' . htmlspecialchars((string) $value) . '</p>';
+                }
+            }
+
+            echo '</body></html>';
+        }, $filename, ['Content-Type' => 'text/html']);
+    }
+
+    /**
      * Get procurement analytics for a date range.
      */
     public function getProcurementAnalytics(GetAnalyticsDateRangeRequest $request): JsonResponse

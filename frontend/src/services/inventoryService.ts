@@ -3,57 +3,9 @@
  * Handles all inventory-related API calls to Laravel backend
  */
 
-import { DashboardAnalytics, InventoryItem, StockTransaction } from '@/types/inventory';
-import { normalizeStockTransaction, normalizeStockTransactions } from './inventoryWorkspaceNormalizers';
-import { api, ApiResponse, PaginatedResponse } from './api';
-
-type LowStockAlertsPayload = InventoryItem[] | { alert_count?: number; alerts?: InventoryItem[]; data?: InventoryItem[] };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}
-
-function isInventoryItem(value: unknown): value is InventoryItem {
-    if (!isRecord(value)) {
-        return false;
-    }
-
-    return (
-        typeof value.id === 'number' &&
-        typeof value.item_id === 'number' &&
-        typeof value.item_name === 'string' &&
-        typeof value.stock === 'number' &&
-        typeof value.reorder_level === 'number'
-    );
-}
-
-function normalizeInventoryItems(value: unknown): InventoryItem[] {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-
-    return value.filter(isInventoryItem);
-}
-
-function normalizeLowStockAlertsData(payload: unknown): InventoryItem[] {
-    if (Array.isArray(payload)) {
-        return normalizeInventoryItems(payload);
-    }
-
-    if (!isRecord(payload)) {
-        return [];
-    }
-
-    if (Array.isArray(payload.alerts)) {
-        return normalizeInventoryItems(payload.alerts);
-    }
-
-    if (Array.isArray(payload.data)) {
-        return normalizeInventoryItems(payload.data);
-    }
-
-    return [];
-}
+import { InventoryItem, StockTransaction } from '@/types/inventory';
+import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
+import { normalizeLowStockAlertsData, normalizeStockTransaction, normalizeStockTransactions } from './inventoryWorkspaceNormalizers';
 
 export interface ArchiveEntry {
     id: number;
@@ -187,18 +139,16 @@ class InventoryService {
 
     // Get low stock alerts
     async getLowStockAlerts(): Promise<ApiResponse<InventoryItem[]>> {
-        const response = await api.get<ApiResponse<LowStockAlertsPayload>>('/v1/inventory/alerts/low-stock');
+        const response =
+            await api.get<ApiResponse<InventoryItem[] | { alert_count?: number; alerts?: InventoryItem[]; data?: InventoryItem[] }>>(
+                '/v1/inventory/alerts/low-stock',
+            );
         const normalizedAlerts = normalizeLowStockAlertsData(response.data);
 
         return {
             ...response,
             data: normalizedAlerts,
         };
-    }
-
-    // Get dashboard analytics
-    async getDashboardAnalytics(): Promise<ApiResponse<DashboardAnalytics>> {
-        return api.get<ApiResponse<DashboardAnalytics>>('/v1/reports/analytics/dashboard');
     }
 
     // Get stock transactions with filters
@@ -212,13 +162,7 @@ class InventoryService {
             page?: number;
         } = {},
     ): Promise<ApiResponse<PaginatedResponse<StockTransaction>>> {
-        const params: Record<string, string | number> = {};
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params[key] = String(value);
-            }
-        });
+        const params = buildQueryParams(filters as Record<string, unknown>);
 
         const response = await api.get<ApiResponse<PaginatedResponse<StockTransaction>>>('/v1/transactions', params);
 
@@ -243,13 +187,7 @@ class InventoryService {
             page?: number;
         } = {},
     ): Promise<ApiResponse<PaginatedResponse<ArchiveEntry>>> {
-        const params: Record<string, string | number> = {};
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params[key] = String(value);
-            }
-        });
+        const params = buildQueryParams(filters as Record<string, unknown>);
 
         return api.get<ApiResponse<PaginatedResponse<ArchiveEntry>>>('/v1/archives', params);
     }

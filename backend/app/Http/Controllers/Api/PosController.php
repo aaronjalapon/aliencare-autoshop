@@ -87,13 +87,8 @@ class PosController extends Controller
 
         $validated = $request->validated();
 
-        $customer = Customer::find((int) $validated['customer_id']);
-        if (! $customer) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Customer not found.',
-            ], 404);
-        }
+        $customerId = isset($validated['customer_id']) ? (int) $validated['customer_id'] : null;
+        $customer = $customerId ? Customer::find($customerId) : null;
 
         /** @var array<int, array{item_id: int, quantity: int}> $cart */
         $cart = $validated['cart'];
@@ -144,7 +139,7 @@ class PosController extends Controller
             }
 
             $transaction = CustomerTransaction::create([
-                'customer_id' => $customer->id,
+                'customer_id' => $customer?->id,
                 'job_order_id' => null,
                 'type' => CustomerTransactionType::Invoice,
                 'amount' => $total,
@@ -160,8 +155,29 @@ class PosController extends Controller
 
             $paymentUrl = null;
             if ($paymentMode === 'online') {
+                if (! $customer) {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A customer is required for online payment. Please select or add a walk-in customer.',
+                    ], 422);
+                }
+
                 $xenditService = app()->make(XenditService::class);
                 $paymentUrl = $xenditService->createInvoice($transaction, $customer);
+            } else {
+                // Cash and card payments are immediate — create a Payment record
+                CustomerTransaction::create([
+                    'customer_id' => $customer?->id,
+                    'job_order_id' => null,
+                    'type' => CustomerTransactionType::Payment,
+                    'amount' => $total,
+                    'reference_number' => $referenceNumber,
+                    'payment_method' => $paymentMode,
+                    'notes' => "POS {$paymentMode} payment — {$referenceNumber}",
+                    'paid_at' => now(),
+                ]);
             }
 
             DB::commit();
@@ -182,7 +198,8 @@ class PosController extends Controller
                 ],
                 'message' => $paymentMode === 'online'
                     ? 'POS checkout created. Share the payment URL with the customer.'
-                    : 'POS checkout completed. Cash payment recorded.',
+                    : 'POS checkout completed.',
+                'customer_name' => $customer?->full_name,
             ], 201);
         } catch (InsufficientStockException $e) {
             DB::rollBack();

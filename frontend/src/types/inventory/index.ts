@@ -120,6 +120,8 @@ export interface Report {
     id: number;
     report_type: 'daily_usage' | 'monthly_procurement' | 'reconciliation' | 'low_stock' | 'reservation_summary';
     report_date: string;
+    generated_date?: string | null;
+    generated_by?: string | null;
     data: Record<string, unknown>; // JSON data specific to report type
     created_at: string;
     updated_at: string;

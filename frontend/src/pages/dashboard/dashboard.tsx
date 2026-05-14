@@ -65,7 +65,7 @@ export default function Dashboard() {
                         <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">{analyticsError}</div>
                     )}
 
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <div className="profile-card rounded-xl p-5">
                             <div className="flex items-center justify-between">
                                 <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Services Available</p>

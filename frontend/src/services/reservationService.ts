@@ -4,7 +4,7 @@
  */
 
 import { Reservation } from '@/types/inventory';
-import { api, ApiResponse, PaginatedResponse } from './api';
+import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
 export interface ReservationFilters {
     status?: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
@@ -46,105 +46,53 @@ export interface ReservationAction {
 }
 
 class ReservationService {
-    // Transform reservation data from API response (reservation_id -> id)
-    private transformReservation(reservation: Reservation): Reservation {
-        return reservation;
-    }
-
-    // Transform paginated response
-    private transformPaginatedResponse(response: PaginatedResponse<Reservation>): PaginatedResponse<Reservation> {
-        return {
-            ...response,
-            data: response.data.map((reservation) => this.transformReservation(reservation)),
-        };
-    }
-
     // Get all reservations with pagination and filters
     async getReservations(filters: ReservationFilters = {}): Promise<PaginatedResponse<Reservation>> {
-        const params: Record<string, string | number> = {};
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params[key] = String(value);
-            }
-        });
-
+        const params = buildQueryParams(filters as Record<string, unknown>);
         const response = await api.get<ApiResponse<PaginatedResponse<Reservation>>>('/v1/reservations', params);
-        return this.transformPaginatedResponse(response.data);
+        return response.data;
     }
 
     // Get single reservation
     async getReservation(id: number): Promise<ApiResponse<Reservation>> {
-        const response = await api.get<ApiResponse<Reservation>>(`/v1/reservations/${id}`);
-        return {
-            ...response,
-            data: this.transformReservation(response.data),
-        };
+        return api.get<ApiResponse<Reservation>>(`/v1/reservations/${id}`);
     }
 
     // Create new reservation
     async createReservation(reservation: NewReservation): Promise<ApiResponse<Reservation>> {
-        const response = await api.post<ApiResponse<Reservation>>('/v1/reservations/reserve', reservation);
-        return {
-            ...response,
-            data: this.transformReservation(response.data),
-        };
+        return api.post<ApiResponse<Reservation>>('/v1/reservations/reserve', reservation);
     }
 
     // Create multiple reservations for a single job order
     async createMultipleReservations(reservation: NewMultipleReservation): Promise<ApiResponse<Reservation[]>> {
-        const response = await api.post<ApiResponse<Reservation[]>>('/v1/reservations/reserve-multiple', reservation);
-        return {
-            ...response,
-            data: response.data.map((res: Reservation) => this.transformReservation(res)),
-        };
+        return api.post<ApiResponse<Reservation[]>>('/v1/reservations/reserve-multiple', reservation);
     }
 
     // Approve reservation
     async approveReservation(id: number, action: ReservationAction): Promise<ApiResponse<Reservation>> {
-        const response = await api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/approve`, action);
-        return {
-            ...response,
-            data: this.transformReservation(response.data),
-        };
+        return api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/approve`, action);
     }
 
     // Reject reservation
     async rejectReservation(id: number, action: ReservationAction): Promise<ApiResponse<Reservation>> {
-        const response = await api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/reject`, action);
-        return {
-            ...response,
-            data: this.transformReservation(response.data),
-        };
+        return api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/reject`, action);
     }
 
     // Complete reservation
     async completeReservation(id: number, action: ReservationAction): Promise<ApiResponse<Reservation>> {
-        const response = await api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/complete`, action);
-        return {
-            ...response,
-            data: this.transformReservation(response.data),
-        };
+        return api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/complete`, action);
     }
 
     // Cancel reservation
     async cancelReservation(id: number, action: ReservationAction): Promise<ApiResponse<Reservation>> {
-        const response = await api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/cancel`, action);
-        return {
-            ...response,
-            data: this.transformReservation(response.data),
-        };
+        return api.put<ApiResponse<Reservation>>(`/v1/reservations/${id}/cancel`, action);
     }
 
     // Get reservations by job order
     async getReservationsByJobOrder(jobOrderNumber: string): Promise<ApiResponse<Reservation[]>> {
-        const response = await api.get<ApiResponse<Reservation[]>>('/v1/reservations', {
+        return api.get<ApiResponse<Reservation[]>>('/v1/reservations', {
             job_order: jobOrderNumber,
         });
-        return {
-            ...response,
-            data: response.data.map((res: Reservation) => this.transformReservation(res)),
-        };
     }
 
     // Get active reservations summary
@@ -174,16 +122,9 @@ class ReservationService {
 
     // Get customer's own reservations (scoped to authenticated user)
     async getMyReservations(filters: ReservationFilters = {}): Promise<PaginatedResponse<Reservation>> {
-        const params: Record<string, string | number> = { mine: 1 };
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params[key] = String(value);
-            }
-        });
-
+        const params = { mine: '1', ...buildQueryParams(filters as Record<string, unknown>) };
         const response = await api.get<ApiResponse<PaginatedResponse<Reservation>>>('/v1/reservations', params);
-        return this.transformPaginatedResponse(response.data);
+        return response.data;
     }
 }
 

@@ -1,616 +1,839 @@
 import AppLayout from '@/components/layout/app-layout';
-import { reportsService } from '@/services/reportsService';
+import { reportsService, type ReportFilters } from '@/services/reportsService';
 import { type BreadcrumbItem } from '@/types';
-import { Activity, AlertTriangle, BarChart3, CheckCircle2, Clock3, Loader2, RefreshCcw, TrendingDown, TrendingUp, Wrench } from 'lucide-react';
+import { type Report } from '@/types/inventory';
+import { useReports, type DashboardView, type UsageView, type ProcurementView } from '@/hooks/useReports';
+import { formatCurrency, formatPercentage, clampPercent, toShortDateLabel, formatTypeLabel } from '@/lib/reports-utils';
+import {
+    AlertTriangle, BarChart3, Calendar, CheckCircle2, Clock3,
+    FileText, Filter, Loader2, Package, RefreshCcw,
+    TrendingDown, TrendingUp, Truck, Wrench, X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reports and Analytics', href: '/reports' }];
 
-type RangeKey = '7d' | '30d' | '90d';
+type TabKey = 'overview' | 'usage' | 'procurement' | 'history';
+type RangeKey = '7d' | '30d' | '90d' | 'custom';
 
-interface DashboardAnalyticsView {
-    inventoryValue: number;
-    lowStockCount: number;
-    pendingReservations: number;
-    todayTransactions: number;
-    weeklySales: number;
-    monthlyProcurement: number;
-    jobPipeline: {
-        completed: number;
-        inProgress: number;
-        queued: number;
-    };
-}
-
-interface UsageByTypeRow {
-    type: string;
-    count: number;
-    quantity: number;
-}
-
-interface UsageTopItemRow {
-    id: number;
-    name: string;
-    count: number;
-    category: string;
-    cost: number;
-}
-
-interface UsageDailyRow {
-    date: string;
-    count: number;
-}
-
-interface UsageAnalyticsView {
-    totalTransactions: number;
-    totalConsumed: number;
-    totalCost: number;
-    byType: UsageByTypeRow[];
-    topItems: UsageTopItemRow[];
-    dailySummary: UsageDailyRow[];
-}
-
-interface ProcurementSupplierRow {
-    supplier: string;
-    count: number;
-    quantity: number;
-    value: number;
-}
-
-interface ProcurementCategoryRow {
-    category: string;
-    count: number;
-    quantity: number;
-    value: number;
-}
-
-interface ProcurementAnalyticsView {
-    totalProcurements: number;
-    totalQuantity: number;
-    totalValue: number;
-    bySupplier: ProcurementSupplierRow[];
-    byCategory: ProcurementCategoryRow[];
-}
-
-interface DashboardState {
-    dashboard: DashboardAnalyticsView;
-    usage: UsageAnalyticsView;
-    procurement: ProcurementAnalyticsView;
-}
-
-interface ServicePerformanceRow {
-    service: string;
-    completed: number;
-    completionRate: number;
-    averageHours: number | null;
-}
-
-interface ForecastRow {
-    period: string;
-    projectedJobs: number;
-    projectedRevenue: number;
-    projectedPartsCost: number;
-}
-
-const rangeConfig: Record<RangeKey, { label: string; days: number }> = {
-    '7d': { label: 'Last 7 days', days: 7 },
-    '30d': { label: 'Last 30 days', days: 30 },
-    '90d': { label: 'Last 90 days', days: 90 },
+const RANGE_CONFIG: Record<RangeKey, { label: string; days: number | null }> = {
+    '7d': { label: '7 days', days: 7 },
+    '30d': { label: '30 days', days: 30 },
+    '90d': { label: '90 days', days: 90 },
+    'custom': { label: 'Custom', days: null },
 };
 
-const emptyState: DashboardState = {
-    dashboard: {
-        inventoryValue: 0,
-        lowStockCount: 0,
-        pendingReservations: 0,
-        todayTransactions: 0,
-        weeklySales: 0,
-        monthlyProcurement: 0,
-        jobPipeline: {
-            completed: 0,
-            inProgress: 0,
-            queued: 0,
-        },
-    },
-    usage: {
-        totalTransactions: 0,
-        totalConsumed: 0,
-        totalCost: 0,
-        byType: [],
-        topItems: [],
-        dailySummary: [],
-    },
-    procurement: {
-        totalProcurements: 0,
-        totalQuantity: 0,
-        totalValue: 0,
-        bySupplier: [],
-        byCategory: [],
-    },
-};
+const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
+    { key: 'overview', label: 'Overview', icon: BarChart3 },
+    { key: 'usage', label: 'Usage', icon: TrendingDown },
+    { key: 'procurement', label: 'Procurement', icon: Truck },
+    { key: 'history', label: 'History', icon: FileText },
+];
 
-const peso = new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    maximumFractionDigits: 0,
-});
+const GOLD = '#d4af37';
+const GOLD_LIGHT = '#f3d886';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
 
-function toNumber(value: unknown, fallback = 0): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-
-    if (typeof value === 'string') {
-        const parsed = Number.parseFloat(value);
-        return Number.isFinite(parsed) ? parsed : fallback;
-    }
-
-    return fallback;
-}
-
-function toStringValue(value: unknown, fallback = ''): string {
-    return typeof value === 'string' ? value : fallback;
-}
-
-function toShortDateLabel(rawDate: string): string {
-    const parsed = new Date(rawDate);
-    if (Number.isNaN(parsed.getTime())) {
-        return rawDate;
-    }
-
-    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatTypeLabel(type: string): string {
-    return type.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function normalizeDashboardPayload(raw: unknown): DashboardAnalyticsView {
-    if (!isRecord(raw)) {
-        return emptyState.dashboard;
-    }
-
-    const rawPipeline = isRecord(raw.job_pipeline) ? raw.job_pipeline : null;
-
-    return {
-        inventoryValue: toNumber(raw.inventory_value, toNumber(raw.total_value, 0)),
-        lowStockCount: toNumber(raw.low_stock_count),
-        pendingReservations: toNumber(raw.pending_reservations),
-        todayTransactions: toNumber(raw.today_transactions),
-        weeklySales: toNumber(raw.weekly_sales),
-        monthlyProcurement: toNumber(raw.monthly_procurement),
-        jobPipeline: {
-            completed: toNumber(rawPipeline?.completed),
-            inProgress: toNumber(rawPipeline?.in_progress),
-            queued: toNumber(rawPipeline?.queued),
-        },
-    };
-}
-
-function normalizeUsagePayload(raw: unknown): UsageAnalyticsView {
-    if (!isRecord(raw)) {
-        return emptyState.usage;
-    }
-
-    const usageByItemRaw = Array.isArray(raw.usage_by_item) ? raw.usage_by_item : [];
-    const topItemsRaw = Array.isArray(raw.top_consumed_items)
-        ? raw.top_consumed_items
-        : Array.isArray(raw.top_items)
-          ? raw.top_items
-          : usageByItemRaw;
-
-    const topItems = topItemsRaw
-        .map((entry, index) => {
-            if (!isRecord(entry)) {
-                return null;
-            }
-
-            return {
-                id: toNumber(entry.item_id, index + 1),
-                name: toStringValue(entry.item_name, toStringValue(entry.description, `Service ${index + 1}`)),
-                count: toNumber(entry.consumed, toNumber(entry.transaction_count, toNumber(entry.count))),
-                category: toStringValue(entry.category, 'general'),
-                cost: toNumber(entry.cost, toNumber(entry.value)),
-            };
-        })
-        .filter((entry): entry is UsageTopItemRow => entry !== null)
-        .slice(0, 8);
-
-    const byType: UsageByTypeRow[] = [];
-    if (Array.isArray(raw.by_type)) {
-        raw.by_type.forEach((entry, index) => {
-            if (!isRecord(entry)) {
-                return;
-            }
-
-            byType.push({
-                type: toStringValue(entry.type, `Segment ${index + 1}`),
-                count: toNumber(entry.count),
-                quantity: toNumber(entry.quantity, toNumber(entry.consumed, toNumber(entry.count))),
-            });
-        });
-    } else if (isRecord(raw.by_type)) {
-        Object.entries(raw.by_type).forEach(([key, value]) => {
-            if (!isRecord(value)) {
-                return;
-            }
-
-            byType.push({
-                type: formatTypeLabel(key),
-                count: toNumber(value.count),
-                quantity: toNumber(value.quantity, toNumber(value.total_quantity, toNumber(value.consumed))),
-            });
-        });
-    }
-
-    const dailySummary: UsageDailyRow[] = [];
-    if (Array.isArray(raw.daily_summary)) {
-        raw.daily_summary.forEach((entry, index) => {
-            if (!isRecord(entry)) {
-                return;
-            }
-
-            const dateLabel = toShortDateLabel(toStringValue(entry.date, `Day ${index + 1}`));
-            dailySummary.push({
-                date: dateLabel,
-                count: toNumber(entry.count, toNumber(entry.transactions)),
-            });
-        });
-    } else if (isRecord(raw.daily_summary)) {
-        Object.entries(raw.daily_summary).forEach(([date, count]) => {
-            dailySummary.push({
-                date: toShortDateLabel(date),
-                count: toNumber(count),
-            });
-        });
-    }
-
-    const summary = isRecord(raw.summary) ? raw.summary : null;
-    const totalTransactions = toNumber(
-        summary?.total_transactions,
-        toNumber(
-            raw.total_transactions,
-            topItems.reduce((sum, item) => sum + item.count, 0),
-        ),
+function KpiCard({ label, value, subtitle, icon: Icon, accentClass }: {
+    label: string; value: string; subtitle: string;
+    icon: React.ElementType; accentClass?: string;
+}) {
+    return (
+        <article className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
+            <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</p>
+                <Icon className={`h-4 w-4 ${accentClass ?? 'text-[#d4af37]'}`} />
+            </div>
+            <p className="mt-2 text-2xl font-bold text-foreground">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+        </article>
     );
-    const totalConsumed = toNumber(
-        summary?.total_consumed,
-        topItems.reduce((sum, item) => sum + item.count, 0),
-    );
-    const totalCost = toNumber(
-        summary?.total_cost,
-        topItems.reduce((sum, item) => sum + item.cost, 0),
-    );
-
-    return {
-        totalTransactions,
-        totalConsumed,
-        totalCost,
-        byType,
-        topItems,
-        dailySummary,
-    };
 }
 
-function normalizeProcurementPayload(raw: unknown): ProcurementAnalyticsView {
-    if (!isRecord(raw)) {
-        return emptyState.procurement;
-    }
-
-    const bySupplier: ProcurementSupplierRow[] = [];
-    if (Array.isArray(raw.by_supplier)) {
-        raw.by_supplier.forEach((entry, index) => {
-            if (!isRecord(entry)) {
-                return;
-            }
-
-            bySupplier.push({
-                supplier: toStringValue(entry.supplier, `Supplier ${index + 1}`),
-                count: toNumber(entry.count, toNumber(entry.items_count)),
-                quantity: toNumber(entry.quantity),
-                value: toNumber(entry.value),
-            });
-        });
-    } else if (isRecord(raw.by_supplier)) {
-        Object.entries(raw.by_supplier).forEach(([supplier, value]) => {
-            if (!isRecord(value)) {
-                return;
-            }
-
-            bySupplier.push({
-                supplier,
-                count: toNumber(value.count),
-                quantity: toNumber(value.quantity),
-                value: toNumber(value.value),
-            });
-        });
-    }
-
-    const byCategory: ProcurementCategoryRow[] = [];
-    if (Array.isArray(raw.by_category)) {
-        raw.by_category.forEach((entry, index) => {
-            if (!isRecord(entry)) {
-                return;
-            }
-
-            byCategory.push({
-                category: toStringValue(entry.category, `Category ${index + 1}`),
-                count: toNumber(entry.count, toNumber(entry.item_count)),
-                quantity: toNumber(entry.quantity),
-                value: toNumber(entry.value),
-            });
-        });
-    } else if (isRecord(raw.by_category)) {
-        Object.entries(raw.by_category).forEach(([category, value]) => {
-            if (!isRecord(value)) {
-                return;
-            }
-
-            byCategory.push({
-                category,
-                count: toNumber(value.count),
-                quantity: toNumber(value.quantity),
-                value: toNumber(value.value),
-            });
-        });
-    }
-
-    return {
-        totalProcurements: toNumber(raw.total_procurements),
-        totalQuantity: toNumber(raw.total_quantity, toNumber(raw.total_procured)),
-        totalValue: toNumber(raw.total_value),
-        bySupplier,
-        byCategory,
-    };
+function Skeleton({ className }: { className?: string }) {
+    return <div className={`animate-pulse rounded-lg bg-[#1c1e23] ${className ?? ''}`} />;
 }
 
-function makeLinePath(values: number[], width: number, height: number, pad = 16): string {
-    if (values.length === 0) {
-        return '';
-    }
+function KpiSkeleton() {
+    return (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-4">
+                    <Skeleton className="mb-3 h-3 w-20" />
+                    <Skeleton className="h-8 w-28" />
+                    <Skeleton className="mt-2 h-3 w-36" />
+                </div>
+            ))}
+        </div>
+    );
+}
 
-    const minValue = Math.min(...values, 0);
-    const maxValue = Math.max(...values, 1);
-    const range = Math.max(1, maxValue - minValue);
-    const chartWidth = width - pad * 2;
-    const chartHeight = height - pad * 2;
+function ChartSkeleton({ height = 'h-64' }: { height?: string }) {
+    return (
+        <div className={`rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-4 ${height} flex items-center justify-center`}>
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+    );
+}
 
+function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{message}</span>
+            {onRetry && (
+                <button onClick={onRetry} className="text-xs font-semibold text-red-200 hover:text-white underline">
+                    Retry
+                </button>
+            )}
+        </div>
+    );
+}
+
+function PartialErrorBanner({ endpoints }: { endpoints: string[] }) {
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Could not load: {endpoints.join(', ')}. Showing available data.</span>
+        </div>
+    );
+}
+
+function TabButton({ tab, active, onClick }: { tab: typeof TABS[number]; active: boolean; onClick: () => void }) {
+    const Icon = tab.icon;
+    return (
+        <button
+            onClick={onClick}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                active
+                    ? 'bg-[#d4af37] text-black shadow-[0_0_14px_rgba(212,175,55,0.3)]'
+                    : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
+            }`}
+        >
+            <Icon className="h-4 w-4" />
+            {tab.label}
+        </button>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SVG Chart Helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+function linePath(values: number[], w: number, h: number, pad = 20): string {
+    if (values.length === 0) return '';
+    const minV = Math.min(...values, 0);
+    const maxV = Math.max(...values, 1);
+    const range = Math.max(1, maxV - minV);
+    const cw = w - pad * 2;
+    const ch = h - pad * 2;
     return values
-        .map((value, index) => {
-            const x = pad + (chartWidth * index) / Math.max(1, values.length - 1);
-            const y = pad + chartHeight - ((value - minValue) / range) * chartHeight;
-            return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+        .map((v, i) => {
+            const x = pad + (cw * i) / Math.max(1, values.length - 1);
+            const y = pad + ch - ((v - minV) / range) * ch;
+            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
         })
         .join(' ');
 }
 
-function makeAreaPath(values: number[], width: number, height: number, pad = 16): string {
-    if (values.length === 0) {
-        return '';
+function areaPath(values: number[], w: number, h: number, pad = 20): string {
+    const lp = linePath(values, w, h, pad);
+    if (!lp) return '';
+    const baseline = h - pad;
+    const endX = w - pad;
+    return `${lp} L ${endX} ${baseline} L ${pad} ${baseline} Z`;
+}
+
+function GridLines({ w, h, pad, count }: { w: number; h: number; pad: number; count: number }) {
+    return (
+        <>
+            {Array.from({ length: count }).map((_, i) => {
+                const y = pad + ((h - pad * 2) * i) / (count - 1);
+                return <line key={i} x1={pad} y1={y} x2={w - pad} y2={y} stroke="rgba(80,84,92,0.35)" strokeDasharray="4 5" />;
+            })}
+        </>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Donut Chart                                                        */
+/* ------------------------------------------------------------------ */
+
+function DonutChart({ segments, size = 170, radius = 52, thickness = 16 }: {
+    segments: { value: number; color: string; label: string }[];
+    size?: number; radius?: number; thickness?: number;
+}) {
+    const total = Math.max(1, segments.reduce((s, seg) => s + seg.value, 0));
+    const circ = 2 * Math.PI * radius;
+    const center = size / 2;
+    let offset = 0;
+
+    return (
+        <div className="flex flex-col items-center gap-3">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+                <circle cx={center} cy={center} r={radius} fill="none" stroke="rgba(42,42,46,0.9)" strokeWidth={thickness} />
+                {segments.map((seg, i) => {
+                    const length = Math.max(0, (seg.value / total) * circ);
+                    const dashArray = `${length} ${circ}`;
+                    const currentOffset = -offset;
+                    offset += length;
+                    return (
+                        <circle key={i} cx={center} cy={center} r={radius} fill="none" stroke={seg.color}
+                            strokeWidth={thickness} strokeLinecap="round"
+                            strokeDasharray={dashArray} strokeDashoffset={currentOffset} />
+                    );
+                })}
+            </svg>
+            <div className="space-y-2 text-sm">
+                {segments.map((seg, i) => (
+                    <div key={i} className="flex items-center justify-between gap-6">
+                        <span className="inline-flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seg.color }} />
+                            {seg.label}
+                        </span>
+                        <span className="font-semibold">{seg.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bar Chart                                                          */
+/* ------------------------------------------------------------------ */
+
+function BarChart({ items, valueKey, labelKey, maxBars, color }: {
+    items: Record<string, unknown>[];
+    valueKey: string;
+    labelKey: string;
+    maxBars?: number;
+    color?: string;
+}) {
+    const sliced = (maxBars ? items.slice(0, maxBars) : items).reverse();
+    const maxVal = Math.max(1, ...sliced.map((item) => Number(item[valueKey]) || 0));
+    const barColor = color ?? GOLD;
+
+    return (
+        <div className="flex h-56 items-end gap-3 px-2">
+            {sliced.map((item, i) => {
+                const val = Number(item[valueKey]) || 0;
+                const pct = (val / maxVal) * 100;
+                return (
+                    <div key={i} className="flex flex-1 flex-col items-center gap-2">
+                        <span className="text-xs font-semibold text-foreground">{val}</span>
+                        <div className="w-full rounded-t-md transition-all duration-300 hover:opacity-80"
+                            style={{ height: `${Math.max(4, pct)}%`, backgroundColor: barColor, minHeight: 4 }} />
+                        <span className="truncate text-[11px] text-muted-foreground max-w-[60px] text-center"
+                            title={String(item[labelKey] ?? '')}>
+                            {String(item[labelKey] ?? '').slice(0, 10)}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Line Chart (SVG)                                                   */
+/* ------------------------------------------------------------------ */
+
+function LineChart({ series, width = 600, height = 220, pad = 20 }: {
+    series: { label: string; values: number[]; color: string; dashed?: boolean }[];
+    width?: number; height?: number; pad?: number;
+}) {
+    const allValues = series.flatMap((s) => s.values);
+    if (allValues.length === 0) {
+        return <p className="py-12 text-center text-sm text-muted-foreground">No trend data available.</p>;
     }
 
-    const linePath = makeLinePath(values, width, height, pad);
-    const chartWidth = width - pad * 2;
-    const baselineY = height - pad;
-    const startX = pad;
-    const endX = pad + chartWidth;
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full">
+            <defs>
+                <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgba(212,175,55,0.3)" />
+                    <stop offset="100%" stopColor="rgba(212,175,55,0.02)" />
+                </linearGradient>
+            </defs>
 
-    return `${linePath} L ${endX} ${baselineY} L ${startX} ${baselineY} Z`;
+            <GridLines w={width} h={height} pad={pad} count={4} />
+
+            {series.map((s, si) => {
+                if (si === 0) {
+                    const ap = areaPath(s.values, width, height, pad);
+                    return ap ? <path key="area" d={ap} fill="url(#areaFill)" /> : null;
+                }
+                return null;
+            })}
+
+            {series.map((s, si) => {
+                const lp = linePath(s.values, width, height, pad);
+                return lp ? (
+                    <path key={si} d={lp} fill="none" stroke={s.color}
+                        strokeWidth={si === 0 ? 2.5 : 2} strokeLinecap="round"
+                        strokeDasharray={s.dashed ? '6 5' : undefined} />
+                ) : null;
+            })}
+        </svg>
+    );
 }
 
-function clampPercent(value: number): number {
-    return Math.max(0, Math.min(100, value));
+/* ------------------------------------------------------------------ */
+/*  Section wrapper                                                    */
+/* ------------------------------------------------------------------ */
+
+function Section({ title, subtitle, icon: Icon, children, className }: {
+    title: string; subtitle?: string; icon: React.ElementType;
+    children: React.ReactNode; className?: string;
+}) {
+    return (
+        <article className={`rounded-xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-5 ${className ?? ''}`}>
+            <div className="mb-4 flex items-center justify-between gap-2">
+                <div>
+                    <h2 className="text-base font-semibold text-foreground">{title}</h2>
+                    {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+                </div>
+                <Icon className="h-4 w-4 text-[#d4af37]" />
+            </div>
+            {children}
+        </article>
+    );
 }
 
-function buildForecast(base: number[]): number[] {
-    if (base.length === 0) {
-        return [];
-    }
+/* ------------------------------------------------------------------ */
+/*  Overview Tab                                                       */
+/* ------------------------------------------------------------------ */
 
-    if (base.length === 1) {
-        return Array.from({ length: 4 }, () => Math.round(base[0]));
-    }
+function OverviewTab({ dash, usage, proc }: { dash: DashboardView; usage: UsageView; proc: ProcurementView }) {
+    const pipelineTotal = Math.max(1, dash.jobPipeline.completed + dash.jobPipeline.inProgress + dash.jobPipeline.queued);
+    const completionRatio = (dash.jobPipeline.completed / pipelineTotal) * 100;
 
-    const slope = (base[base.length - 1] - base[0]) / Math.max(1, base.length - 1);
-    return Array.from({ length: 4 }, (_, index) => Math.max(0, Math.round(base[base.length - 1] + slope * (index + 1))));
+    const trendSeries = useMemo(() => {
+        if (dash.monthlyTrends.length === 0) {
+            const labels = usage.dailySummary.map((d) => d.date);
+            const costFromProc = proc.monthlyBreakdown.map((m) => m.value);
+            return {
+                labels,
+                revenue: usage.dailySummary.map((_, i) => proc.totalValue * 0.36 * (i + 1)),
+                cost: costFromProc.length > 0 ? costFromProc : usage.dailySummary.map(() => proc.totalValue * 0.08),
+            };
+        }
+        return {
+            labels: dash.monthlyTrends.map((t) => t.month),
+            revenue: dash.monthlyTrends.map((t) => t.usageValue),
+            cost: dash.monthlyTrends.map((t) => t.procurementValue),
+        };
+    }, [dash.monthlyTrends, usage.dailySummary, proc.monthlyBreakdown, proc.totalValue]);
+
+    return (
+        <div className="flex flex-col gap-5">
+            {/* KPI Row */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <KpiCard label="Service Revenue" value={formatCurrency(dash.weeklySales)}
+                    subtitle="Weekly billed estimate" icon={TrendingUp} accentClass="text-emerald-400" />
+                <KpiCard label="Jobs Completed" value={String(dash.jobPipeline.completed)}
+                    subtitle={`Completion ratio: ${formatPercentage(completionRatio)}`} icon={CheckCircle2} />
+                <KpiCard label="Parts Cost" value={formatCurrency(proc.totalValue)}
+                    subtitle="Procurement spend" icon={TrendingDown} accentClass="text-amber-400" />
+                <KpiCard label="Needs Attention" value={String(dash.lowStockCount + dash.pendingReservations)}
+                    subtitle="Low-stock items + pending reservations" icon={AlertTriangle} accentClass="text-red-400" />
+            </div>
+
+            {/* Charts row */}
+            <div className="grid min-h-0 gap-5 lg:grid-cols-[1.6fr_1fr]">
+                <Section title="Revenue & Cost Trend" subtitle="Monthly financial movement" icon={BarChart3}>
+                    <div className="overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                        <LineChart series={[
+                            { label: 'Revenue', values: trendSeries.revenue, color: '#34d399' },
+                            { label: 'Cost', values: trendSeries.cost, color: '#f59e0b', dashed: true },
+                        ]} />
+                    </div>
+                    <div className="mt-1 flex items-center gap-4 px-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Revenue
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Cost
+                        </span>
+                    </div>
+                </Section>
+
+                <Section title="Job Pipeline" subtitle="Status distribution" icon={Clock3}>
+                    <DonutChart segments={[
+                        { value: dash.jobPipeline.completed, color: '#34d399', label: 'Completed' },
+                        { value: dash.jobPipeline.inProgress, color: '#60a5fa', label: 'In Progress' },
+                        { value: dash.jobPipeline.queued, color: '#f59e0b', label: 'Queued / Blocked' },
+                    ]} />
+                </Section>
+            </div>
+
+            {/* Categories + Recent Activity */}
+            <div className="grid min-h-0 gap-5 lg:grid-cols-[1fr_1fr]">
+                <Section title="Top Categories" subtitle="By inventory value" icon={Package}>
+                    {dash.topCategories.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">No category data available.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {dash.topCategories.map((cat, i) => {
+                                const maxVal = dash.topCategories[0]?.value || 1;
+                                const pct = (cat.value / maxVal) * 100;
+                                return (
+                                    <div key={i} className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-sm font-medium text-foreground">{cat.category}</span>
+                                            <span className="text-xs text-muted-foreground">{cat.count} items &middot; {formatCurrency(cat.value)}</span>
+                                        </div>
+                                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#1c1e23]">
+                                            <div className="h-full rounded-full bg-[#d4af37]" style={{ width: `${clampPercent(pct)}%` }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </Section>
+
+                <Section title="Recent Transactions" subtitle="Last 7 days" icon={ActivityIcon}>
+                    {dash.recentTransactions.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">No recent transactions.</p>
+                    ) : (
+                        <div className="max-h-64 space-y-1.5 overflow-y-auto">
+                            {dash.recentTransactions.slice(0, 8).map((txn) => (
+                                <div key={txn.id} className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`h-2 w-2 shrink-0 rounded-full ${
+                                            txn.type === 'sale' ? 'bg-emerald-400' : txn.type === 'procurement' ? 'bg-blue-400' : 'bg-amber-400'
+                                        }`} />
+                                        <span className="truncate text-foreground">{txn.itemName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-muted-foreground capitalize">{formatTypeLabel(txn.type)}</span>
+                                        <span className="font-medium text-foreground">{txn.quantity > 0 ? '+' : ''}{txn.quantity}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+            </div>
+        </div>
+    );
 }
 
-function formatPercentage(value: number): string {
-    return `${value.toFixed(1)}%`;
+function ActivityIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+    );
 }
 
-export default function Reports() {
-    const [rangeKey, setRangeKey] = useState<RangeKey>('30d');
-    const [data, setData] = useState<DashboardState>(emptyState);
+/* ------------------------------------------------------------------ */
+/*  Usage Tab                                                          */
+/* ------------------------------------------------------------------ */
+
+function UsageTab({ usage }: { usage: UsageView }) {
+    return (
+        <div className="flex flex-col gap-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <KpiCard label="Parts Consumed" value={String(usage.totalConsumed)}
+                    subtitle="Total units used" icon={Package} />
+                <KpiCard label="Total Cost" value={formatCurrency(usage.totalCost)}
+                    subtitle="Value of parts consumed" icon={TrendingDown} accentClass="text-amber-400" />
+                <KpiCard label="Unique Items" value={String(usage.uniqueItemsUsed)}
+                    subtitle={`Across ${usage.activeCategories} categories`} icon={BarChart3} />
+                <KpiCard label="Top Consumed" value={usage.mostUsedItem?.partNumber ?? 'N/A'}
+                    subtitle={usage.mostUsedItem ? `${usage.mostUsedItem.consumed} units` : 'No data'} icon={TrendingUp} accentClass="text-emerald-400" />
+            </div>
+
+            <div className="grid min-h-0 gap-5 lg:grid-cols-2">
+                <Section title="Daily Usage Trend" subtitle="Transaction count per day" icon={BarChart3}>
+                    {usage.dailySummary.length === 0 ? (
+                        <p className="py-12 text-center text-sm text-muted-foreground">No daily data for this period.</p>
+                    ) : (
+                        <div className="overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                            <LineChart series={[
+                                { label: 'Transactions', values: usage.dailySummary.map((d) => d.count), color: GOLD },
+                            ]} />
+                            <div className="flex justify-between px-2">
+                                {usage.dailySummary.slice(0, Math.min(7, usage.dailySummary.length)).map((d, i) => (
+                                    <span key={i} className="text-[11px] text-muted-foreground">{toShortDateLabel(d.date)}</span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </Section>
+
+                <Section title="Usage by Category" subtitle="Distribution across categories" icon={Package}>
+                    {usage.byCategory.length === 0 ? (
+                        <p className="py-12 text-center text-sm text-muted-foreground">No category data.</p>
+                    ) : (
+                        <BarChart items={usage.byCategory} valueKey="consumed" labelKey="category" maxBars={6}
+                            color="#60a5fa" />
+                    )}
+                </Section>
+            </div>
+
+            <Section title="Top Consumed Items" subtitle="By quantity consumed" icon={Wrench}>
+                {usage.topItems.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No consumption data available.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="text-muted-foreground uppercase">
+                                <tr>
+                                    <th className="px-3 py-2 font-semibold">Item</th>
+                                    <th className="px-3 py-2 font-semibold">Category</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Consumed</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Cost</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Transactions</th>
+                                    <th className="px-3 py-2 font-semibold">Intensity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {usage.topItems.map((item) => {
+                                    const intensity = item.consumed > 15 ? 'HIGH' : item.consumed > 5 ? 'MEDIUM' : 'LOW';
+                                    return (
+                                        <tr key={item.itemId} className="border-t border-[#2a2a2e]">
+                                            <td className="px-3 py-2 font-medium text-foreground">{item.partNumber}</td>
+                                            <td className="px-3 py-2 text-muted-foreground">{item.category}</td>
+                                            <td className="px-3 py-2 text-right text-foreground">{item.consumed}</td>
+                                            <td className="px-3 py-2 text-right text-foreground">{formatCurrency(item.cost)}</td>
+                                            <td className="px-3 py-2 text-right text-muted-foreground">{item.transactionCount}</td>
+                                            <td className="px-3 py-2">
+                                                <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                                    intensity === 'HIGH' ? 'bg-red-500/20 text-red-300'
+                                                        : intensity === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300'
+                                                            : 'bg-emerald-500/20 text-emerald-300'
+                                                }`}>{intensity}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Section>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Procurement Tab                                                    */
+/* ------------------------------------------------------------------ */
+
+function ProcurementTab({ proc }: { proc: ProcurementView }) {
+    return (
+        <div className="flex flex-col gap-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <KpiCard label="Total Procurements" value={String(proc.totalProcurements)}
+                    subtitle="Transactions in range" icon={Truck} />
+                <KpiCard label="Total Quantity" value={String(proc.totalQuantity)}
+                    subtitle="Units procured" icon={Package} />
+                <KpiCard label="Total Value" value={formatCurrency(proc.totalValue)}
+                    subtitle="Amount spent" icon={TrendingDown} accentClass="text-amber-400" />
+                <KpiCard label="Suppliers" value={String(proc.bySupplier.length)}
+                    subtitle="Unique suppliers" icon={Truck} accentClass="text-emerald-400" />
+            </div>
+
+            <div className="grid min-h-0 gap-5 lg:grid-cols-2">
+                <Section title="Procurement by Supplier" subtitle="Value distribution" icon={Truck}>
+                    {proc.bySupplier.length === 0 ? (
+                        <p className="py-12 text-center text-sm text-muted-foreground">No supplier data.</p>
+                    ) : (
+                        <BarChart items={proc.bySupplier} valueKey="value" labelKey="supplier" maxBars={6}
+                            color={GOLD} />
+                    )}
+                </Section>
+
+                <Section title="Monthly Breakdown" subtitle="Procurement value by month" icon={Calendar}>
+                    {proc.monthlyBreakdown.length === 0 ? (
+                        <p className="py-12 text-center text-sm text-muted-foreground">No monthly data.</p>
+                    ) : (
+                        <BarChart items={proc.monthlyBreakdown} valueKey="value" labelKey="month" maxBars={6}
+                            color="#60a5fa" />
+                    )}
+                </Section>
+            </div>
+
+            <Section title="Supplier Details" subtitle="Full breakdown of procurement sources" icon={FileText}>
+                {proc.bySupplier.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No supplier data available.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="text-muted-foreground uppercase">
+                                <tr>
+                                    <th className="px-3 py-2 font-semibold">Supplier</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Transactions</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Quantity</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Value</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Unique Items</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {proc.bySupplier.map((s, i) => (
+                                    <tr key={i} className="border-t border-[#2a2a2e]">
+                                        <td className="px-3 py-2 font-medium text-foreground">{s.supplier}</td>
+                                        <td className="px-3 py-2 text-right text-foreground">{s.count}</td>
+                                        <td className="px-3 py-2 text-right text-foreground">{s.quantity}</td>
+                                        <td className="px-3 py-2 text-right text-foreground">{formatCurrency(s.value)}</td>
+                                        <td className="px-3 py-2 text-right text-muted-foreground">{s.itemsCount}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Section>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  History Tab                                                        */
+/* ------------------------------------------------------------------ */
+
+function HistoryTab() {
+    const [reports, setReports] = useState<Array<{
+        id: number; report_type: string; report_date: string; generated_date: string; generated_by: string;
+    }>>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [typeFilter, setTypeFilter] = useState('');
+    const [generating, setGenerating] = useState<string | null>(null);
+    const [genMessage, setGenMessage] = useState<string | null>(null);
+    const [genError, setGenError] = useState<string | null>(null);
 
-    const loadAnalytics = useCallback(async () => {
-        const rangeDays = rangeConfig[rangeKey].days;
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - rangeDays);
-
-        const startIso = startDate.toISOString().slice(0, 10);
-        const endIso = endDate.toISOString().slice(0, 10);
-
+    const fetchReports = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
-            setLoading(true);
-            setError(null);
-
-            const [dashboardResult, usageResult, procurementResult] = await Promise.allSettled([
-                reportsService.getDashboardAnalytics(),
-                reportsService.getUsageAnalytics(startIso, endIso),
-                reportsService.getProcurementAnalytics(startIso, endIso),
-            ]);
-
-            const failedEndpoints: string[] = [];
-
-            const dashboardData =
-                dashboardResult.status === 'fulfilled' && dashboardResult.value.success
-                    ? normalizeDashboardPayload(dashboardResult.value.data)
-                    : emptyState.dashboard;
-
-            const usageData =
-                usageResult.status === 'fulfilled' && usageResult.value.success ? normalizeUsagePayload(usageResult.value.data) : emptyState.usage;
-
-            const procurementData =
-                procurementResult.status === 'fulfilled' && procurementResult.value.success
-                    ? normalizeProcurementPayload(procurementResult.value.data)
-                    : emptyState.procurement;
-
-            if (dashboardResult.status !== 'fulfilled' || (dashboardResult.status === 'fulfilled' && !dashboardResult.value.success)) {
-                failedEndpoints.push('dashboard');
+            const filters: ReportFilters = { per_page: 50 };
+            if (typeFilter) {
+                filters.report_type = typeFilter as ReportFilters['report_type'];
             }
-
-            if (usageResult.status !== 'fulfilled' || (usageResult.status === 'fulfilled' && !usageResult.value.success)) {
-                failedEndpoints.push('usage');
+            const res = await reportsService.getReports(filters);
+            if (res.success && res.data) {
+                const paginatedData = res.data;
+                setReports((paginatedData.data ?? []).map((r: Report) => ({
+                    id: r.id,
+                    report_type: r.report_type ?? '',
+                    report_date: r.report_date ?? '',
+                    generated_date: r.generated_date ?? r.created_at ?? '',
+                    generated_by: r.generated_by ?? 'System',
+                })));
             }
-
-            if (procurementResult.status !== 'fulfilled' || (procurementResult.status === 'fulfilled' && !procurementResult.value.success)) {
-                failedEndpoints.push('procurement');
-            }
-
-            setData({
-                dashboard: dashboardData,
-                usage: usageData,
-                procurement: procurementData,
-            });
-
-            if (failedEndpoints.length > 0) {
-                setError(`Unable to load ${failedEndpoints.join(', ')} analytics. Empty state is shown for unavailable sections.`);
-            }
-        } catch (caughtError) {
-            const message = caughtError instanceof Error ? caughtError.message : 'Failed to load reports analytics.';
-            setError(`${message} No analytics data is available right now.`);
-            setData(emptyState);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to fetch reports');
         } finally {
             setLoading(false);
         }
-    }, [rangeKey]);
+    }, [typeFilter]);
 
-    useEffect(() => {
-        loadAnalytics();
-    }, [loadAnalytics]);
+    useEffect(() => { fetchReports(); }, [fetchReports]);
 
-    const servicePerformance = useMemo<ServicePerformanceRow[]>(() => {
-        if (data.usage.topItems.length === 0) {
-            return [];
+    const handleGenerate = async (type: string) => {
+        setGenMessage(null);
+        setGenError(null);
+        setGenerating(type);
+        try {
+            const now = new Date();
+            if (type === 'daily_usage') {
+                await reportsService.generateDailyUsageReport({ date: now.toISOString().slice(0, 10) });
+            } else if (type === 'monthly_procurement') {
+                await reportsService.generateMonthlyProcurementReport({ year: now.getFullYear(), month: now.getMonth() + 1 });
+            } else if (type === 'reconciliation') {
+                const end = now.toISOString().slice(0, 10);
+                const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+                await reportsService.generateReconciliationReport({ start_date: start, end_date: end });
+            }
+            setGenMessage(`Report generated successfully.`);
+            await fetchReports();
+        } catch (e) {
+            setGenError(e instanceof Error ? e.message : 'Generation failed');
+        } finally {
+            setGenerating(null);
         }
+    };
 
-        const totalCompleted = Math.max(
-            1,
-            data.usage.topItems.reduce((sum, item) => sum + item.count, 0),
-        );
+    const handleExport = async (reportId: number, format: 'csv' | 'pdf') => {
+        try {
+            const blob = await reportsService.exportReport(reportId, format);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report-${reportId}.${format === 'pdf' ? 'html' : 'csv'}`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            setGenError(e instanceof Error ? e.message : 'Export failed');
+        }
+    };
 
-        return data.usage.topItems.slice(0, 5).map((item) => {
-            const completionRate = clampPercent((item.count / totalCompleted) * 100);
+    const typeOptions = ['daily_usage', 'monthly_procurement', 'reconciliation', 'low_stock_alert'];
 
-            return {
-                service: item.name,
-                completed: item.count,
-                completionRate,
-                averageHours: null,
-            };
-        });
-    }, [data.usage.topItems]);
+    return (
+        <div className="flex flex-col gap-5">
+            {/* Generate buttons */}
+            <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-semibold text-foreground">Generate:</span>
+                {typeOptions.map((type) => (
+                    <button key={type} onClick={() => handleGenerate(type)}
+                        disabled={generating === type}
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:opacity-60">
+                        {generating === type ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                        {formatTypeLabel(type)}
+                    </button>
+                ))}
+            </div>
 
-    const chartSeries = useMemo(() => {
-        const labels = data.usage.dailySummary.map((entry) => entry.date);
-        const jobSeriesRaw = data.usage.dailySummary.map((entry) => entry.count);
+            {genMessage && (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4" /> {genMessage}
+                    <button onClick={() => setGenMessage(null)} className="ml-auto"><X className="h-3.5 w-3.5" /></button>
+                </div>
+            )}
+            {genError && (
+                <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    <AlertTriangle className="h-4 w-4" /> {genError}
+                </div>
+            )}
 
-        const projectedRevenueSeries = jobSeriesRaw.map((jobs) => jobs * 1650);
-        const projectedCostSeries = jobSeriesRaw.map((jobs, index) => {
-            const baseCost = Math.max(1, data.procurement.totalValue / Math.max(1, jobSeriesRaw.length));
-            return Math.round(baseCost * 0.58 + jobs * (320 + index * 11));
-        });
-        const marginSeries = projectedRevenueSeries.map((value, index) => Math.max(0, value - projectedCostSeries[index]));
+            {/* Filters */}
+            <div className="flex items-center gap-3">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+                    className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground">
+                    <option value="">All Types</option>
+                    {typeOptions.map((t) => (
+                        <option key={t} value={t}>{formatTypeLabel(t)}</option>
+                    ))}
+                </select>
+                <button onClick={fetchReports} disabled={loading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground">
+                    <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                </button>
+            </div>
 
-        return {
-            labels,
-            jobs: jobSeriesRaw,
-            revenue: projectedRevenueSeries,
-            cost: projectedCostSeries,
-            margin: marginSeries,
-        };
-    }, [data.procurement.totalValue, data.usage.dailySummary]);
+            {/* Report list */}
+            {loading ? (
+                <div className="space-y-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                </div>
+            ) : error ? (
+                <ErrorBanner message={error} onRetry={fetchReports} />
+            ) : reports.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#2a2a2e] bg-[#0d0d10]/90 py-12 text-center">
+                    <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+                    <p className="mt-3 text-sm text-muted-foreground">No reports found. Generate one above.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto rounded-xl border border-[#2a2a2e]">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-[#0a0b0f] text-muted-foreground uppercase">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">Type</th>
+                                <th className="px-4 py-3 font-semibold">Report Date</th>
+                                <th className="px-4 py-3 font-semibold">Generated</th>
+                                <th className="px-4 py-3 font-semibold">By</th>
+                                <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reports.map((r) => (
+                                <tr key={r.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
+                                    <td className="px-4 py-2.5 font-medium text-foreground capitalize">
+                                        {formatTypeLabel(r.report_type)}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{r.report_date}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{r.generated_date?.slice(0, 10) ?? '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{r.generated_by}</td>
+                                    <td className="px-4 py-2.5 text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <button onClick={() => handleExport(r.id, 'csv')}
+                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-[#1c1e23] hover:text-foreground transition-colors">
+                                                CSV
+                                            </button>
+                                            <button onClick={() => handleExport(r.id, 'pdf')}
+                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-[#1c1e23] hover:text-foreground transition-colors">
+                                                Print
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
 
-    const forecastRows = useMemo<ForecastRow[]>(() => {
-        const projectedJobs = buildForecast(chartSeries.jobs);
-        const projectedRevenue = buildForecast(chartSeries.revenue);
-        const projectedCost = buildForecast(chartSeries.cost);
+/* ------------------------------------------------------------------ */
+/*  Main Page Component                                                */
+/* ------------------------------------------------------------------ */
 
-        return projectedJobs.map((jobs, index) => ({
-            period: `Week ${index + 1}`,
-            projectedJobs: jobs,
-            projectedRevenue: projectedRevenue[index] ?? 0,
-            projectedPartsCost: projectedCost[index] ?? 0,
-        }));
-    }, [chartSeries.cost, chartSeries.jobs, chartSeries.revenue]);
+export default function Reports() {
+    const [rangeKey, setRangeKey] = useState<RangeKey>('30d');
+    const [customDays, setCustomDays] = useState(30);
+    const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
-    const totalProjectedRevenue = forecastRows.reduce((sum, row) => sum + row.projectedRevenue, 0);
-    const totalProjectedCost = forecastRows.reduce((sum, row) => sum + row.projectedPartsCost, 0);
-    const projectedMargin = totalProjectedRevenue - totalProjectedCost;
-    const marginPercent = totalProjectedRevenue > 0 ? (projectedMargin / totalProjectedRevenue) * 100 : 0;
+    const effectiveDays = rangeKey === 'custom' ? customDays : (RANGE_CONFIG[rangeKey].days ?? 30);
+    const { data, loading, error, partialErrors, refetch } = useReports(effectiveDays);
 
-    const completedJobs = Math.max(0, data.dashboard.jobPipeline.completed);
-    const inProgressJobs = Math.max(0, data.dashboard.jobPipeline.inProgress);
-    const queuedJobs = Math.max(0, data.dashboard.jobPipeline.queued);
-    const jobMixTotal = Math.max(1, completedJobs + inProgressJobs + queuedJobs);
-    const completionRatio = (completedJobs / jobMixTotal) * 100;
-
-    const revenuePath = makeLinePath(chartSeries.revenue, 620, 240, 20);
-    const costPath = makeLinePath(chartSeries.cost, 620, 240, 20);
-    const marginAreaPath = makeAreaPath(chartSeries.margin, 620, 240, 20);
-
-    const donutRadius = 52;
-    const donutCircumference = 2 * Math.PI * donutRadius;
-    const completedLength = (completedJobs / jobMixTotal) * donutCircumference;
-    const progressLength = (inProgressJobs / jobMixTotal) * donutCircumference;
-    const queuedLength = donutCircumference - completedLength - progressLength;
+    const dash = data.dashboard;
+    const usage = data.usage;
+    const proc = data.procurement;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
                 <div className="flex h-full min-h-0 flex-1 flex-col gap-5 overflow-y-auto pr-1">
+
+                    {/* Header */}
                     <section className="rounded-2xl border border-[#2a2a2e] bg-[#0d0d10]/90 p-5 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
                                 <p className="text-xs font-semibold tracking-[0.18em] text-[#d4af37] uppercase">Performance Snapshot</p>
-                                <h1 className="mt-2 text-2xl font-bold tracking-tight">Shop Performance & Insights</h1>
+                                <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">Reports & Analytics</h1>
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                    See how the shop is doing — revenue trends, job completion rates, and trends over the selected period.
+                                    Shop performance, usage trends, procurement insights, and report history.
+                                    {rangeKey !== 'custom' && ` Showing last ${effectiveDays} days.`}
                                 </p>
-                                {error && <p className="mt-2 text-xs text-amber-400">{error}</p>}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">
-                                {Object.entries(rangeConfig).map(([key, value]) => {
+                                {Object.entries(RANGE_CONFIG).map(([key, val]) => {
                                     const active = rangeKey === key;
                                     return (
-                                        <button
-                                            key={key}
+                                        <button key={key}
                                             onClick={() => setRangeKey(key as RangeKey)}
                                             className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                                                 active
                                                     ? 'bg-[#d4af37] text-black shadow-[0_0_14px_rgba(212,175,55,0.35)]'
                                                     : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
-                                            }`}
-                                        >
-                                            {value.label}
+                                            }`}>
+                                            {val.label}
                                         </button>
                                     );
                                 })}
-
-                                <button
-                                    onClick={loadAnalytics}
-                                    disabled={loading}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#090a0d] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                                >
+                                {rangeKey === 'custom' && (
+                                    <input type="number" min={1} max={365} value={customDays}
+                                        onChange={(e) => setCustomDays(Math.max(1, Number(e.target.value) || 30))}
+                                        className="w-16 rounded-full border border-[#d4af37]/40 bg-[#0a0b0f] px-3 py-1.5 text-xs font-semibold text-foreground text-center" />
+                                )}
+                                <button onClick={refetch} disabled={loading}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60">
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
                                     Refresh
                                 </button>
@@ -618,286 +841,34 @@ export default function Reports() {
                         </div>
                     </section>
 
-                    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <article className="profile-card rounded-xl p-4">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Service Revenue</p>
-                                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                    {/* Tabs */}
+                    <div className="flex flex-wrap gap-2">
+                        {TABS.map((tab) => (
+                            <TabButton key={tab.key} tab={tab} active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} />
+                        ))}
+                    </div>
+
+                    {/* Error banners */}
+                    {error && <ErrorBanner message={error} onRetry={refetch} />}
+                    {partialErrors.length > 0 && <PartialErrorBanner endpoints={partialErrors} />}
+
+                    {/* Tab content */}
+                    {loading ? (
+                        <div className="flex flex-col gap-5">
+                            <KpiSkeleton />
+                            <div className="grid gap-5 lg:grid-cols-2">
+                                <ChartSkeleton />
+                                <ChartSkeleton />
                             </div>
-                            <p className="mt-2 text-3xl font-bold text-foreground">{peso.format(data.dashboard.weeklySales)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Weekly billed estimate from completed work orders</p>
-                        </article>
-
-                        <article className="profile-card rounded-xl p-4">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Jobs Completed</p>
-                                <CheckCircle2 className="h-4 w-4 text-[#d4af37]" />
-                            </div>
-                            <p className="mt-2 text-3xl font-bold text-foreground">{completedJobs}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Current range completion ratio: {formatPercentage(completionRatio)}</p>
-                        </article>
-
-                        <article className="profile-card rounded-xl p-4">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Parts Cost</p>
-                                <TrendingDown className="h-4 w-4 text-amber-400" />
-                            </div>
-                            <p className="mt-2 text-3xl font-bold text-foreground">{peso.format(data.procurement.totalValue)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Procurement spend tied to service throughput</p>
-                        </article>
-
-                        <article className="profile-card rounded-xl p-4">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Needs Attention</p>
-                                <AlertTriangle className="h-4 w-4 text-red-400" />
-                            </div>
-                            <p className="mt-2 text-3xl font-bold text-foreground">
-                                {data.dashboard.lowStockCount + data.dashboard.pendingReservations}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">Low-stock + reservation bottlenecks requiring action</p>
-                        </article>
-                    </section>
-
-                    <section className="grid min-h-0 gap-5 xl:grid-cols-[1.6fr_1fr]">
-                        <article className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex items-center justify-between gap-2">
-                                <div>
-                                    <h2 className="text-base font-semibold">Revenue, Cost, and Margin Trend</h2>
-                                    <p className="text-xs text-muted-foreground">
-                                        Observed workload and projected financial movement for the selected window
-                                    </p>
-                                </div>
-                                <BarChart3 className="h-4 w-4 text-[#d4af37]" />
-                            </div>
-
-                            <div className="overflow-hidden rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
-                                <svg viewBox="0 0 620 240" className="h-64 w-full">
-                                    <defs>
-                                        <linearGradient id="marginFill" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="rgba(212,175,55,0.35)" />
-                                            <stop offset="100%" stopColor="rgba(212,175,55,0.03)" />
-                                        </linearGradient>
-                                    </defs>
-
-                                    {[0, 1, 2, 3].map((gridLine) => {
-                                        const y = 20 + gridLine * 50;
-                                        return (
-                                            <line key={gridLine} x1="20" y1={y} x2="600" y2={y} stroke="rgba(80,84,92,0.45)" strokeDasharray="4 5" />
-                                        );
-                                    })}
-
-                                    <path d={marginAreaPath} fill="url(#marginFill)" />
-                                    <path d={revenuePath} fill="none" stroke="#34d399" strokeWidth="3" strokeLinecap="round" />
-                                    <path d={costPath} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="7 6" />
-
-                                    {chartSeries.labels.map((label, index) => {
-                                        const x = 20 + (580 * index) / Math.max(1, chartSeries.labels.length - 1);
-                                        return (
-                                            <text key={label} x={x} y={232} textAnchor="middle" fill="#8a8f99" fontSize="11">
-                                                {label}
-                                            </text>
-                                        );
-                                    })}
-                                </svg>
-                                {chartSeries.labels.length === 0 && (
-                                    <p className="mt-2 text-center text-xs text-muted-foreground">
-                                        No usage trend data found for the selected range.
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                                <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs">
-                                    <p className="text-emerald-300">Projected 4-Week Revenue</p>
-                                    <p className="mt-1 text-sm font-semibold text-foreground">{peso.format(totalProjectedRevenue)}</p>
-                                </div>
-                                <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs">
-                                    <p className="text-amber-300">Projected Parts Cost</p>
-                                    <p className="mt-1 text-sm font-semibold text-foreground">{peso.format(totalProjectedCost)}</p>
-                                </div>
-                                <div className="rounded-lg border border-[#d4af37]/30 bg-[#d4af37]/10 px-3 py-2 text-xs">
-                                    <p className="text-[#f3d886]">Projected Gross Margin</p>
-                                    <p className="mt-1 text-sm font-semibold text-foreground">
-                                        {peso.format(projectedMargin)} ({formatPercentage(marginPercent)})
-                                    </p>
-                                </div>
-                            </div>
-                        </article>
-
-                        <article className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-base font-semibold">Job Completion Pipeline</h2>
-                                    <p className="text-xs text-muted-foreground">Live status mix across completion stages</p>
-                                </div>
-                                <Activity className="h-4 w-4 text-[#d4af37]" />
-                            </div>
-
-                            <div className="flex items-center justify-center">
-                                <svg width="170" height="170" viewBox="0 0 170 170" className="-rotate-90">
-                                    <circle cx="85" cy="85" r={donutRadius} fill="none" stroke="rgba(42,42,46,0.9)" strokeWidth="16" />
-                                    <circle
-                                        cx="85"
-                                        cy="85"
-                                        r={donutRadius}
-                                        fill="none"
-                                        stroke="#34d399"
-                                        strokeWidth="16"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${completedLength} ${donutCircumference}`}
-                                        strokeDashoffset="0"
-                                    />
-                                    <circle
-                                        cx="85"
-                                        cy="85"
-                                        r={donutRadius}
-                                        fill="none"
-                                        stroke="#60a5fa"
-                                        strokeWidth="16"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${progressLength} ${donutCircumference}`}
-                                        strokeDashoffset={-completedLength}
-                                    />
-                                    <circle
-                                        cx="85"
-                                        cy="85"
-                                        r={donutRadius}
-                                        fill="none"
-                                        stroke="#f59e0b"
-                                        strokeWidth="16"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${queuedLength} ${donutCircumference}`}
-                                        strokeDashoffset={-(completedLength + progressLength)}
-                                    />
-                                </svg>
-                            </div>
-
-                            <div className="mt-4 space-y-2 text-sm">
-                                <div className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2">
-                                    <span className="inline-flex items-center gap-2">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Completed
-                                    </span>
-                                    <span className="font-semibold">{completedJobs}</span>
-                                </div>
-                                <div className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2">
-                                    <span className="inline-flex items-center gap-2">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-blue-400" /> In Progress
-                                    </span>
-                                    <span className="font-semibold">{inProgressJobs}</span>
-                                </div>
-                                <div className="flex items-center justify-between rounded-md border border-[#2a2a2e] bg-[#0d0d10] px-3 py-2">
-                                    <span className="inline-flex items-center gap-2">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Queued / Blocked
-                                    </span>
-                                    <span className="font-semibold">{queuedJobs}</span>
-                                </div>
-                            </div>
-                        </article>
-                    </section>
-
-                    <section className="grid min-h-0 gap-5 xl:grid-cols-[1.45fr_1fr]">
-                        <article className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-base font-semibold">Service Performance Board</h2>
-                                    <p className="text-xs text-muted-foreground">Completion volume, quality ratio, and average turnaround</p>
-                                </div>
-                                <Wrench className="h-4 w-4 text-[#d4af37]" />
-                            </div>
-
-                            <div className="space-y-3">
-                                {servicePerformance.length === 0 ? (
-                                    <div className="rounded-lg border border-dashed border-[#2a2a2e] bg-[#0d0d10] p-4 text-sm text-muted-foreground">
-                                        No service performance data available for this range.
-                                    </div>
-                                ) : (
-                                    servicePerformance.map((row) => (
-                                        <div key={row.service} className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <p className="truncate text-sm font-semibold">{row.service}</p>
-                                                <span className="text-xs text-muted-foreground">{row.completed} completions</span>
-                                            </div>
-
-                                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#1c1e23]">
-                                                <div
-                                                    className="h-full rounded-full bg-linear-to-r from-[#d4af37] to-[#f3d886]"
-                                                    style={{ width: `${row.completionRate}%` }}
-                                                />
-                                            </div>
-
-                                            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                                                <span>Completion Confidence: {formatPercentage(row.completionRate)}</span>
-                                                <span className="inline-flex items-center gap-1">
-                                                    <Clock3 className="h-3.5 w-3.5" />{' '}
-                                                    {row.averageHours !== null ? `Avg ${row.averageHours.toFixed(1)}h` : 'Avg N/A'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </article>
-
-                        <article className="profile-card rounded-xl p-5">
-                            <div className="mb-4 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-base font-semibold">4-Week Forecast Outlook</h2>
-                                    <p className="text-xs text-muted-foreground">Projected workload and spend for frontdesk planning</p>
-                                </div>
-                                <TrendingUp className="h-4 w-4 text-[#d4af37]" />
-                            </div>
-
-                            <div className="overflow-hidden rounded-lg border border-[#2a2a2e]">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-[#0a0b0f] text-muted-foreground uppercase">
-                                        <tr>
-                                            <th className="px-3 py-2 font-semibold">Period</th>
-                                            <th className="px-3 py-2 font-semibold">Jobs</th>
-                                            <th className="px-3 py-2 font-semibold">Revenue</th>
-                                            <th className="px-3 py-2 font-semibold">Parts Cost</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {forecastRows.length === 0 ? (
-                                            <tr className="border-t border-[#2a2a2e]">
-                                                <td colSpan={4} className="px-3 py-3 text-center text-muted-foreground">
-                                                    No forecast data available for this range.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            forecastRows.map((row) => (
-                                                <tr key={row.period} className="border-t border-[#2a2a2e]">
-                                                    <td className="px-3 py-2 font-medium text-foreground">{row.period}</td>
-                                                    <td className="px-3 py-2 text-muted-foreground">{row.projectedJobs}</td>
-                                                    <td className="px-3 py-2 text-emerald-300">{peso.format(row.projectedRevenue)}</td>
-                                                    <td className="px-3 py-2 text-amber-300">{peso.format(row.projectedPartsCost)}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="mt-3 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-3 text-xs text-muted-foreground">
-                                <p className="font-semibold text-foreground">Operational Notes</p>
-                                <ul className="mt-2 space-y-1">
-                                    <li>
-                                        High-priority suppliers:{' '}
-                                        {data.procurement.bySupplier
-                                            .slice(0, 2)
-                                            .map((item) => item.supplier)
-                                            .join(', ') || 'Not available'}
-                                        .
-                                    </li>
-                                    <li>
-                                        Top cost center: {data.procurement.byCategory[0]?.category || 'N/A'} (
-                                        {peso.format(data.procurement.byCategory[0]?.value || 0)}).
-                                    </li>
-                                    <li>Inventory-at-risk value: {peso.format(data.dashboard.inventoryValue * 0.08)} based on low-stock pressure.</li>
-                                </ul>
-                            </div>
-                        </article>
-                    </section>
+                        </div>
+                    ) : (
+                        <>
+                            {activeTab === 'overview' && <OverviewTab dash={dash} usage={usage} proc={proc} />}
+                            {activeTab === 'usage' && <UsageTab usage={usage} />}
+                            {activeTab === 'procurement' && <ProcurementTab proc={proc} />}
+                            {activeTab === 'history' && <HistoryTab />}
+                        </>
+                    )}
                 </div>
             </div>
         </AppLayout>

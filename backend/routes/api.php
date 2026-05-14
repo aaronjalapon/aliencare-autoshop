@@ -153,7 +153,8 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
 
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [ReportController::class, 'getReports'])->name('index');
-        Route::get('/{id}', [ReportController::class, 'show'])->name('show');
+        Route::get('/{id}', [ReportController::class, 'show'])->whereNumber('id')->name('show');
+        Route::get('/{id}/export', [ReportController::class, 'exportReport'])->whereNumber('id')->name('export');
         Route::post('/daily-usage', [ReportController::class, 'generateDailyUsageReport'])->name('generate.daily');
         Route::post('/monthly-procurement', [ReportController::class, 'generateMonthlyProcurementReport'])->name('generate.monthly');
         Route::post('/reconciliation', [ReportController::class, 'generateReconciliationReport'])->name('generate.reconciliation');
@@ -178,6 +179,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
 
     Route::prefix('billing')->name('billing.')->group(function () {
         Route::get('/queue', [BillingQueueController::class, 'index'])->name('queue');
+        Route::get('/receipts/{transactionId}', [CustomerController::class, 'adminBillingReceiptDetail'])->name('receipts.show');
     });
 
     Route::prefix('archives')->name('archives.')->group(function () {
@@ -194,6 +196,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('job-orders')->name('job-orders.')->group(function () {
         Route::get('/', [JobOrderController::class, 'index'])->name('index');
         Route::post('/', [JobOrderController::class, 'store'])->name('store');
+        Route::get('/slot-availability', [JobOrderController::class, 'slotAvailability'])->name('slot-availability');
         Route::get('/{id}', [JobOrderController::class, 'show'])->name('show');
         Route::put('/{id}', [JobOrderController::class, 'update'])->name('update');
         Route::put('/{id}/submit', [JobOrderController::class, 'submit'])->name('submit');
@@ -203,6 +206,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::put('/{id}/settle', [JobOrderController::class, 'settle'])->name('settle');
         Route::delete('/{id}/cancel', [JobOrderController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/items', [JobOrderController::class, 'addItem'])->name('items.store');
+        Route::put('/{id}/items/{itemId}', [JobOrderController::class, 'updateItem'])->name('items.update');
         Route::delete('/{id}/items/{itemId}', [JobOrderController::class, 'removeItem'])->name('items.destroy');
     });
 
@@ -266,7 +270,13 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
     Route::prefix('payments')->name('payments.')->group(function () {
         Route::post('/pay-all', [PaymentController::class, 'createBulkInvoice'])->name('pay-all');
         Route::post('/sync', [PaymentController::class, 'syncStatuses'])->name('sync');
-        Route::post('/{transactionId}/invoice', [PaymentController::class, 'createInvoice'])->name('invoice.create');
+
+        // Frontdesk payment endpoints — must come before the {transactionId} wildcard
+        Route::post('/frontdesk/invoice', [PaymentController::class, 'createFrontdeskInvoice'])->name('frontdesk.invoice');
+        Route::post('/record', [PaymentController::class, 'recordPayment'])->name('record');
+        Route::post('/frontdesk/sync', [PaymentController::class, 'syncFrontdeskStatus'])->name('frontdesk.sync');
+
+        Route::post('/{transactionId}/invoice', [PaymentController::class, 'createInvoice'])->name('invoice.create')->whereNumber('transactionId');
     });
 
     /*

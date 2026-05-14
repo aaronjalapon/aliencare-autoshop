@@ -111,14 +111,14 @@ class JobOrderRepository extends BaseRepository implements JobOrderRepositoryInt
         }
 
         if (isset($filters['date_from'])) {
-            $query->where('created_at', '>=', $filters['date_from']);
+            $query->whereDate('arrival_date', '>=', $filters['date_from']);
         }
 
         if (isset($filters['date_to'])) {
-            $query->where('created_at', '<=', $filters['date_to']);
+            $query->whereDate('arrival_date', '<=', $filters['date_to']);
         }
 
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+        return $query->orderBy('arrival_date', 'asc')->orderBy('arrival_time', 'asc')->paginate($perPage);
     }
 
     public function create(array $data): JobOrder

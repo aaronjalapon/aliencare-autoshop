@@ -123,15 +123,12 @@ export function useAuditLog(initialFilters: AuditLogFilters = {}): UseAuditLogRe
         if (!isRealTime) return;
 
         // Listen for inventory events that should trigger audit log refresh
-        const cleanup = inventoryEvents.listenMultiple(
-            ['inventory-updated', 'reservation-updated', 'stock-transaction', 'audit-log-updated'],
-            () => {
-                // Small delay to ensure backend has processed the change
-                setTimeout(() => {
-                    fetchAuditData(true);
-                }, 1000);
-            },
-        );
+        const cleanup = inventoryEvents.listenMultiple(['inventory-updated', 'reservation-updated', 'stock-transaction', 'audit-log-updated'], () => {
+            // Small delay to ensure backend has processed the change
+            setTimeout(() => {
+                fetchAuditData(true);
+            }, 1000);
+        });
 
         // Listen for window focus to refresh data when user returns to tab
         const handleWindowFocus = () => {

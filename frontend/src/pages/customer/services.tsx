@@ -663,212 +663,211 @@ export default function CustomerServices() {
                 <div className="profile-card flex min-h-0 flex-col rounded-xl p-5 xl:self-stretch">
                     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
                         {/* Service Header */}
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex flex-col gap-1">
-                            <p className="text-base font-bold">{selectedService.name}</p>
-                            <Stars rating={selectedService.rating} count={selectedService.rating_count} />
-                            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3 shrink-0" />
-                                <span>Estimated duration: {selectedService.estimated_duration}</span>
-                            </div>
-                        </div>
-                        <p className="shrink-0 text-base font-bold">P {selectedService.price_fixed.toLocaleString()}</p>
-                    </div>
-
-                    {/* Includes */}
-                    <div>
-                        <p className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Includes</p>
-                        <div className="flex flex-col gap-1.5">
-                            {selectedService.includes.map((item) => (
-                                <div key={item} className="flex items-center gap-2 text-xs">
-                                    <Check className="h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
-                                    <span>{item}</span>
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-1">
+                                <p className="text-base font-bold">{selectedService.name}</p>
+                                <Stars rating={selectedService.rating} count={selectedService.rating_count} />
+                                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3 shrink-0" />
+                                    <span>Estimated duration: {selectedService.estimated_duration}</span>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Select arrival date */}
-                    <div ref={dateContainerRef} className="relative">
-                        <p className="mb-2 text-xs font-semibold text-foreground">Select arrival date</p>
-                        <div className="flex flex-wrap gap-1.5">
-                            {dateChips.map((chip) => {
-                                const isActive = chip.actualDate.toDateString() === selectedDate.toDateString();
-                                return (
-                                    <button
-                                        key={chip.actualDate.toISOString()}
-                                        onClick={() => setSelectedDate(chip.actualDate)}
-                                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                                            isActive
-                                                ? 'bg-[#d4af37] text-black shadow-[0_0_8px_rgba(212,175,55,0.4)]'
-                                                : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
-                                        }`}
-                                    >
-                                        {chip.day} {chip.date}
-                                    </button>
-                                );
-                            })}
-                            <button
-                                onClick={() => setCalendarOpen((prev) => !prev)}
-                                className={`flex items-center gap-0.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                                    calendarOpen
-                                        ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37]'
-                                        : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
-                                }`}
-                            >
-                                More <ChevronDown className={`h-3 w-3 transition-transform ${calendarOpen ? 'rotate-180' : ''}`} />
-                            </button>
-                        </div>
-
-                        {calendarOpen && (
-                            <CalendarDropdown
-                                containerRef={dateContainerRef}
-                                onClose={() => setCalendarOpen(false)}
-                                selectedDate={selectedDate}
-                                onSelectDate={(date) => {
-                                    setSelectedDate(date);
-                                    setCalendarOpen(false);
-                                }}
-                            />
-                        )}
-                    </div>
-
-                    {/* Select arrival time */}
-                    <div>
-                        <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-semibold text-foreground">Select arrival time</p>
-                            <button
-                                onClick={() => void fetchAvailability()}
-                                disabled={slotsLoading}
-                                className="rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-[#d4af37]/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                Refresh
-                            </button>
-                        </div>
-                        {slotsLastUpdatedAt && (
-                            <p className="mb-1 text-[10px] text-muted-foreground">
-                                Live updates every {Math.floor(SLOT_POLL_INTERVAL_MS / 1000)}s · Last sync{' '}
-                                {slotsLastUpdatedAt.toLocaleTimeString('en-US')}
-                            </p>
-                        )}
-                        {slotsLoading && (
-                            <div className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                <span>Loading available time slots...</span>
                             </div>
-                        )}
-                        {slotsError && !slotsLoading && <p className="mb-1 text-[11px] text-amber-400">{slotsError}</p>}
-                        <div className="flex flex-col gap-1.5">
-                            {timeSlots.map((s, idx) => {
-                                const isSelected = selectedTimeIdx === idx && s.status !== 'full';
-                                const isFull = s.status === 'full';
-                                return (
-                                    <button
-                                        key={s.time}
-                                        disabled={isFull || slotsLoading}
-                                        onClick={() => !isFull && setSelectedTimeIdx(idx)}
-                                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
-                                            isSelected
-                                                ? 'bg-[#d4af37] font-semibold text-black shadow-[0_0_10px_rgba(212,175,55,0.25)]'
-                                                : isFull
-                                                  ? 'cursor-not-allowed border border-[#2a2a2e] text-muted-foreground/40'
-                                                  : 'border border-[#2a2a2e] text-foreground hover:border-[#d4af37]/50'
-                                        }`}
-                                    >
-                                        <span>{s.label}</span>
-                                        <span className={isSelected ? 'text-black/70' : 'text-muted-foreground'}>
-                                            {isFull
-                                                ? 'Full'
-                                                : isSelected
-                                                  ? `${s.slots_left} slot${s.slots_left !== 1 ? 's' : ''} left`
-                                                  : `${s.slots_left} Slot${s.slots_left !== 1 ? 's' : ''} Left`}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                            {!slotsLoading && timeSlots.length === 0 && (
-                                <p className="rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-muted-foreground">
-                                    No arrival slots available for this date.
-                                </p>
+                            <p className="shrink-0 text-base font-bold">P {selectedService.price_fixed.toLocaleString()}</p>
+                        </div>
+
+                        {/* Includes */}
+                        <div>
+                            <p className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Includes</p>
+                            <div className="flex flex-col gap-1.5">
+                                {selectedService.includes.map((item) => (
+                                    <div key={item} className="flex items-center gap-2 text-xs">
+                                        <Check className="h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
+                                        <span>{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Select arrival date */}
+                        <div ref={dateContainerRef} className="relative">
+                            <p className="mb-2 text-xs font-semibold text-foreground">Select arrival date</p>
+                            <div className="flex flex-wrap gap-1.5">
+                                {dateChips.map((chip) => {
+                                    const isActive = chip.actualDate.toDateString() === selectedDate.toDateString();
+                                    return (
+                                        <button
+                                            key={chip.actualDate.toISOString()}
+                                            onClick={() => setSelectedDate(chip.actualDate)}
+                                            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                                                isActive
+                                                    ? 'bg-[#d4af37] text-black shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                                                    : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
+                                            }`}
+                                        >
+                                            {chip.day} {chip.date}
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    onClick={() => setCalendarOpen((prev) => !prev)}
+                                    className={`flex items-center gap-0.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                                        calendarOpen
+                                            ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37]'
+                                            : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
+                                    }`}
+                                >
+                                    More <ChevronDown className={`h-3 w-3 transition-transform ${calendarOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                            </div>
+
+                            {calendarOpen && (
+                                <CalendarDropdown
+                                    containerRef={dateContainerRef}
+                                    onClose={() => setCalendarOpen(false)}
+                                    selectedDate={selectedDate}
+                                    onSelectDate={(date) => {
+                                        setSelectedDate(date);
+                                        setCalendarOpen(false);
+                                    }}
+                                />
                             )}
                         </div>
-                    </div>
 
-                    {/* Vehicle */}
-                    <div className="relative">
-                        <p className="mb-2 text-xs font-semibold text-foreground">Vehicle</p>
-                        {vehicles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">No vehicles registered. Add one in your profile.</p>
-                        ) : (
-                            <>
+                        {/* Select arrival time */}
+                        <div>
+                            <div className="mb-2 flex items-center justify-between">
+                                <p className="text-xs font-semibold text-foreground">Select arrival time</p>
                                 <button
-                                    onClick={() => setVehicleDropdownOpen((p) => !p)}
-                                    className="flex w-full items-center justify-between rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-foreground transition-colors hover:border-[#d4af37]/50"
+                                    onClick={() => void fetchAvailability()}
+                                    disabled={slotsLoading}
+                                    className="rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-[#d4af37]/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex h-6 w-6 items-center justify-center rounded bg-[#d4af37]/10">
-                                            <svg className="h-3.5 w-3.5 text-[#d4af37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
-                                                />
-                                            </svg>
-                                        </div>
-                                        <span>
-                                            {selectedVehicle
-                                                ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.plate_number}`
-                                                : 'Select a vehicle'}
-                                        </span>
-                                    </div>
-                                    <ChevronDown
-                                        className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${vehicleDropdownOpen ? 'rotate-180' : ''}`}
-                                    />
+                                    Refresh
                                 </button>
-
-                                {vehicleDropdownOpen && (
-                                    <div className="absolute top-full left-0 z-40 mt-1 w-full rounded-lg border border-[#2a2a2e] bg-[#18181b] shadow-xl">
-                                        {vehicles.map((v) => (
-                                            <button
-                                                key={v.id}
-                                                onClick={() => {
-                                                    setSelectedVehicleId(v.id);
-                                                    setVehicleDropdownOpen(false);
-                                                }}
-                                                className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-[#2a2a2e] ${
-                                                    selectedVehicle?.id === v.id ? 'text-[#d4af37]' : 'text-foreground'
-                                                }`}
-                                            >
-                                                <span className="font-medium">
-                                                    {v.make} {v.model}
-                                                </span>
-                                                <span className="text-muted-foreground">· {v.plate_number}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    {/* Booking Summary */}
-                    <div className="rounded-lg border border-[#2a2a2e] p-3">
-                        <p className="mb-2 text-xs font-semibold text-foreground">Booking Summary</p>
-                        <div className="flex flex-col gap-1.5 text-xs">
-                            <div className="flex items-start justify-between gap-2">
-                                <span className="text-muted-foreground">Arrival:</span>
-                                <span className="text-right font-medium">{arrivalStr}</span>
                             </div>
-                            <div className="flex items-start justify-between gap-2">
-                                <span className="text-muted-foreground">Est. start:</span>
-                                <span className="text-right font-medium">
-                                    {fmtTime(estStart)} – {fmtTime(estEnd)}
-                                </span>
+                            {slotsLastUpdatedAt && (
+                                <p className="mb-1 text-[10px] text-muted-foreground">
+                                    Live updates every {Math.floor(SLOT_POLL_INTERVAL_MS / 1000)}s · Last sync{' '}
+                                    {slotsLastUpdatedAt.toLocaleTimeString('en-US')}
+                                </p>
+                            )}
+                            {slotsLoading && (
+                                <div className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span>Loading available time slots...</span>
+                                </div>
+                            )}
+                            {slotsError && !slotsLoading && <p className="mb-1 text-[11px] text-amber-400">{slotsError}</p>}
+                            <div className="flex flex-col gap-1.5">
+                                {timeSlots.map((s, idx) => {
+                                    const isSelected = selectedTimeIdx === idx && s.status !== 'full';
+                                    const isFull = s.status === 'full';
+                                    return (
+                                        <button
+                                            key={s.time}
+                                            disabled={isFull || slotsLoading}
+                                            onClick={() => !isFull && setSelectedTimeIdx(idx)}
+                                            className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
+                                                isSelected
+                                                    ? 'bg-[#d4af37] font-semibold text-black shadow-[0_0_10px_rgba(212,175,55,0.25)]'
+                                                    : isFull
+                                                      ? 'cursor-not-allowed border border-[#2a2a2e] text-muted-foreground/40'
+                                                      : 'border border-[#2a2a2e] text-foreground hover:border-[#d4af37]/50'
+                                            }`}
+                                        >
+                                            <span>{s.label}</span>
+                                            <span className={isSelected ? 'text-black/70' : 'text-muted-foreground'}>
+                                                {isFull
+                                                    ? 'Full'
+                                                    : isSelected
+                                                      ? `${s.slots_left} slot${s.slots_left !== 1 ? 's' : ''} left`
+                                                      : `${s.slots_left} Slot${s.slots_left !== 1 ? 's' : ''} Left`}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                                {!slotsLoading && timeSlots.length === 0 && (
+                                    <p className="rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-muted-foreground">
+                                        No arrival slots available for this date.
+                                    </p>
+                                )}
                             </div>
                         </div>
-                    </div>
 
+                        {/* Vehicle */}
+                        <div className="relative">
+                            <p className="mb-2 text-xs font-semibold text-foreground">Vehicle</p>
+                            {vehicles.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">No vehicles registered. Add one in your profile.</p>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => setVehicleDropdownOpen((p) => !p)}
+                                        className="flex w-full items-center justify-between rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-foreground transition-colors hover:border-[#d4af37]/50"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex h-6 w-6 items-center justify-center rounded bg-[#d4af37]/10">
+                                                <svg className="h-3.5 w-3.5 text-[#d4af37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                                                    />
+                                                </svg>
+                                            </div>
+                                            <span>
+                                                {selectedVehicle
+                                                    ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.plate_number}`
+                                                    : 'Select a vehicle'}
+                                            </span>
+                                        </div>
+                                        <ChevronDown
+                                            className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${vehicleDropdownOpen ? 'rotate-180' : ''}`}
+                                        />
+                                    </button>
+
+                                    {vehicleDropdownOpen && (
+                                        <div className="absolute top-full left-0 z-40 mt-1 w-full rounded-lg border border-[#2a2a2e] bg-[#18181b] shadow-xl">
+                                            {vehicles.map((v) => (
+                                                <button
+                                                    key={v.id}
+                                                    onClick={() => {
+                                                        setSelectedVehicleId(v.id);
+                                                        setVehicleDropdownOpen(false);
+                                                    }}
+                                                    className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-[#2a2a2e] ${
+                                                        selectedVehicle?.id === v.id ? 'text-[#d4af37]' : 'text-foreground'
+                                                    }`}
+                                                >
+                                                    <span className="font-medium">
+                                                        {v.make} {v.model}
+                                                    </span>
+                                                    <span className="text-muted-foreground">· {v.plate_number}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Booking Summary */}
+                        <div className="rounded-lg border border-[#2a2a2e] p-3">
+                            <p className="mb-2 text-xs font-semibold text-foreground">Booking Summary</p>
+                            <div className="flex flex-col gap-1.5 text-xs">
+                                <div className="flex items-start justify-between gap-2">
+                                    <span className="text-muted-foreground">Arrival:</span>
+                                    <span className="text-right font-medium">{arrivalStr}</span>
+                                </div>
+                                <div className="flex items-start justify-between gap-2">
+                                    <span className="text-muted-foreground">Est. start:</span>
+                                    <span className="text-right font-medium">
+                                        {fmtTime(estStart)} – {fmtTime(estEnd)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div className="shrink-0 pt-4">
                         {/* CTA */}

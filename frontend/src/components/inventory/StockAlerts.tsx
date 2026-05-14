@@ -1,23 +1,14 @@
 import { AlertTriangle, CheckCircle, Clock, Package, RefreshCw, Settings } from 'lucide-react';
 import { useState } from 'react';
-import { getApiErrorMessage } from '../../lib/api-error-message';
 import { useAlerts } from '../../hooks/useAlerts';
+import { getApiErrorMessage } from '../../lib/api-error-message';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
 export function StockAlerts() {
-    const {
-        alerts,
-        statistics,
-        loading,
-        error,
-        acknowledgeAlert,
-        bulkAcknowledgeAlerts,
-        generateLowStockAlerts,
-        cleanupAlerts,
-        refresh,
-    } = useAlerts();
+    const { alerts, statistics, loading, error, acknowledgeAlert, bulkAcknowledgeAlerts, generateLowStockAlerts, cleanupAlerts, refresh } =
+        useAlerts();
 
     const [bulkSelected, setBulkSelected] = useState<number[]>([]);
     const [actionLoading, setActionLoading] = useState<string | null>(null);

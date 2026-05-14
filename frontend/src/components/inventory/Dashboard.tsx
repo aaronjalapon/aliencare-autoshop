@@ -145,7 +145,10 @@ export function Dashboard() {
                             </div>
                         ) : lowStockAlerts && lowStockAlerts.length > 0 ? (
                             lowStockAlerts.slice(0, 5).map((alert: InventoryAlert) => (
-                                <div key={alert.id} className="flex items-center justify-between rounded-lg border border-border bg-destructive/5 p-3">
+                                <div
+                                    key={alert.id}
+                                    className="flex items-center justify-between rounded-lg border border-border bg-destructive/5 p-3"
+                                >
                                     <div className="flex items-center space-x-3">
                                         <AlertTriangle className="h-5 w-5 text-destructive" />
                                         <div>

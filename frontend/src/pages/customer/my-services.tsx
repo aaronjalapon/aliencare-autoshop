@@ -1,6 +1,16 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+import { RescheduleModal } from '@/components/job-orders/RescheduleModal';
 import { useCustomerJobOrders } from '@/hooks/useCustomerJobOrders';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
+import { getApiErrorMessage } from '@/lib/api-error-message';
+import {
+    addMinutesToTime,
+    extractDurationMinutes,
+    formatDate,
+    formatDateYmd,
+    formatServiceCategory,
+    formatTimeLabel,
+} from '@/lib/jobOrderFormatters';
 import { customerService } from '@/services/customerService';
 import { type BreadcrumbItem } from '@/types';
 import { JobOrder } from '@/types/customer';
@@ -95,80 +105,6 @@ function mapTab(status: BookingStatus): TabKey {
     return 'Upcoming';
 }
 
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatDateYmd(ymd: string): string {
-    return new Date(`${ymd}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatTime(time24: string): string {
-    const [hRaw, mRaw] = time24.split(':');
-    const h = Number(hRaw);
-    const m = Number(mRaw);
-
-    if (Number.isNaN(h) || Number.isNaN(m)) {
-        return time24;
-    }
-
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h % 12 === 0 ? 12 : h % 12;
-    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
-}
-
-function extractDurationMinutes(duration: string | null | undefined): number | null {
-    if (!duration) {
-        return null;
-    }
-
-    const matches = duration.match(/\d+/g);
-    if (!matches || matches.length === 0) {
-        return null;
-    }
-
-    const maxMinutes = Number(matches[matches.length - 1]);
-    return Number.isFinite(maxMinutes) ? maxMinutes : null;
-}
-
-function addMinutesToTime(time24: string, minutes: number): string {
-    const [hRaw, mRaw] = time24.split(':');
-    const h = Number(hRaw);
-    const m = Number(mRaw);
-
-    if (Number.isNaN(h) || Number.isNaN(m)) {
-        return '—';
-    }
-
-    const base = new Date();
-    base.setHours(h, m, 0, 0);
-    base.setMinutes(base.getMinutes() + minutes);
-
-    return base.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatServiceCategory(category: string | null | undefined): string {
-    if (!category) {
-        return 'Service';
-    }
-
-    return category
-        .split('_')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === 'object' && error !== null) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === 'string' && message.length > 0) {
-            return message;
-        }
-    }
-
-    return fallback;
-}
-
 function jobOrderToBooking(jo: JobOrder, customerName: string, customerPhone: string, customerAddress: string): Booking {
     const status = mapStatus(jo.status);
     const tab = mapTab(status);
@@ -177,12 +113,12 @@ function jobOrderToBooking(jo: JobOrder, customerName: string, customerPhone: st
     const totalCost = jo.total_cost ?? jo.service_fee;
     const bookedOn = formatDate(jo.created_at);
     const scheduledDate = jo.arrival_date ? formatDateYmd(jo.arrival_date) : '—';
-    const scheduledTime = jo.arrival_time ? formatTime(jo.arrival_time) : '—';
+    const scheduledTime = jo.arrival_time ? formatTimeLabel(jo.arrival_time) : '—';
     const arrival = jo.arrival_date && jo.arrival_time ? `${scheduledDate}, ${scheduledTime}` : '—';
 
     const estimatedDuration = jo.service?.estimated_duration ?? jo.service?.duration ?? '—';
     const estimatedMinutes = extractDurationMinutes(estimatedDuration === '—' ? null : estimatedDuration);
-    const estimatedStart = jo.arrival_time ? formatTime(jo.arrival_time) : '—';
+    const estimatedStart = jo.arrival_time ? formatTimeLabel(jo.arrival_time) : '—';
     const estimatedEnd = jo.arrival_time && estimatedMinutes ? addMinutesToTime(jo.arrival_time, estimatedMinutes) : '—';
 
     const scheduledDateTime = jo.arrival_date && jo.arrival_time ? `${scheduledDate} · ${scheduledTime}` : bookedOn;
@@ -314,23 +250,20 @@ function BookingDetailView({
     onReschedule,
     onCancel,
     onViewReceipt,
-    reschedulingId,
     cancelingId,
     receiptLoadingId,
     actionError,
 }: {
     booking: Booking;
     onBack: () => void;
-    onReschedule: (booking: Booking) => Promise<void>;
-    onCancel: (booking: Booking) => Promise<void>;
-    onViewReceipt: (booking: Booking) => Promise<void>;
-    reschedulingId: number | null;
+    onReschedule: (booking: Booking) => void;
+    onCancel: (booking: Booking) => void;
+    onViewReceipt: (booking: Booking) => void;
     cancelingId: number | null;
     receiptLoadingId: number | null;
     actionError: string | null;
 }) {
     const isCanceled = booking.status === 'Canceled';
-    const isRescheduling = reschedulingId === booking.id;
     const isCanceling = cancelingId === booking.id;
     const isReceiptLoading = receiptLoadingId === booking.id;
 
@@ -582,111 +515,108 @@ function BookingDetailView({
                 {/* ── BOOKING SUMMARY (right sticky panel) ─────────────── */}
                 <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                    <p className="text-base font-bold">Booking Summary</p>
+                        <p className="text-base font-bold">Booking Summary</p>
 
-                    {/* Status rows */}
-                    <div className="flex flex-col gap-1.5 rounded-lg border border-[#2a2a2e] p-3">
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Booking Status</span>
-                            <span className="font-semibold text-foreground">{isCanceled ? 'Canceled' : 'Active'}</span>
+                        {/* Status rows */}
+                        <div className="flex flex-col gap-1.5 rounded-lg border border-[#2a2a2e] p-3">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Booking Status</span>
+                                <span className="font-semibold text-foreground">{isCanceled ? 'Canceled' : 'Active'}</span>
+                            </div>
+                            <div className="h-px bg-[#2a2a2e]" />
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Payment Status</span>
+                                <span className={`font-semibold ${booking.reservationFeePaid ? 'text-green-400' : 'text-[#d4af37]'}`}>
+                                    {booking.reservationFeePaid ? 'Reservation Fee Paid' : 'Pay at Shop'}
+                                </span>
+                            </div>
                         </div>
+
                         <div className="h-px bg-[#2a2a2e]" />
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Payment Status</span>
-                            <span className={`font-semibold ${booking.reservationFeePaid ? 'text-green-400' : 'text-[#d4af37]'}`}>
-                                {booking.reservationFeePaid ? 'Reservation Fee Paid' : 'Pay at Shop'}
-                            </span>
+
+                        {/* Details */}
+                        <div className="flex flex-col gap-2.5 text-xs">
+                            <div className="flex items-start justify-between gap-2">
+                                <span className="text-muted-foreground">Arrival</span>
+                                <span className="text-right font-medium">{booking.arrival}</span>
+                            </div>
+                            <div className="flex items-start justify-between gap-2">
+                                <span className="text-muted-foreground">Estimated Start</span>
+                                <span className="text-right font-medium">
+                                    {booking.estimatedStart} – {booking.estimatedEnd}
+                                </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-2">
+                                <span className="text-muted-foreground">Vehicle</span>
+                                <span className="text-right font-medium">
+                                    {booking.vehicle} · {booking.vehiclePlate}
+                                </span>
+                            </div>
+                            <div className="h-px bg-[#2a2a2e]" />
+                            <div className="flex items-start justify-between gap-2">
+                                <span className="text-muted-foreground">Amount Paid</span>
+                                <span className="text-right font-medium text-green-400">
+                                    ₱{booking.amountPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-2">
+                                <span className="text-muted-foreground">Remaining Balance</span>
+                                {booking.remainingBalance != null ? (
+                                    <span className="text-right font-medium text-[#d4af37]">
+                                        Pay at Shop · ₱{booking.remainingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                    </span>
+                                ) : (
+                                    <span className="text-right font-medium text-green-400">Fully Paid</span>
+                                )}
+                            </div>
                         </div>
                     </div>
-
-                    <div className="h-px bg-[#2a2a2e]" />
-
-                    {/* Details */}
-                    <div className="flex flex-col gap-2.5 text-xs">
-                        <div className="flex items-start justify-between gap-2">
-                            <span className="text-muted-foreground">Arrival</span>
-                            <span className="text-right font-medium">{booking.arrival}</span>
-                        </div>
-                        <div className="flex items-start justify-between gap-2">
-                            <span className="text-muted-foreground">Estimated Start</span>
-                            <span className="text-right font-medium">
-                                {booking.estimatedStart} – {booking.estimatedEnd}
-                            </span>
-                        </div>
-                        <div className="flex items-start justify-between gap-2">
-                            <span className="text-muted-foreground">Vehicle</span>
-                            <span className="text-right font-medium">
-                                {booking.vehicle} · {booking.vehiclePlate}
-                            </span>
-                        </div>
-                        <div className="h-px bg-[#2a2a2e]" />
-                        <div className="flex items-start justify-between gap-2">
-                            <span className="text-muted-foreground">Amount Paid</span>
-                            <span className="text-right font-medium text-green-400">
-                                ₱{booking.amountPaid.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                            </span>
-                        </div>
-                        <div className="flex items-start justify-between gap-2">
-                            <span className="text-muted-foreground">Remaining Balance</span>
-                            {booking.remainingBalance != null ? (
-                                <span className="text-right font-medium text-[#d4af37]">
-                                    Pay at Shop · ₱{booking.remainingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                </span>
-                            ) : (
-                                <span className="text-right font-medium text-green-400">Fully Paid</span>
+                    <div className="flex shrink-0 flex-col gap-2 pt-4">
+                        {/* Action buttons */}
+                        <div className="flex flex-col gap-2">
+                            {booking.status === 'Completed' && (
+                                <button
+                                    onClick={() => void onViewReceipt(booking)}
+                                    disabled={isReceiptLoading}
+                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    {isReceiptLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                    {isReceiptLoading ? 'Opening Receipt...' : 'View Receipt'}
+                                </button>
+                            )}
+                            {!isCanceled && booking.status !== 'Completed' && (
+                                <>
+                                    <button
+                                        onClick={() => onReschedule(booking)}
+                                        disabled={isCanceling}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-[#1e1e22] disabled:cursor-not-allowed disabled:opacity-70"
+                                    >
+                                        <RotateCcw className="h-4 w-4" /> Reschedule Booking
+                                    </button>
+                                    <button
+                                        onClick={() => onCancel(booking)}
+                                        disabled={isCanceling}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/40 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+                                    >
+                                        {isCanceling ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                                        {isCanceling ? 'Canceling...' : 'Cancel Booking'}
+                                    </button>
+                                </>
                             )}
                         </div>
-                    </div>
 
-                    </div>
-                    <div className="shrink-0 flex flex-col gap-2 pt-4">
+                        {actionError && <p className="text-xs text-red-400">{actionError}</p>}
 
-                    {/* Action buttons */}
-                    <div className="flex flex-col gap-2">
-                        {booking.status === 'Completed' && (
-                            <button
-                                onClick={() => void onViewReceipt(booking)}
-                                disabled={isReceiptLoading}
-                                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
-                            >
-                                {isReceiptLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                {isReceiptLoading ? 'Opening Receipt...' : 'View Receipt'}
-                            </button>
-                        )}
+                        {/* Advisory note */}
                         {!isCanceled && booking.status !== 'Completed' && (
-                            <>
-                                <button
-                                    onClick={() => void onReschedule(booking)}
-                                    disabled={isRescheduling || isCanceling}
-                                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#2a2a2e] py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-[#1e1e22] disabled:cursor-not-allowed disabled:opacity-70"
-                                >
-                                    {isRescheduling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                                    {isRescheduling ? 'Rescheduling...' : 'Reschedule Booking'}
-                                </button>
-                                <button
-                                    onClick={() => void onCancel(booking)}
-                                    disabled={isCanceling || isRescheduling}
-                                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/40 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-70"
-                                >
-                                    {isCanceling ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                                    {isCanceling ? 'Canceling...' : 'Cancel Booking'}
-                                </button>
-                            </>
+                            <div className="rounded-lg border border-[#d4af37]/20 bg-[#d4af37]/5 p-3 text-xs text-muted-foreground">
+                                <p className="flex items-start gap-1.5">
+                                    <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
+                                    Please arrive 10 minutes before your schedule time.
+                                </p>
+                                <p className="mt-1 pl-5">If you are late, your booking may be moved to the next available slot.</p>
+                            </div>
                         )}
-                    </div>
-
-                    {actionError && <p className="text-xs text-red-400">{actionError}</p>}
-
-                    {/* Advisory note */}
-                    {!isCanceled && booking.status !== 'Completed' && (
-                        <div className="rounded-lg border border-[#d4af37]/20 bg-[#d4af37]/5 p-3 text-xs text-muted-foreground">
-                            <p className="flex items-start gap-1.5">
-                                <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#d4af37]" />
-                                Please arrive 10 minutes before your schedule time.
-                            </p>
-                            <p className="mt-1 pl-5">If you are late, your booking may be moved to the next available slot.</p>
-                        </div>
-                    )}
                     </div>
                 </div>
             </div>
@@ -700,7 +630,7 @@ export default function MyServices() {
     const [search, setSearch] = useState('');
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [viewingDetailId, setViewingDetailId] = useState<number | null>(null);
-    const [reschedulingId, setReschedulingId] = useState<number | null>(null);
+    const [rescheduleTarget, setRescheduleTarget] = useState<Booking | null>(null);
     const [cancelingId, setCancelingId] = useState<number | null>(null);
     const [receiptLoadingId, setReceiptLoadingId] = useState<number | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -737,7 +667,7 @@ export default function MyServices() {
 
             window.location.href = paymentUrl;
         } catch (err) {
-            setActionError(getErrorMessage(err, 'Failed to open receipt. Please try again.'));
+            setActionError(getApiErrorMessage(err, 'Failed to open receipt. Please try again.'));
         } finally {
             setReceiptLoadingId(null);
         }
@@ -764,56 +694,15 @@ export default function MyServices() {
                 setViewingDetailId(null);
             }
         } catch (err) {
-            setActionError(getErrorMessage(err, 'Failed to cancel booking. Please try again.'));
+            setActionError(getApiErrorMessage(err, 'Failed to cancel booking. Please try again.'));
         } finally {
             setCancelingId(null);
         }
     }
 
-    async function handleRescheduleBooking(booking: Booking) {
-        const defaultDate = booking.arrivalDateRaw ?? new Date().toISOString().slice(0, 10);
-        const enteredDate = window.prompt('Enter new arrival date (YYYY-MM-DD):', defaultDate)?.trim();
-
-        if (!enteredDate) {
-            return;
-        }
-
-        let availableSlots: string[] = [];
-        try {
-            const availability = await customerService.getBookingAvailability(enteredDate);
-            availableSlots = (availability.data?.slots ?? []).filter((slot) => slot.status === 'available').map((slot) => slot.time);
-        } catch {
-            // The backend will still validate date/time at reschedule call.
-        }
-
-        const suggestedTime = availableSlots[0] ?? booking.arrivalTimeRaw ?? '10:00';
-        const timePrompt =
-            availableSlots.length > 0
-                ? `Available times: ${availableSlots.join(', ')}\nEnter new arrival time (HH:MM):`
-                : 'Enter new arrival time (HH:MM):';
-
-        const enteredTime = window.prompt(timePrompt, suggestedTime)?.trim();
-
-        if (!enteredTime) {
-            return;
-        }
-
+    function handleRescheduleBooking(booking: Booking) {
         setActionError(null);
-        setReschedulingId(booking.id);
-
-        try {
-            await customerService.rescheduleMyJobOrder(booking.id, {
-                arrival_date: enteredDate,
-                arrival_time: enteredTime,
-            });
-
-            await refresh();
-            setSelectedId(booking.id);
-        } catch (err) {
-            setActionError(getErrorMessage(err, 'Failed to reschedule booking. Please try again.'));
-        } finally {
-            setReschedulingId(null);
-        }
+        setRescheduleTarget(booking);
     }
 
     // ── Full detail page view ─────────────────────────────────────────────────
@@ -826,7 +715,6 @@ export default function MyServices() {
                     onReschedule={handleRescheduleBooking}
                     onCancel={handleCancelBooking}
                     onViewReceipt={handleViewReceipt}
-                    reschedulingId={reschedulingId}
                     cancelingId={cancelingId}
                     receiptLoadingId={receiptLoadingId}
                     actionError={actionError}
@@ -944,147 +832,156 @@ export default function MyServices() {
                 {selected && (
                     <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                        {/* Service Header */}
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex flex-col gap-1">
-                                <p className="text-base font-bold">{selected.serviceName}</p>
-                                <p className="text-xs text-muted-foreground">{selected.jobOrder}</p>
+                            {/* Service Header */}
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-base font-bold">{selected.serviceName}</p>
+                                    <p className="text-xs text-muted-foreground">{selected.jobOrder}</p>
+                                </div>
+                                <StatusBadge status={selected.status} />
                             </div>
-                            <StatusBadge status={selected.status} />
-                        </div>
 
-                        {/* Current booking status */}
-                        <div>
-                            <FilledStatusBadge status={selected.status} />
-                        </div>
+                            {/* Current booking status */}
+                            <div>
+                                <FilledStatusBadge status={selected.status} />
+                            </div>
 
-                        <div className="h-px bg-[#2a2a2e]" />
+                            <div className="h-px bg-[#2a2a2e]" />
 
-                        {/* Arrival & schedule — boxed like Booking Summary */}
-                        <div>
-                            <p className="mb-2 text-xs font-semibold text-foreground">Arrival</p>
-                            <div className="rounded-lg border border-[#2a2a2e] p-3">
-                                <div className="flex flex-col gap-1.5 text-xs">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <span className="text-muted-foreground">Arrival:</span>
-                                        <span className="text-right font-medium">{selected.arrival}</span>
-                                    </div>
-                                    <div className="flex items-start justify-between gap-2">
-                                        <span className="text-muted-foreground">Scheduled Time:</span>
-                                        <span className="text-right font-medium">{selected.scheduledTime}</span>
-                                    </div>
-                                    <div className="flex items-start justify-between gap-2">
-                                        <span className="text-muted-foreground">Est. Start:</span>
-                                        <span className="text-right font-medium">
-                                            {selected.estimatedStart} – {selected.estimatedEnd}
-                                        </span>
+                            {/* Arrival & schedule — boxed like Booking Summary */}
+                            <div>
+                                <p className="mb-2 text-xs font-semibold text-foreground">Arrival</p>
+                                <div className="rounded-lg border border-[#2a2a2e] p-3">
+                                    <div className="flex flex-col gap-1.5 text-xs">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="text-muted-foreground">Arrival:</span>
+                                            <span className="text-right font-medium">{selected.arrival}</span>
+                                        </div>
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="text-muted-foreground">Scheduled Time:</span>
+                                            <span className="text-right font-medium">{selected.scheduledTime}</span>
+                                        </div>
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="text-muted-foreground">Est. Start:</span>
+                                            <span className="text-right font-medium">
+                                                {selected.estimatedStart} – {selected.estimatedEnd}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Vehicle — matches services.tsx vehicle selector style */}
-                        <div>
-                            <p className="mb-2 text-xs font-semibold text-foreground">Vehicle</p>
-                            <div className="flex w-full items-center gap-2 rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-foreground">
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#d4af37]/10">
-                                    <Car className="h-3.5 w-3.5 text-[#d4af37]" />
-                                </div>
-                                <span>
-                                    {selected.vehicle} &nbsp; {selected.vehiclePlate}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="h-px bg-[#2a2a2e]" />
-
-                        {/* Payment & Booking steps — boxed */}
-                        <div>
-                            <p className="mb-2 text-xs font-semibold text-foreground">Booking Status</p>
-                            <div className="rounded-lg border border-[#2a2a2e] p-3">
-                                <div className="flex flex-col gap-2">
-                                    {/* Reservation fee row */}
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${selected.reservationFeePaid ? 'bg-green-500' : 'bg-[#2a2a2e]'}`}
-                                        />
-                                        <p
-                                            className={`text-xs font-semibold ${selected.reservationFeePaid ? 'text-green-400' : 'text-muted-foreground'}`}
-                                        >
-                                            Reservation Fee {selected.reservationFeePaid ? 'Paid' : 'Unpaid'}
-                                        </p>
+                            {/* Vehicle — matches services.tsx vehicle selector style */}
+                            <div>
+                                <p className="mb-2 text-xs font-semibold text-foreground">Vehicle</p>
+                                <div className="flex w-full items-center gap-2 rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-foreground">
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#d4af37]/10">
+                                        <Car className="h-3.5 w-3.5 text-[#d4af37]" />
                                     </div>
-
-                                    <div className="my-0.5 h-px bg-[#2a2a2e]" />
-
-                                    {/* Step progress */}
-                                    {BOOKING_STEPS.map((step) => {
-                                        const reached = stepReached(selected.status, step);
-                                        return (
-                                            <div key={step} className="flex items-center gap-2">
-                                                {reached ? (
-                                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-                                                ) : (
-                                                    <Circle className="h-4 w-4 shrink-0 text-[#2a2a2e]" />
-                                                )}
-                                                <span className={`text-xs ${reached ? 'text-foreground' : 'text-muted-foreground'}`}>{step}</span>
-                                            </div>
-                                        );
-                                    })}
+                                    <span>
+                                        {selected.vehicle} &nbsp; {selected.vehiclePlate}
+                                    </span>
                                 </div>
                             </div>
+
+                            <div className="h-px bg-[#2a2a2e]" />
+
+                            {/* Payment & Booking steps — boxed */}
+                            <div>
+                                <p className="mb-2 text-xs font-semibold text-foreground">Booking Status</p>
+                                <div className="rounded-lg border border-[#2a2a2e] p-3">
+                                    <div className="flex flex-col gap-2">
+                                        {/* Reservation fee row */}
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${selected.reservationFeePaid ? 'bg-green-500' : 'bg-[#2a2a2e]'}`}
+                                            />
+                                            <p
+                                                className={`text-xs font-semibold ${selected.reservationFeePaid ? 'text-green-400' : 'text-muted-foreground'}`}
+                                            >
+                                                Reservation Fee {selected.reservationFeePaid ? 'Paid' : 'Unpaid'}
+                                            </p>
+                                        </div>
+
+                                        <div className="my-0.5 h-px bg-[#2a2a2e]" />
+
+                                        {/* Step progress */}
+                                        {BOOKING_STEPS.map((step) => {
+                                            const reached = stepReached(selected.status, step);
+                                            return (
+                                                <div key={step} className="flex items-center gap-2">
+                                                    {reached ? (
+                                                        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+                                                    ) : (
+                                                        <Circle className="h-4 w-4 shrink-0 text-[#2a2a2e]" />
+                                                    )}
+                                                    <span className={`text-xs ${reached ? 'text-foreground' : 'text-muted-foreground'}`}>{step}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-muted-foreground italic">Please arrive 10 minutes before your scheduled time.</p>
                         </div>
-
-                        <p className="text-xs text-muted-foreground italic">Please arrive 10 minutes before your scheduled time.</p>
-
-                        </div>
-                        <div className="shrink-0 flex flex-col gap-2 pt-4">
-
-                        {/* Action buttons */}
-                        <div className="flex flex-col gap-2">
-                            {selected.status === 'Completed' && (
+                        <div className="flex shrink-0 flex-col gap-2 pt-4">
+                            {/* Action buttons */}
+                            <div className="flex flex-col gap-2">
+                                {selected.status === 'Completed' && (
+                                    <button
+                                        onClick={() => void handleViewReceipt(selected)}
+                                        disabled={receiptLoadingId === selected.id}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                                    >
+                                        {receiptLoadingId === selected.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
+                                        {receiptLoadingId === selected.id ? 'Opening Receipt...' : 'View Receipt'}
+                                    </button>
+                                )}
                                 <button
-                                    onClick={() => void handleViewReceipt(selected)}
-                                    disabled={receiptLoadingId === selected.id}
-                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                                    onClick={() => setViewingDetailId(selected.id)}
+                                    className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90"
                                 >
-                                    {receiptLoadingId === selected.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="h-4 w-4" />
-                                    )}
-                                    {receiptLoadingId === selected.id ? 'Opening Receipt...' : 'View Receipt'}
+                                    View Full Details
                                 </button>
-                            )}
-                            <button
-                                onClick={() => setViewingDetailId(selected.id)}
-                                className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90"
-                            >
-                                View Full Details
-                            </button>
-                            {selected.status !== 'Canceled' && selected.status !== 'Completed' && (
-                                <div className="mt-3 grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => void handleRescheduleBooking(selected)}
-                                        disabled={reschedulingId === selected.id || cancelingId === selected.id}
-                                        className="rounded-lg border border-[#2a2a2e] py-2 text-sm font-medium text-foreground transition-colors hover:bg-[#1e1e22] disabled:cursor-not-allowed disabled:opacity-70"
-                                    >
-                                        {reschedulingId === selected.id ? 'Rescheduling...' : 'Reschedule'}
-                                    </button>
-                                    <button
-                                        onClick={() => void handleCancelBooking(selected)}
-                                        disabled={cancelingId === selected.id || reschedulingId === selected.id}
-                                        className="rounded-lg border border-red-500/40 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-70"
-                                    >
-                                        {cancelingId === selected.id ? 'Canceling...' : 'Cancel Booking'}
-                                    </button>
-                                </div>
-                            )}
+                                {selected.status !== 'Canceled' && selected.status !== 'Completed' && (
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => handleRescheduleBooking(selected)}
+                                            disabled={cancelingId === selected.id}
+                                            className="rounded-lg border border-[#2a2a2e] py-2 text-sm font-medium text-foreground transition-colors hover:bg-[#1e1e22] disabled:cursor-not-allowed disabled:opacity-70"
+                                        >
+                                            Reschedule
+                                        </button>
+                                        <button
+                                            onClick={() => void handleCancelBooking(selected)}
+                                            disabled={cancelingId === selected.id}
+                                            className="rounded-lg border border-red-500/40 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+                                        >
+                                            {cancelingId === selected.id ? 'Canceling...' : 'Cancel Booking'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
                     </div>
                 )}
             </div>
+
+            {rescheduleTarget && (
+                <RescheduleModal
+                    booking={rescheduleTarget}
+                    onClose={() => setRescheduleTarget(null)}
+                    onRescheduled={() => {
+                        setRescheduleTarget(null);
+                        refresh();
+                    }}
+                />
+            )}
         </CustomerLayout>
     );
 }

@@ -167,7 +167,7 @@ class CustomerBookingController extends Controller
 
                     $bookingPayload = $this->withReservationHoldExpiry($validated, false);
 
-                    $jobOrder = $this->createPendingJobOrder($customer, $service, $bookingPayload)
+                    $jobOrder = $this->createPendingJobOrder($customer, $service, $bookingPayload, true)
                         ->fresh(['customer', 'vehicle', 'service', 'items']);
 
                     // Create a pending transaction for the full service fee so it
@@ -436,8 +436,10 @@ class CustomerBookingController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      */
-    private function createPendingJobOrder(Customer $customer, ServiceCatalog $service, array $validated): JobOrder
+    private function createPendingJobOrder(Customer $customer, ServiceCatalog $service, array $validated, bool $autoApprove = false): JobOrder
     {
+        $status = $autoApprove ? JobOrderStatus::Approved : JobOrderStatus::PendingApproval;
+
         $jobOrder = JobOrder::create([
             'customer_id' => $customer->id,
             'vehicle_id' => $validated['vehicle_id'],
@@ -446,7 +448,8 @@ class CustomerBookingController extends Controller
             'arrival_date' => $validated['arrival_date'],
             'arrival_time' => $validated['arrival_time'],
             'reservation_expires_at' => $validated['reservation_expires_at'] ?? null,
-            'status' => JobOrderStatus::PendingApproval,
+            'status' => $status,
+            'approved_at' => $autoApprove ? now() : null,
             'service_fee' => $service->price_fixed,
             'notes' => $validated['notes'] ?? null,
         ]);
