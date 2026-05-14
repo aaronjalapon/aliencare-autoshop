@@ -8,7 +8,7 @@ import { type BreadcrumbItem } from '@/types';
 import type { CustomerProfile, CustomerTransaction } from '@/types/customer';
 import type { InventoryItem } from '@/types/inventory';
 import { buildPosReceiptHtml, type PosReceiptData } from '@/lib/receipt-print';
-import { Banknote, Check, Copy, CreditCard, ExternalLink, Loader2, Plus, Printer, QrCode, ReceiptText, Search, ShoppingCart, X } from 'lucide-react';
+import { Banknote, Check, Copy, ExternalLink, Loader2, Plus, Printer, QrCode, ReceiptText, Search, ShoppingCart, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Point of Sale', href: '/pos' }];
@@ -156,7 +156,6 @@ export default function PointOfSale() {
     const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
     const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
     const [amountTendered, setAmountTendered] = useState('');
-    const [cardReference, setCardReference] = useState('');
     const [checkoutNotes, setCheckoutNotes] = useState('');
 
     const [showProductModal, setShowProductModal] = useState(false);
@@ -487,7 +486,6 @@ export default function PointOfSale() {
     const clearCart = () => {
         setCart([]);
         setAmountTendered('');
-        setCardReference('');
         setCheckoutError(null);
         setCheckoutNotice(null);
         setCheckoutPaymentUrl(null);
@@ -574,7 +572,6 @@ export default function PointOfSale() {
 
             setCart([]);
             setAmountTendered('');
-            setCardReference('');
             setCheckoutNotes('');
 
             let notice = `Checkout ${summary.reference_number} completed for ${formatPeso(summary.total)}.`;
@@ -785,7 +782,7 @@ export default function PointOfSale() {
 
                                     <p className="mt-3 mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Payment Method</p>
 
-                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
                                         <button
                                             onClick={() => setPaymentMode('cash')}
                                             className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 font-semibold transition-colors ${
@@ -797,16 +794,6 @@ export default function PointOfSale() {
                                             <Banknote className="h-3.5 w-3.5" /> Cash
                                         </button>
                                         <button
-                                            onClick={() => setPaymentMode('card')}
-                                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 font-semibold transition-colors ${
-                                                paymentMode === 'card'
-                                                    ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f6d778]'
-                                                    : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
-                                            }`}
-                                        >
-                                            <CreditCard className="h-3.5 w-3.5" /> Card
-                                        </button>
-                                        <button
                                             onClick={() => setPaymentMode('online')}
                                             className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 font-semibold transition-colors ${
                                                 paymentMode === 'online'
@@ -814,7 +801,7 @@ export default function PointOfSale() {
                                                     : 'border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/40 hover:text-foreground'
                                             }`}
                                         >
-                                            <QrCode className="h-3.5 w-3.5" /> Online
+                                            <QrCode className="h-3.5 w-3.5" /> Online (Xendit)
                                         </button>
                                     </div>
 
@@ -846,18 +833,6 @@ export default function PointOfSale() {
                                                     </span>
                                                 </div>
                                             )}
-                                        </div>
-                                    )}
-
-                                    {paymentMode === 'card' && (
-                                        <div className="mt-3">
-                                            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Terminal Reference</label>
-                                            <input
-                                                value={cardReference}
-                                                onChange={(e) => setCardReference(e.target.value)}
-                                                placeholder="Terminal ID / receipt number"
-                                                className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
-                                            />
                                         </div>
                                     )}
 
@@ -1069,10 +1044,6 @@ export default function PointOfSale() {
                                     ) : paymentMode === 'cash' ? (
                                         <>
                                             <Banknote className="h-4 w-4" /> Charge {formatPeso(cartSummary.total)}
-                                        </>
-                                    ) : paymentMode === 'card' ? (
-                                        <>
-                                            <CreditCard className="h-4 w-4" /> Process {formatPeso(cartSummary.total)}
                                         </>
                                     ) : (
                                         <>

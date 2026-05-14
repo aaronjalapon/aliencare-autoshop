@@ -20,9 +20,7 @@ class SystemSettingSeeder extends Seeder
 
             // Payment method toggles
             ['key' => 'payment.cash_enabled', 'value' => 'true', 'group' => 'payment', 'type' => 'boolean', 'label' => 'Cash', 'description' => 'Accept cash payments at the counter.'],
-            ['key' => 'payment.gcash_enabled', 'value' => 'true', 'group' => 'payment', 'type' => 'boolean', 'label' => 'GCash', 'description' => 'Accept GCash QR and wallet payments.'],
-            ['key' => 'payment.card_enabled', 'value' => 'true', 'group' => 'payment', 'type' => 'boolean', 'label' => 'Card', 'description' => 'Accept debit and credit card payments.'],
-            ['key' => 'payment.xendit_enabled', 'value' => 'false', 'group' => 'payment', 'type' => 'boolean', 'label' => 'Xendit Online Payments', 'description' => 'Enable Xendit payment gateway for online invoice payments.'],
+            ['key' => 'payment.xendit_enabled', 'value' => 'true', 'group' => 'payment', 'type' => 'boolean', 'label' => 'Online (Xendit)', 'description' => 'Enable Xendit payment gateway for online invoice payments.'],
 
             // Invoice defaults
             ['key' => 'invoice.default_notes', 'value' => '', 'group' => 'invoice', 'type' => 'string', 'label' => 'Default Notes', 'description' => 'Default notes appended to every invoice.'],

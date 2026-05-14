@@ -13,6 +13,7 @@ use App\Models\JobOrder;
 use App\Services\XenditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller

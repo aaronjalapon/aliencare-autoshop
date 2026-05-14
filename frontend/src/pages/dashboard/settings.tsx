@@ -567,19 +567,7 @@ function PaymentMethodsForm({
                     disabled={!canManage}
                 />
                 <SettingToggle
-                    label="GCash"
-                    description="Accept GCash QR and wallet payments."
-                    checked={settings['payment.gcash_enabled'] === true || settings['payment.gcash_enabled'] === 'true'}
-                    disabled={!canManage}
-                />
-                <SettingToggle
-                    label="Card"
-                    description="Accept debit and credit card payments."
-                    checked={settings['payment.card_enabled'] === true || settings['payment.card_enabled'] === 'true'}
-                    disabled={!canManage}
-                />
-                <SettingToggle
-                    label="Xendit Online Payments"
+                    label="Online (Xendit)"
                     description="Enable Xendit payment gateway for online invoice payments."
                     checked={settings['payment.xendit_enabled'] === true || settings['payment.xendit_enabled'] === 'true'}
                     disabled={!canManage}

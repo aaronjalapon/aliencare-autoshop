@@ -9,19 +9,16 @@ import {
     Banknote,
     Check,
     Copy,
-    CreditCard,
     ExternalLink,
-    Landmark,
     Loader2,
     Printer,
     QrCode,
-    Smartphone,
     Wallet,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type InPersonMethod = 'cash' | 'card';
-type OnlineMethod = 'gcash' | 'maya' | 'card_online' | 'bank_transfer' | 'xendit';
+type InPersonMethod = 'cash';
+type OnlineMethod = 'xendit';
 type PaymentMethod = InPersonMethod | OnlineMethod;
 
 interface PaymentSidePanelProps {
@@ -39,14 +36,9 @@ interface GeneratedLink {
 
 const IN_PERSON_METHODS: { key: InPersonMethod; label: string; icon: typeof Banknote }[] = [
     { key: 'cash', label: 'Cash', icon: Banknote },
-    { key: 'card', label: 'Card Terminal', icon: CreditCard },
 ];
 
-const ONLINE_METHODS: { key: OnlineMethod; label: string; icon: typeof Smartphone }[] = [
-    { key: 'gcash', label: 'GCash', icon: Smartphone },
-    { key: 'maya', label: 'Maya', icon: Smartphone },
-    { key: 'card_online', label: 'Card Online', icon: CreditCard },
-    { key: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
+const ONLINE_METHODS: { key: OnlineMethod; label: string; icon: typeof QrCode }[] = [
     { key: 'xendit', label: 'Xendit', icon: QrCode },
 ];
 
@@ -80,7 +72,7 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
     const [paymentSuccess, setPaymentSuccess] = useState<{ transactionId: number } | null>(null);
     const [isPrinting, setIsPrinting] = useState(false);
 
-    const isInPerson = method === 'cash' || method === 'card';
+    const isInPerson = method === 'cash';
     const isOnline = !isInPerson;
 
     const change = useMemo(() => {
@@ -340,7 +332,7 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
                         <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                             In-Person Payment
                         </p>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                             {IN_PERSON_METHODS.map(({ key, label, icon: Icon }) => (
                                 <button
                                     key={key}
@@ -365,7 +357,7 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
                         <p className="mb-2 mt-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                             Online Payment
                         </p>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                             {ONLINE_METHODS.map(({ key, label, icon: Icon }) => (
                                 <button
                                     key={key}
@@ -535,7 +527,7 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
                         <input
                             value={reference}
                             onChange={(e) => setReference(e.target.value)}
-                            placeholder={method === 'card' ? 'Terminal ID / receipt number' : 'e-wallet reference / transaction ID'}
+                            placeholder="e-wallet reference / transaction ID"
                             className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/30 focus:outline-none"
                         />
                     </div>
