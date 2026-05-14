@@ -1,5 +1,5 @@
 import { type NavItem } from '@/types';
-import { BarChart4, FoldersIcon, Home, LucideFileBarChart2, LucideReceiptText, Package, Tags, Users } from 'lucide-react';
+import { BarChart4, FileText, FoldersIcon, Home, LucideFileBarChart2, LucideReceiptText, Package, Tags, Users } from 'lucide-react';
 import { AppSharedSidebar } from './app-shared-sidebar';
 
 const mainNavItems: NavItem[] = [
@@ -27,6 +27,11 @@ const mainNavItems: NavItem[] = [
         title: 'Billing & Payment',
         href: '/billing',
         icon: LucideReceiptText,
+    },
+    {
+        title: 'Invoice Drafts',
+        href: '/invoice-drafts',
+        icon: FileText,
     },
     {
         title: 'Inventory',

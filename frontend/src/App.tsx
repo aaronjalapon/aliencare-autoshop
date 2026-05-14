@@ -21,6 +21,7 @@ import VerifyEmail from '@/pages/auth/verify-email';
 // Front Desk pages
 import Billing from '@/pages/dashboard/billing';
 import Customers from '@/pages/dashboard/customers';
+import InvoiceDrafts from '@/pages/dashboard/invoice-drafts';
 import Dashboard from '@/pages/dashboard/dashboard';
 import Inventory from '@/pages/dashboard/Inventory';
 import JobOrders from '@/pages/dashboard/job-orders';
@@ -106,6 +107,7 @@ export default function App() {
                 <Route path="/job-orders" element={<JobOrders />} />
                 <Route path="/pos" element={<PointOfSale />} />
                 <Route path="/billing" element={<Billing />} />
+                <Route path="/invoice-drafts" element={<InvoiceDrafts />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/notifications" element={<FrontdeskNotifications />} />

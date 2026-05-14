@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\FrontDeskAccountController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\MechanicController;
 use App\Http\Controllers\Api\PaymentController;
@@ -191,6 +192,14 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::get('/receipts/{transactionId}', [CustomerController::class, 'adminBillingReceiptDetail'])->name('receipts.show');
     });
 
+    Route::prefix('invoices')->name('invoices.')->group(function () {
+        Route::get('/', [InvoiceController::class, 'index'])->name('index');
+        Route::get('/{id}', [InvoiceController::class, 'show'])->name('show');
+        Route::put('/{id}', [InvoiceController::class, 'update'])->name('update');
+        Route::put('/{id}/issue', [InvoiceController::class, 'issue'])->name('issue');
+        Route::put('/{id}/void', [InvoiceController::class, 'void'])->name('void');
+    });
+
     Route::prefix('archives')->name('archives.')->group(function () {
         Route::get('/', [ArchiveController::class, 'index'])->name('index');
         Route::get('/{id}', [ArchiveController::class, 'show'])->name('show');
@@ -214,6 +223,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::put('/{id}/complete', [JobOrderController::class, 'complete'])->name('complete');
         Route::put('/{id}/settle', [JobOrderController::class, 'settle'])->name('settle');
         Route::delete('/{id}/cancel', [JobOrderController::class, 'cancel'])->name('cancel');
+        Route::post('/{id}/prepare-invoice', [JobOrderController::class, 'prepareInvoice'])->name('prepare-invoice');
         Route::post('/{id}/items', [JobOrderController::class, 'addItem'])->name('items.store');
         Route::put('/{id}/items/{itemId}', [JobOrderController::class, 'updateItem'])->name('items.update');
         Route::delete('/{id}/items/{itemId}', [JobOrderController::class, 'removeItem'])->name('items.destroy');

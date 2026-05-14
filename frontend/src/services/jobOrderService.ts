@@ -1,4 +1,4 @@
-import { CustomerProfile, JobOrder, JobOrderItem, JobOrderStatus, ServiceCatalogItem, Vehicle } from '@/types/customer';
+import { CustomerProfile, CustomerTransaction, JobOrder, JobOrderItem, JobOrderStatus, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
 export interface JobOrderFilters {
@@ -156,6 +156,10 @@ class JobOrderService {
 
     async cancelJobOrder(id: number): Promise<ApiResponse<JobOrder>> {
         return api.delete<ApiResponse<JobOrder>>(`/v1/job-orders/${id}/cancel`);
+    }
+
+    async prepareInvoice(jobOrderId: number, notes?: string): Promise<ApiResponse<CustomerTransaction>> {
+        return api.post<ApiResponse<CustomerTransaction>>(`/v1/job-orders/${jobOrderId}/prepare-invoice`, { notes });
     }
 
     async getCustomers(filters: CustomerFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerProfile>>> {

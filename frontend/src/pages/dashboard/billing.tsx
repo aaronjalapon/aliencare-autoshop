@@ -6,6 +6,7 @@ import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { billingService } from '@/services/billingService';
 import { customerService } from '@/services/customerService';
+import { invoiceService } from '@/services/invoiceService';
 import { jobOrderService } from '@/services/jobOrderService';
 import { type BreadcrumbItem } from '@/types';
 import type { BillingQueueItem, BillingQueueStatus, CustomerTransaction, JobOrder, JobOrderItem } from '@/types/customer';
@@ -19,6 +20,7 @@ import {
     Printer,
     ReceiptText,
     Search,
+    Send,
     Wallet,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -188,6 +190,9 @@ function transactionTitle(transaction: CustomerTransaction): string {
     }
 
     if (transaction.type === 'invoice') {
+        if (transaction.status === 'draft') {
+            return 'Draft Invoice';
+        }
         return 'Invoice Entry';
     }
 
@@ -267,6 +272,7 @@ export default function Billing() {
 
     const [showPaymentPanel, setShowPaymentPanel] = useState(false);
     const [printingTransactionId, setPrintingTransactionId] = useState<number | null>(null);
+    const [issuingTransactionId, setIssuingTransactionId] = useState<number | null>(null);
 
     const [showEditModal, setShowEditModal] = useState(false);
     const [editTargetTransaction, setEditTargetTransaction] = useState<CustomerTransaction | null>(null);
@@ -480,6 +486,20 @@ export default function Billing() {
             pw.document.close();
         } finally {
             setPrintingTransactionId(null);
+        }
+    };
+
+    const handleIssueDraft = async (transactionId: number) => {
+        try {
+            setIssuingTransactionId(transactionId);
+            await invoiceService.issueInvoice(transactionId);
+            if (selectedTicket) {
+                await fetchTicketDetail(selectedTicket);
+            }
+        } catch {
+            // silently fail; the button just won't update
+        } finally {
+            setIssuingTransactionId(null);
         }
     };
 
@@ -822,20 +842,22 @@ export default function Billing() {
                                                     {ledgerEntries.map((transaction) => {
                                                         const isRefund = transaction.type === 'refund';
                                                         const isDeposit = transaction.type === 'reservation_fee';
+                                                        const isDraft = transaction.type === 'invoice' && transaction.status === 'draft';
                                                         const canEditAmount = !transactionLockedForAmount(transaction);
 
                                                         return (
                                                             <div
                                                                 key={transaction.id}
-                                                                className="rounded-md border border-[#2a2a2e] bg-[#090a0d] px-3 py-2"
+                                                                className={`rounded-md border px-3 py-2 ${isDraft ? 'border-amber-500/30 bg-amber-500/5' : 'border-[#2a2a2e] bg-[#090a0d]'}`}
                                                             >
                                                                 <div className="flex items-center justify-between gap-2">
-                                                                    <div>
+                                                                    <div className="flex items-center gap-2">
                                                                         <p className="font-medium">{transactionTitle(transaction)}</p>
-                                                                        <p className="mt-1 text-xs text-muted-foreground">
-                                                                            {formatDateTime(transaction.paid_at ?? transaction.created_at)} ·{' '}
-                                                                            {paymentMethodLabel(transaction.payment_method)}
-                                                                        </p>
+                                                                        {isDraft && (
+                                                                            <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                                                                                Draft
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                     <p className={`font-semibold ${isRefund ? 'text-rose-300' : 'text-emerald-300'}`}>
                                                                         {formatPeso(Math.abs(Number(transaction.amount)))}
@@ -847,27 +869,44 @@ export default function Billing() {
                                                                         Ref: {transaction.reference_number ?? 'N/A'}
                                                                     </p>
                                                                     <div className="flex items-center gap-1.5">
-                                                                        <button
-                                                                            onClick={() => handlePrintReceipt(transaction)}
-                                                                            disabled={printingTransactionId === transaction.id || !transactionCountsAsPaid(transaction)}
-                                                                            className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                                                                            title="Print receipt"
-                                                                        >
-                                                                            {printingTransactionId === transaction.id ? (
-                                                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                                            ) : (
-                                                                                <Printer className="h-3 w-3" />
-                                                                            )}
-                                                                            Receipt
-                                                                        </button>
-                                                                        {!isDeposit && (
+                                                                        {isDraft ? (
                                                                             <button
-                                                                                onClick={() => openEditPaymentModal(transaction)}
-                                                                                className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                                                                onClick={() => handleIssueDraft(transaction.id)}
+                                                                                disabled={issuingTransactionId === transaction.id}
+                                                                                className="inline-flex items-center gap-1 rounded-md border border-[#d4af37]/40 bg-[#d4af37]/10 px-2 py-1 text-[11px] text-[#d4af37] transition-colors hover:bg-[#d4af37]/20 disabled:cursor-not-allowed disabled:opacity-50"
                                                                             >
-                                                                                <PencilLine className="h-3 w-3" />
-                                                                                {canEditAmount ? 'Edit' : 'Annotate'}
+                                                                                {issuingTransactionId === transaction.id ? (
+                                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                ) : (
+                                                                                    <Send className="h-3 w-3" />
+                                                                                )}
+                                                                                Issue
                                                                             </button>
+                                                                        ) : (
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() => handlePrintReceipt(transaction)}
+                                                                                    disabled={printingTransactionId === transaction.id || !transactionCountsAsPaid(transaction)}
+                                                                                    className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                                                                    title="Print receipt"
+                                                                                >
+                                                                                    {printingTransactionId === transaction.id ? (
+                                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                    ) : (
+                                                                                        <Printer className="h-3 w-3" />
+                                                                                    )}
+                                                                                    Receipt
+                                                                                </button>
+                                                                                {!isDeposit && (
+                                                                                    <button
+                                                                                        onClick={() => openEditPaymentModal(transaction)}
+                                                                                        className="inline-flex items-center gap-1 rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                                                                    >
+                                                                                        <PencilLine className="h-3 w-3" />
+                                                                                        {canEditAmount ? 'Edit' : 'Annotate'}
+                                                                                    </button>
+                                                                                )}
+                                                                            </>
                                                                         )}
                                                                     </div>
                                                                 </div>

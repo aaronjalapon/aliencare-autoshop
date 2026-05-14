@@ -1,6 +1,7 @@
 import AppLayout from '@/components/layout/app-layout';
 import ApprovalQueue from '@/components/job-orders/ApprovalQueue';
 import AssignmentBoard from '@/components/job-orders/AssignmentBoard';
+import InvoiceDraftModal from '@/components/billing/InvoiceDraftModal';
 import JobOrderDetail from '@/components/job-orders/JobOrderDetail';
 import JobOrderTable from '@/components/job-orders/JobOrderTable';
 import StartServiceModal from '@/components/job-orders/StartServiceModal';
@@ -67,6 +68,7 @@ export default function JobOrders() {
     const [showWalkInModal, setShowWalkInModal] = useState(false);
     const [walkInInitialCustomerId, setWalkInInitialCustomerId] = useState<number | null>(null);
     const [showStartModal, setShowStartModal] = useState(false);
+    const [showDraftModal, setShowDraftModal] = useState(false);
 
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -358,6 +360,10 @@ export default function JobOrders() {
         });
     };
 
+    const handleDraftSaved = () => {
+        loadJobOrders();
+    };
+
     // ── Render ────────────────────────────────────────────────────────────
     return (
         <AppLayout
@@ -588,6 +594,7 @@ export default function JobOrders() {
                                 onPrimaryAction={handlePrimaryAction}
                                 onCancel={handleCancelJobOrder}
                                 onItemsChanged={() => loadJobOrders()}
+                                onPrepareInvoice={() => setShowDraftModal(true)}
                             />
                         )}
                     </div>
@@ -622,6 +629,13 @@ export default function JobOrders() {
                     }}
                 />
             )}
+
+            <InvoiceDraftModal
+                open={showDraftModal}
+                onOpenChange={setShowDraftModal}
+                order={selectedOrder}
+                onDraftSaved={handleDraftSaved}
+            />
         </AppLayout>
     );
 }

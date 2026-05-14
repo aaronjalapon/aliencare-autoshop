@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Contracts\Services;
 
+use App\Models\CustomerTransaction;
 use App\Models\JobOrder;
 use App\Models\JobOrderItem;
 use App\Models\Mechanic;
@@ -25,6 +26,8 @@ interface JobOrderServiceInterface
     public function completeJobOrder(int $id): JobOrder;
 
     public function settleJobOrder(int $id, ?string $invoiceId = null): JobOrder;
+
+    public function prepareInvoice(int $jobOrderId, ?string $notes = null): CustomerTransaction;
 
     public function cancelJobOrder(int $id): JobOrder;
 

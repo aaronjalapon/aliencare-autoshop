@@ -14,7 +14,7 @@ import {
     STATUS_META,
 } from '@/lib/jobOrderFormatters';
 import type { JobOrder } from '@/types/customer';
-import { Car, CheckCircle2, Clock3, ShieldCheck, Wrench, XCircle } from 'lucide-react';
+import { Car, CheckCircle2, Clock3, FileText, ShieldCheck, Wrench, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -23,9 +23,10 @@ interface Props {
     onPrimaryAction: (action: ReturnType<typeof getPrimaryAction>) => void;
     onCancel: () => void;
     onItemsChanged: () => void;
+    onPrepareInvoice: () => void;
 }
 
-export default function JobOrderDetail({ order, isProcessingAction, onPrimaryAction, onCancel, onItemsChanged }: Props) {
+export default function JobOrderDetail({ order, isProcessingAction, onPrimaryAction, onCancel, onItemsChanged, onPrepareInvoice }: Props) {
     if (!order) {
         return (
             <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
@@ -38,6 +39,10 @@ export default function JobOrderDetail({ order, isProcessingAction, onPrimaryAct
 
     const primaryAction = getPrimaryAction(order.status);
     const actionLabel = getPrimaryActionLabel(primaryAction);
+
+    const showPrepareInvoice =
+        (order.status === 'approved' || order.status === 'in_progress' || order.status === 'completed') &&
+        getBalance(order) > 0;
 
     return (
         <aside className="profile-card flex min-h-0 flex-col rounded-xl p-5">
@@ -109,6 +114,17 @@ export default function JobOrderDetail({ order, isProcessingAction, onPrimaryAct
 
             {/* Action buttons */}
             <div className="flex shrink-0 flex-col gap-2.5 pt-5 mt-2 border-t border-[#2a2a2e]/50">
+                {showPrepareInvoice && (
+                    <button
+                        onClick={onPrepareInvoice}
+                        disabled={isProcessingAction}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/10 px-4 py-2.5 text-sm font-semibold text-[#d4af37] transition-all hover:bg-[#d4af37]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <FileText className="h-4 w-4" />
+                        Prepare Invoice
+                    </button>
+                )}
+
                 <button
                     disabled={primaryAction === 'none' || isProcessingAction}
                     onClick={() => onPrimaryAction(primaryAction)}

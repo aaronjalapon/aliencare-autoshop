@@ -15,6 +15,7 @@ use App\Http\Requests\Api\JobOrder\StartJobOrderRequest;
 use App\Http\Requests\Api\JobOrder\StoreJobOrderRequest;
 use App\Http\Requests\Api\JobOrder\UpdateJobOrderItemRequest;
 use App\Http\Requests\Api\JobOrder\UpdateJobOrderRequest;
+use App\Http\Resources\CustomerTransactionResource;
 use App\Http\Resources\JobOrderItemResource;
 use App\Http\Resources\JobOrderResource;
 use App\Models\BookingSlot;
@@ -303,6 +304,35 @@ class JobOrderController extends Controller
             ]);
         } catch (JobOrderNotFoundException|JobOrderStateException $e) {
             return $e->render();
+        }
+    }
+
+    public function prepareInvoice(int $id, Request $request): JsonResponse
+    {
+        $this->authorizeManageJobOrders();
+
+        $request->validate([
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $transaction = $this->jobOrderService->prepareInvoice(
+                $id,
+                $request->input('notes')
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => new CustomerTransactionResource($transaction->load(['customer', 'jobOrder'])),
+                'message' => 'Invoice draft prepared successfully.',
+            ], 201);
+        } catch (JobOrderNotFoundException|JobOrderStateException $e) {
+            return $e->render();
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         }
     }
 
