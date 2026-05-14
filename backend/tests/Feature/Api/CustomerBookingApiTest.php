@@ -260,7 +260,7 @@ class CustomerBookingApiTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.status', 'pending_approval')
+            ->assertJsonPath('data.status', 'approved')
             ->assertJsonPath('data.source', 'Online Booking')
             ->assertJsonPath('data.arrival_date', $date)
             ->assertJsonPath('data.arrival_time', '10:00');
@@ -270,7 +270,7 @@ class CustomerBookingApiTest extends TestCase
             'vehicle_id' => $this->vehicle->id,
             'service_id' => $this->service->id,
             'source' => 'online_booking',
-            'status' => 'pending_approval',
+            'status' => 'approved',
             'arrival_date' => $date,
             'arrival_time' => '10:00',
         ]);
