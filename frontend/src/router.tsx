@@ -4,7 +4,7 @@ import type { UserRole } from '@/types';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
-function getRoleHome(role: UserRole): string {
+export function getRoleHome(role: UserRole): string {
     switch (role) {
         case 'admin':
             return '/admin';

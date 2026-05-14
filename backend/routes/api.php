@@ -29,6 +29,7 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -58,6 +59,14 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login');
     Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
     Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
+
+    // OAuth social login routes
+    Route::get('/{provider}/redirect', [SocialiteController::class, 'redirect'])
+        ->whereIn('provider', ['google', 'facebook'])
+        ->name('socialite.redirect');
+    Route::get('/{provider}/callback', [SocialiteController::class, 'callback'])
+        ->whereIn('provider', ['google', 'facebook'])
+        ->name('socialite.callback');
 
     // Authenticated routes
     Route::middleware('auth:sanctum')->group(function () {

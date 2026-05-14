@@ -13,6 +13,7 @@ import Welcome from '@/pages/welcome';
 import ConfirmPassword from '@/pages/auth/confirm-password';
 import ForgotPassword from '@/pages/auth/forgot-password';
 import Login from '@/pages/auth/login';
+import OAuthCallback from '@/pages/auth/oauth-callback';
 import Register from '@/pages/auth/register';
 import ResetPassword from '@/pages/auth/reset-password';
 import VerifyEmail from '@/pages/auth/verify-email';
@@ -78,6 +79,7 @@ export default function App() {
                 }
                 path="/register"
             />
+            <Route path="/auth/oauth-callback" element={<OAuthCallback />} />
             <Route
                 element={
                     <GuestRoute>
