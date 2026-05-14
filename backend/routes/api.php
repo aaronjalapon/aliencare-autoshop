@@ -34,6 +34,8 @@ use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\SystemSettingController;
+use App\Http\Controllers\Settings\UserPreferenceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +108,11 @@ Route::middleware('auth:sanctum')->prefix('settings')->name('settings.')->group(
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::put('/password', [PasswordController::class, 'update'])->name('password.update');
+    Route::get('/system', [SystemSettingController::class, 'index'])->name('system.index');
+    Route::put('/system', [SystemSettingController::class, 'update'])->name('system.update')
+        ->middleware('can:manage-system-settings');
+    Route::get('/preferences', [UserPreferenceController::class, 'index'])->name('preferences.index');
+    Route::put('/preferences', [UserPreferenceController::class, 'update'])->name('preferences.update');
 });
 
 /*

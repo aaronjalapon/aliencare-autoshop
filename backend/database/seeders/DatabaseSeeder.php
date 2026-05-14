@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             InventorySeeder::class,
             JobOrderSeeder::class,
             ServiceCatalogSeeder::class,
+            SystemSettingSeeder::class,
         ]);
     }
 }
