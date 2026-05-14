@@ -398,6 +398,7 @@ export default function Customers() {
         return {
             total: totalCustomers || customers.length,
             active: customers.filter((customer) => customer.ui_status === 'Active').length,
+            inactive: customers.filter((customer) => customer.ui_status === 'Inactive' && customer.account_status !== 'pending').length,
             vip: customers.filter((customer) => customer.tiers.includes('VIP')).length,
             fleet: customers.filter((customer) => customer.tiers.includes('Fleet')).length,
             pending: customers.filter((customer) => customer.account_status === 'pending').length,
@@ -726,7 +727,7 @@ export default function Customers() {
                                     />
                                 </div>
 
-                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
                                     <div className="rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/7 px-3 py-2.5">
                                         <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Total</p>
                                         <p className="mt-1 text-2xl font-bold text-[#d4af37]">{totals.total}</p>
@@ -734,6 +735,10 @@ export default function Customers() {
                                     <div className="rounded-lg border border-[#2a2a2e] bg-[#090a0d] px-3 py-2.5">
                                         <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Active</p>
                                         <p className="mt-1 text-2xl font-bold">{totals.active}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-[#2a2a2e] bg-[#090a0d] px-3 py-2.5">
+                                        <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Inactive</p>
+                                        <p className="mt-1 text-2xl font-bold">{totals.inactive}</p>
                                     </div>
                                     <div className="rounded-lg border border-[#2a2a2e] bg-[#090a0d] px-3 py-2.5">
                                         <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">VIP</p>
