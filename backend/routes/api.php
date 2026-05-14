@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\FrontDeskAccountController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\MechanicController;
 use App\Http\Controllers\Api\PaymentController;
@@ -29,9 +30,12 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\SystemSettingController;
+use App\Http\Controllers\Settings\UserPreferenceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -58,6 +62,14 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login');
     Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
     Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
+
+    // OAuth social login routes
+    Route::get('/{provider}/redirect', [SocialiteController::class, 'redirect'])
+        ->whereIn('provider', ['google', 'facebook'])
+        ->name('socialite.redirect');
+    Route::get('/{provider}/callback', [SocialiteController::class, 'callback'])
+        ->whereIn('provider', ['google', 'facebook'])
+        ->name('socialite.callback');
 
     // Authenticated routes
     Route::middleware('auth:sanctum')->group(function () {
@@ -96,6 +108,11 @@ Route::middleware('auth:sanctum')->prefix('settings')->name('settings.')->group(
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::put('/password', [PasswordController::class, 'update'])->name('password.update');
+    Route::get('/system', [SystemSettingController::class, 'index'])->name('system.index');
+    Route::put('/system', [SystemSettingController::class, 'update'])->name('system.update')
+        ->middleware('can:manage-system-settings');
+    Route::get('/preferences', [UserPreferenceController::class, 'index'])->name('preferences.index');
+    Route::put('/preferences', [UserPreferenceController::class, 'update'])->name('preferences.update');
 });
 
 /*
@@ -182,6 +199,14 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::get('/receipts/{transactionId}', [CustomerController::class, 'adminBillingReceiptDetail'])->name('receipts.show');
     });
 
+    Route::prefix('invoices')->name('invoices.')->group(function () {
+        Route::get('/', [InvoiceController::class, 'index'])->name('index');
+        Route::get('/{id}', [InvoiceController::class, 'show'])->name('show');
+        Route::put('/{id}', [InvoiceController::class, 'update'])->name('update');
+        Route::put('/{id}/issue', [InvoiceController::class, 'issue'])->name('issue');
+        Route::put('/{id}/void', [InvoiceController::class, 'void'])->name('void');
+    });
+
     Route::prefix('archives')->name('archives.')->group(function () {
         Route::get('/', [ArchiveController::class, 'index'])->name('index');
         Route::get('/{id}', [ArchiveController::class, 'show'])->name('show');
@@ -205,6 +230,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::put('/{id}/complete', [JobOrderController::class, 'complete'])->name('complete');
         Route::put('/{id}/settle', [JobOrderController::class, 'settle'])->name('settle');
         Route::delete('/{id}/cancel', [JobOrderController::class, 'cancel'])->name('cancel');
+        Route::post('/{id}/prepare-invoice', [JobOrderController::class, 'prepareInvoice'])->name('prepare-invoice');
         Route::post('/{id}/items', [JobOrderController::class, 'addItem'])->name('items.store');
         Route::put('/{id}/items/{itemId}', [JobOrderController::class, 'updateItem'])->name('items.update');
         Route::delete('/{id}/items/{itemId}', [JobOrderController::class, 'removeItem'])->name('items.destroy');

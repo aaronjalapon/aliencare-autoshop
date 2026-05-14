@@ -1,8 +1,8 @@
 import { formatPeso } from '@/lib/jobOrderFormatters';
 import { inventoryService } from '@/services/inventoryService';
 import { AddJobOrderItemPayload, UpdateJobOrderItemPayload, jobOrderService } from '@/services/jobOrderService';
-import type { InventoryItem } from '@/types/inventory';
 import type { JobOrderItem } from '@/types/customer';
+import type { InventoryItem } from '@/types/inventory';
 import { Loader2, Minus, Plus, Search, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -33,9 +33,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
             try {
                 const response = await inventoryService.getInventoryItems({ per_page: 200 });
                 if (!cancelled) {
-                    setInventory((response.data.data ?? []).filter(
-                        (item) => item.status === 'active' && item.stock > 0,
-                    ));
+                    setInventory((response.data.data ?? []).filter((item) => item.status === 'active' && item.stock > 0));
                 }
             } catch {
                 if (!cancelled) setInventory([]);
@@ -43,7 +41,9 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                 if (!cancelled) setIsLoadingInventory(false);
             }
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     // ── Filtered inventory ────────────────────────────────────────────────
@@ -52,9 +52,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
         if (!normalized) return inventory.slice(0, 25);
         return inventory
             .filter((item) => {
-                const haystack = [item.item_name, item.sku ?? '', item.description ?? '']
-                    .join(' ')
-                    .toLowerCase();
+                const haystack = [item.item_name, item.sku ?? '', item.description ?? ''].join(' ').toLowerCase();
                 return haystack.includes(normalized);
             })
             .slice(0, 25);
@@ -158,7 +156,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                 <p className="mb-3 text-sm text-muted-foreground">No items added yet.</p>
             ) : (
                 <div className="mb-3 overflow-hidden rounded-lg border border-[#2a2a2e]">
-                    <div className="grid items-center grid-cols-[minmax(0,1fr)_100px_100px_100px_32px] gap-3 border-b border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    <div className="grid grid-cols-[minmax(0,1fr)_100px_100px_100px_32px] items-center gap-3 border-b border-[#2a2a2e] bg-[#0d0d10] px-3 py-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                         <span>Description</span>
                         <span className="text-center">Qty</span>
                         <span className="text-right">Unit</span>
@@ -168,9 +166,11 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                     {items.map((item) => (
                         <div
                             key={item.id}
-                            className="grid items-center grid-cols-[minmax(0,1fr)_100px_100px_100px_32px] gap-3 border-b border-[#1b1d22] px-3 py-2 text-sm last:border-b-0"
+                            className="grid grid-cols-[minmax(0,1fr)_100px_100px_100px_32px] items-center gap-3 border-b border-[#1b1d22] px-3 py-2 text-sm last:border-b-0"
                         >
-                            <span className="truncate text-foreground" title={item.description ?? ''}>{item.description ?? '—'}</span>
+                            <span className="truncate text-foreground" title={item.description ?? ''}>
+                                {item.description ?? '—'}
+                            </span>
                             <div className="flex items-center justify-center gap-1.5">
                                 <button
                                     onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
@@ -180,11 +180,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                                     <Minus className="h-3 w-3" />
                                 </button>
                                 <span className="w-6 text-center text-sm font-semibold tabular-nums">
-                                    {updatingId === item.id ? (
-                                        <Loader2 className="inline h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                        item.quantity
-                                    )}
+                                    {updatingId === item.id ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : item.quantity}
                                 </span>
                                 <button
                                     onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
@@ -213,14 +209,14 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
 
             {items.length > 0 && (
                 <div className="mb-4 text-right">
-                    <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase mr-3">Items Total</span>
+                    <span className="mr-3 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Items Total</span>
                     <span className="text-sm font-bold text-[#d4af37]">{formatPeso(totalCost)}</span>
                 </div>
             )}
 
             {actionError && <p className="mb-2 text-xs text-red-300">{actionError}</p>}
 
-            <form onSubmit={handleAddItem} className="space-y-3 pt-3 border-t border-[#2a2a2e]/50">
+            <form onSubmit={handleAddItem} className="space-y-3 border-t border-[#2a2a2e]/50 pt-3">
                 <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Add Item</p>
 
                 <div className="relative">
@@ -249,9 +245,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
 
                 {/* Dropdown */}
                 {showDropdown && (
-                    <div
-                        className="max-h-40 overflow-y-auto rounded-lg border border-[#2a2a2e] bg-[#0d0d10]"
-                    >
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-[#2a2a2e] bg-[#0d0d10]">
                         {isLoadingInventory ? (
                             <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading inventory...
@@ -268,7 +262,9 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                                 >
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate font-semibold text-foreground">{inv.item_name}</p>
-                                        <p className="text-[10px] text-muted-foreground">{inv.sku ?? `INV-${String(inv.item_id).padStart(6, '0')}`}</p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {inv.sku ?? `INV-${String(inv.item_id).padStart(6, '0')}`}
+                                        </p>
                                     </div>
                                     <div className="ml-3 shrink-0 text-right">
                                         <p className="font-semibold text-[#d4af37]">{formatPeso(inv.unit_price)}</p>
@@ -289,11 +285,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                                 {formatPeso(selectedItem.unit_price)} each &middot; {selectedItem.stock} in stock
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={clearSelection}
-                            className="text-muted-foreground hover:text-foreground"
-                        >
+                        <button type="button" onClick={clearSelection} className="text-muted-foreground hover:text-foreground">
                             <X className="h-3.5 w-3.5" />
                         </button>
                     </div>
@@ -328,9 +320,7 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
                         >
                             <Plus className="h-3 w-3" />
                         </button>
-                        <span className="text-[10px] text-muted-foreground">
-                            Stock: {selectedItem.stock}
-                        </span>
+                        <span className="text-[10px] text-muted-foreground">Stock: {selectedItem.stock}</span>
                     </div>
                 )}
 

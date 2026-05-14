@@ -41,7 +41,7 @@ function FacebookIcon() {
 }
 
 export default function Register() {
-    const { register } = useAuth();
+    const { register, socialLogin } = useAuth();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -92,14 +92,16 @@ export default function Register() {
                 <div className="grid grid-cols-2 gap-3">
                     <button
                         type="button"
-                        className="inline-flex h-11 cursor-not-allowed items-center justify-center gap-2.5 rounded-xl border border-white/20 bg-white/[0.07] px-4 text-sm font-medium text-white/85 transition hover:border-white/30 hover:bg-white/10"
+                        onClick={() => socialLogin('google')}
+                        className="inline-flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/20 bg-white/[0.07] px-4 text-sm font-medium text-white/85 transition hover:border-white/30 hover:bg-white/10"
                     >
                         <GoogleIcon />
                         Google
                     </button>
                     <button
                         type="button"
-                        className="inline-flex h-11 cursor-not-allowed items-center justify-center gap-2.5 rounded-xl border border-white/20 bg-white/[0.07] px-4 text-sm font-medium text-white/85 transition hover:border-white/30 hover:bg-white/10"
+                        onClick={() => socialLogin('facebook')}
+                        className="inline-flex h-11 items-center justify-center gap-2.5 rounded-xl border border-white/20 bg-white/[0.07] px-4 text-sm font-medium text-white/85 transition hover:border-white/30 hover:bg-white/10"
                     >
                         <FacebookIcon />
                         Facebook

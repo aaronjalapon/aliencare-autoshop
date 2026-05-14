@@ -18,11 +18,14 @@ export interface CustomerProfile {
     updated_at: string;
 }
 
+export type InvoiceStatus = 'draft' | 'issued' | 'void';
+
 export interface CustomerTransaction {
     id: number;
     customer_id: number;
     job_order_id: number | null;
     type: 'invoice' | 'payment' | 'refund' | 'reservation_fee';
+    status?: InvoiceStatus | null;
     amount: number;
     reference_number: string | null;
     notes: string | null;

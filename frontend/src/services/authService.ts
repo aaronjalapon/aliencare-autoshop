@@ -29,6 +29,16 @@ export interface UpdateProfileData {
 }
 
 class AuthService {
+    private apiBase: string;
+
+    constructor() {
+        this.apiBase = import.meta.env.VITE_API_URL || 'http://localhost/api';
+    }
+
+    getSocialLoginUrl(provider: string): string {
+        return `${this.apiBase}/auth/${provider}/redirect`;
+    }
+
     async login(data: LoginData): Promise<{ message: string; user: User }> {
         await api.getCsrfCookie();
         return api.post('/auth/login', {

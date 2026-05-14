@@ -13,6 +13,7 @@ import Welcome from '@/pages/welcome';
 import ConfirmPassword from '@/pages/auth/confirm-password';
 import ForgotPassword from '@/pages/auth/forgot-password';
 import Login from '@/pages/auth/login';
+import OAuthCallback from '@/pages/auth/oauth-callback';
 import Register from '@/pages/auth/register';
 import ResetPassword from '@/pages/auth/reset-password';
 import VerifyEmail from '@/pages/auth/verify-email';
@@ -22,6 +23,7 @@ import Billing from '@/pages/dashboard/billing';
 import Customers from '@/pages/dashboard/customers';
 import Dashboard from '@/pages/dashboard/dashboard';
 import Inventory from '@/pages/dashboard/Inventory';
+import InvoiceDrafts from '@/pages/dashboard/invoice-drafts';
 import JobOrders from '@/pages/dashboard/job-orders';
 import PointOfSale from '@/pages/dashboard/pos';
 import FrontdeskProfile from '@/pages/dashboard/profile';
@@ -78,6 +80,7 @@ export default function App() {
                 }
                 path="/register"
             />
+            <Route path="/auth/oauth-callback" element={<OAuthCallback />} />
             <Route
                 element={
                     <GuestRoute>
@@ -104,6 +107,7 @@ export default function App() {
                 <Route path="/job-orders" element={<JobOrders />} />
                 <Route path="/pos" element={<PointOfSale />} />
                 <Route path="/billing" element={<Billing />} />
+                <Route path="/invoice-drafts" element={<InvoiceDrafts />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/notifications" element={<FrontdeskNotifications />} />

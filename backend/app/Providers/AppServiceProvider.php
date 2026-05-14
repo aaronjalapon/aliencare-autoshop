@@ -121,6 +121,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-job-orders', fn (User $user): bool => $this->canManageJobOrders($user));
         Gate::define('manage-pos', fn (User $user): bool => $this->canManagePos($user));
         Gate::define('manage-customers', fn (User $user): bool => $this->canManageCustomers($user));
+        Gate::define('manage-system-settings', fn (User $user): bool => $user->role === UserRole::Admin);
     }
 
     private function canManageBookingSlots(User $user): bool

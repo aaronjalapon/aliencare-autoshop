@@ -9,6 +9,7 @@ interface AuthContextType {
     register: (name: string, email: string, password: string, password_confirmation: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    socialLogin: (provider: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
     };
 
-    return <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>{children}</AuthContext.Provider>;
+    const socialLogin = (provider: string) => {
+        window.location.href = authService.getSocialLoginUrl(provider);
+    };
+
+    return <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, socialLogin }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextType {

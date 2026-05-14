@@ -1,7 +1,7 @@
+import { isRecord, toNumber, toStringValue } from '@/lib/reports-utils';
 import { useCallback, useEffect, useState } from 'react';
 import { reportsService } from '../services/reportsService';
 import { inventoryEvents } from '../utils/inventoryEvents';
-import { isRecord, toNumber, toStringValue } from '@/lib/reports-utils';
 
 export interface UsageReportData {
     item_id: number;

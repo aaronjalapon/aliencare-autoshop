@@ -1,10 +1,11 @@
-import AppLayout from '@/components/layout/app-layout';
+import InvoiceDraftModal from '@/components/billing/InvoiceDraftModal';
 import ApprovalQueue from '@/components/job-orders/ApprovalQueue';
 import AssignmentBoard from '@/components/job-orders/AssignmentBoard';
 import JobOrderDetail from '@/components/job-orders/JobOrderDetail';
 import JobOrderTable from '@/components/job-orders/JobOrderTable';
 import StartServiceModal from '@/components/job-orders/StartServiceModal';
 import WalkInModal from '@/components/job-orders/WalkInModal';
+import AppLayout from '@/components/layout/app-layout';
 import {
     getOnlineSortKey,
     getPrimaryAction,
@@ -18,18 +19,7 @@ import {
 import { jobOrderService } from '@/services/jobOrderService';
 import { type BreadcrumbItem } from '@/types';
 import { type JobOrder } from '@/types/customer';
-import {
-    ClipboardList,
-    CreditCard,
-    Globe,
-    LayoutDashboard,
-    Layers,
-    Loader2,
-    Search,
-    UserRoundPlus,
-    UserRound,
-    Wrench,
-} from 'lucide-react';
+import { ClipboardList, CreditCard, Globe, Layers, LayoutDashboard, Loader2, Search, UserRound, UserRoundPlus, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -67,6 +57,7 @@ export default function JobOrders() {
     const [showWalkInModal, setShowWalkInModal] = useState(false);
     const [walkInInitialCustomerId, setWalkInInitialCustomerId] = useState<number | null>(null);
     const [showStartModal, setShowStartModal] = useState(false);
+    const [showDraftModal, setShowDraftModal] = useState(false);
 
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -116,15 +107,9 @@ export default function JobOrders() {
     }, []);
 
     // ── Derived data ──────────────────────────────────────────────────────
-    const activeOrders = useMemo(
-        () => jobOrders.filter((o) => o.status !== 'settled' && o.status !== 'cancelled'),
-        [jobOrders],
-    );
+    const activeOrders = useMemo(() => jobOrders.filter((o) => o.status !== 'settled' && o.status !== 'cancelled'), [jobOrders]);
 
-    const onlinePendingCount = useMemo(
-        () => jobOrders.filter((o) => isApprovalNeeded(o)).length,
-        [jobOrders],
-    );
+    const onlinePendingCount = useMemo(() => jobOrders.filter((o) => isApprovalNeeded(o)).length, [jobOrders]);
 
     const todayYmd = useMemo(() => new Date().toISOString().split('T')[0], []);
     const currentHourSlot = useMemo(() => {
@@ -132,10 +117,13 @@ export default function JobOrders() {
         return `${h}:00`;
     }, []);
 
-    const isCurrentSlot = useCallback((order: JobOrder): boolean => {
-        if (!order.arrival_date) return false;
-        return order.arrival_date === todayYmd && order.arrival_time === currentHourSlot;
-    }, [todayYmd, currentHourSlot]);
+    const isCurrentSlot = useCallback(
+        (order: JobOrder): boolean => {
+            if (!order.arrival_date) return false;
+            return order.arrival_date === todayYmd && order.arrival_time === currentHourSlot;
+        },
+        [todayYmd, currentHourSlot],
+    );
 
     const normalizedSearch = searchValue.trim().toLowerCase();
 
@@ -147,20 +135,24 @@ export default function JobOrders() {
                 order.customer?.full_name ?? '',
                 order.customer?.phone_number ?? '',
                 order.vehicle?.plate_number ?? '',
-            ].join(' ').toLowerCase();
+            ]
+                .join(' ')
+                .toLowerCase();
             return searchable.includes(normalizedSearch);
         },
         [normalizedSearch],
     );
 
     // ── Tab-filtered lists ────────────────────────────────────────────────
-    const allOrders = useMemo(
-        () => jobOrders.filter(hasSchedule).filter(searchFilter),
-        [jobOrders, searchFilter],
-    );
+    const allOrders = useMemo(() => jobOrders.filter(hasSchedule).filter(searchFilter), [jobOrders, searchFilter]);
 
     const queueOrders = useMemo(
-        () => activeOrders.filter((o) => o.status !== 'completed' && isCurrentSlot(o)).filter(hasSchedule).filter(searchFilter).sort((a, b) => getQueueSortKey(a).localeCompare(getQueueSortKey(b))),
+        () =>
+            activeOrders
+                .filter((o) => o.status !== 'completed' && isCurrentSlot(o))
+                .filter(hasSchedule)
+                .filter(searchFilter)
+                .sort((a, b) => getQueueSortKey(a).localeCompare(getQueueSortKey(b))),
         [activeOrders, searchFilter, isCurrentSlot],
     );
 
@@ -175,18 +167,16 @@ export default function JobOrders() {
         [jobOrders, searchFilter],
     );
 
-    const onlinePendingApproval = useMemo(
-        () => onlineOrders.filter((o) => o.status === 'pending_approval'),
-        [onlineOrders],
-    );
+    const onlinePendingApproval = useMemo(() => onlineOrders.filter((o) => o.status === 'pending_approval'), [onlineOrders]);
 
-    const onlineApproved = useMemo(
-        () => onlineOrders.filter((o) => o.status !== 'pending_approval'),
-        [onlineOrders],
-    );
+    const onlineApproved = useMemo(() => onlineOrders.filter((o) => o.status !== 'pending_approval'), [onlineOrders]);
 
     const walkInOrders = useMemo(
-        () => jobOrders.filter(hasSchedule).filter((o) => getSourceLabel(o) === 'Walk-in' && searchFilter(o)).sort((a, b) => getQueueSortKey(a).localeCompare(getQueueSortKey(b))),
+        () =>
+            jobOrders
+                .filter(hasSchedule)
+                .filter((o) => getSourceLabel(o) === 'Walk-in' && searchFilter(o))
+                .sort((a, b) => getQueueSortKey(a).localeCompare(getQueueSortKey(b))),
         [jobOrders, searchFilter],
     );
 
@@ -201,7 +191,11 @@ export default function JobOrders() {
     );
 
     const paidOrders = useMemo(
-        () => jobOrders.filter(hasSchedule).filter((o) => isPaidInFull(o) && searchFilter(o)).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+        () =>
+            jobOrders
+                .filter(hasSchedule)
+                .filter((o) => isPaidInFull(o) && searchFilter(o))
+                .sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
         [jobOrders, searchFilter],
     );
 
@@ -358,6 +352,10 @@ export default function JobOrders() {
         });
     };
 
+    const handleDraftSaved = () => {
+        loadJobOrders();
+    };
+
     // ── Render ────────────────────────────────────────────────────────────
     return (
         <AppLayout
@@ -382,9 +380,7 @@ export default function JobOrders() {
             <div className="h-full min-h-0 flex-1 overflow-hidden p-5">
                 <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-5 overflow-hidden">
                     {/* Errors */}
-                    {loadError && (
-                        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{loadError}</div>
-                    )}
+                    {loadError && <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{loadError}</div>}
                     {actionError && (
                         <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{actionError}</div>
                     )}
@@ -435,39 +431,27 @@ export default function JobOrders() {
                             ) : (
                                 <div className="min-h-0 flex-1 overflow-hidden">
                                     {/* All */}
-                                    {activeTab === 'all' && (
-                                        allOrders.length === 0 ? (
+                                    {activeTab === 'all' &&
+                                        (allOrders.length === 0 ? (
                                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No job orders found.</div>
                                         ) : (
-                                            <JobOrderTable
-                                                orders={allOrders}
-                                                selectedId={selectedId}
-                                                onSelect={setSelectedId}
-                                                variant="queue"
-                                            />
-                                        )
-                                    )}
+                                            <JobOrderTable orders={allOrders} selectedId={selectedId} onSelect={setSelectedId} variant="queue" />
+                                        ))}
 
                                     {/* Active Queue */}
-                                    {activeTab === 'queue' && (
-                                        queueOrders.length === 0 ? (
+                                    {activeTab === 'queue' &&
+                                        (queueOrders.length === 0 ? (
                                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No active job orders.</div>
                                         ) : (
-                                            <JobOrderTable
-                                                orders={queueOrders}
-                                                selectedId={selectedId}
-                                                onSelect={setSelectedId}
-                                                variant="queue"
-                                            />
-                                        )
-                                    )}
+                                            <JobOrderTable orders={queueOrders} selectedId={selectedId} onSelect={setSelectedId} variant="queue" />
+                                        ))}
 
                                     {/* Online Booking */}
-                                    {activeTab === 'online' && (
-                                        onlineOrders.length === 0 ? (
+                                    {activeTab === 'online' &&
+                                        (onlineOrders.length === 0 ? (
                                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No online bookings.</div>
                                         ) : (
-                                            <div className="min-h-0 flex-1 overflow-y-auto space-y-4">
+                                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
                                                 {/* Needs Approval section — at the top */}
                                                 {onlinePendingApproval.length > 0 && (
                                                     <div>
@@ -478,7 +462,7 @@ export default function JobOrders() {
                                                         </div>
                                                         <ApprovalQueue
                                                             orders={onlinePendingApproval}
-                                                            selectedId={onlinePendingApproval.some(o => o.id === selectedId) ? selectedId : 0}
+                                                            selectedId={onlinePendingApproval.some((o) => o.id === selectedId) ? selectedId : 0}
                                                             onSelect={setSelectedId}
                                                             onApprove={handleApproveOrder}
                                                             onReject={handleRejectOrder}
@@ -506,27 +490,22 @@ export default function JobOrders() {
                                                     </div>
                                                 )}
                                             </div>
-                                        )
-                                    )}
+                                        ))}
 
                                     {/* Walk-in */}
-                                    {activeTab === 'walkin' && (
-                                        walkInOrders.length === 0 ? (
+                                    {activeTab === 'walkin' &&
+                                        (walkInOrders.length === 0 ? (
                                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No walk-in job orders.</div>
                                         ) : (
-                                            <JobOrderTable
-                                                orders={walkInOrders}
-                                                selectedId={selectedId}
-                                                onSelect={setSelectedId}
-                                                variant="queue"
-                                            />
-                                        )
-                                    )}
+                                            <JobOrderTable orders={walkInOrders} selectedId={selectedId} onSelect={setSelectedId} variant="queue" />
+                                        ))}
 
                                     {/* Assignments */}
-                                    {activeTab === 'assignments' && (
-                                        unassignedOrders.length === 0 ? (
-                                            <div className="px-5 py-16 text-center text-sm text-muted-foreground">No approved job orders waiting for assignment.</div>
+                                    {activeTab === 'assignments' &&
+                                        (unassignedOrders.length === 0 ? (
+                                            <div className="px-5 py-16 text-center text-sm text-muted-foreground">
+                                                No approved job orders waiting for assignment.
+                                            </div>
                                         ) : (
                                             <JobOrderTable
                                                 orders={unassignedOrders}
@@ -534,12 +513,11 @@ export default function JobOrders() {
                                                 onSelect={setSelectedId}
                                                 variant="queue"
                                             />
-                                        )
-                                    )}
+                                        ))}
 
                                     {/* Billing */}
-                                    {activeTab === 'billing' && (
-                                        billingOrders.length === 0 ? (
+                                    {activeTab === 'billing' &&
+                                        (billingOrders.length === 0 ? (
                                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No pending billing.</div>
                                         ) : (
                                             <JobOrderTable
@@ -551,22 +529,15 @@ export default function JobOrders() {
                                                 }}
                                                 variant="billing"
                                             />
-                                        )
-                                    )}
+                                        ))}
 
                                     {/* Paid */}
-                                    {activeTab === 'paid' && (
-                                        paidOrders.length === 0 ? (
+                                    {activeTab === 'paid' &&
+                                        (paidOrders.length === 0 ? (
                                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No settled job orders.</div>
                                         ) : (
-                                            <JobOrderTable
-                                                orders={paidOrders}
-                                                selectedId={selectedId}
-                                                onSelect={setSelectedId}
-                                                variant="paid"
-                                            />
-                                        )
-                                    )}
+                                            <JobOrderTable orders={paidOrders} selectedId={selectedId} onSelect={setSelectedId} variant="paid" />
+                                        ))}
                                 </div>
                             )}
                         </div>
@@ -588,6 +559,7 @@ export default function JobOrders() {
                                 onPrimaryAction={handlePrimaryAction}
                                 onCancel={handleCancelJobOrder}
                                 onItemsChanged={() => loadJobOrders()}
+                                onPrepareInvoice={() => setShowDraftModal(true)}
                             />
                         )}
                     </div>
@@ -622,6 +594,8 @@ export default function JobOrders() {
                     }}
                 />
             )}
+
+            <InvoiceDraftModal open={showDraftModal} onOpenChange={setShowDraftModal} order={selectedOrder} onDraftSaved={handleDraftSaved} />
         </AppLayout>
     );
 }

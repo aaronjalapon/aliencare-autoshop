@@ -1,7 +1,7 @@
 import { CustomerTransaction } from '@/types/customer';
 import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
-export type PosPaymentMode = 'cash' | 'card' | 'online';
+export type PosPaymentMode = 'cash' | 'online';
 
 export interface PosCheckoutCartItem {
     item_id: number;

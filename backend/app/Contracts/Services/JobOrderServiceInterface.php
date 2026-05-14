@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Contracts\Services;
 
+use App\Models\CustomerTransaction;
 use App\Models\JobOrder;
 use App\Models\JobOrderItem;
 use App\Models\Mechanic;
 use App\Models\ServiceCatalog;
+use Illuminate\Database\Eloquent\Collection;
 
 interface JobOrderServiceInterface
 {
@@ -25,6 +27,8 @@ interface JobOrderServiceInterface
     public function completeJobOrder(int $id): JobOrder;
 
     public function settleJobOrder(int $id, ?string $invoiceId = null): JobOrder;
+
+    public function prepareInvoice(int $jobOrderId, ?string $notes = null): CustomerTransaction;
 
     public function cancelJobOrder(int $id): JobOrder;
 
@@ -53,12 +57,12 @@ interface JobOrderServiceInterface
     /**
      * Get conflicting job orders for a mechanic at a given date/time window.
      */
-    public function getConflictingJobOrdersForMechanic(int $mechanicId, string $date, string $targetTime, int $targetDurationMinutes, ?int $excludeJobOrderId): \Illuminate\Database\Eloquent\Collection;
+    public function getConflictingJobOrdersForMechanic(int $mechanicId, string $date, string $targetTime, int $targetDurationMinutes, ?int $excludeJobOrderId): Collection;
 
     /**
      * Get conflicting job orders for a bay at a given date/time window.
      */
-    public function getConflictingJobOrdersForBay(int $bayId, string $date, string $targetTime, int $targetDurationMinutes, ?int $excludeJobOrderId): \Illuminate\Database\Eloquent\Collection;
+    public function getConflictingJobOrdersForBay(int $bayId, string $date, string $targetTime, int $targetDurationMinutes, ?int $excludeJobOrderId): Collection;
 
     /**
      * Get the service duration in minutes for a job order.

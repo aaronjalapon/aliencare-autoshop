@@ -38,9 +38,7 @@ export function RescheduleModal({ booking, onClose, onRescheduled }: RescheduleM
             .getBookingAvailability(date)
             .then((res) => {
                 if (cancelled) return;
-                const available = (res.data?.slots ?? [])
-                    .filter((s) => s.status === 'available')
-                    .map((s) => s.time);
+                const available = (res.data?.slots ?? []).filter((s) => s.status === 'available').map((s) => s.time);
                 setSlots(available);
             })
             .catch(() => {

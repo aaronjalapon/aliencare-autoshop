@@ -85,9 +85,7 @@ export default function JobOrderTable({ orders, selectedId, onSelect, variant, r
                             key={order.id}
                             onClick={() => onSelect(order.id)}
                             className={`grid w-full items-center border-b border-[#1b1d22] px-4 py-3 text-left transition-colors last:border-b-0 ${gridColsStyle(variant)} ${
-                                selected
-                                    ? 'bg-[#d4af37]/7 shadow-[inset_0_0_0_1px_rgba(212,175,55,0.55)]'
-                                    : 'hover:bg-[#1a1b20]/65'
+                                selected ? 'bg-[#d4af37]/7 shadow-[inset_0_0_0_1px_rgba(212,175,55,0.55)]' : 'hover:bg-[#1a1b20]/65'
                             }`}
                         >
                             {variant === 'queue' && (
@@ -110,13 +108,15 @@ export default function JobOrderTable({ orders, selectedId, onSelect, variant, r
                                         <p className="text-xs text-muted-foreground">{getServiceName(order)}</p>
                                     </div>
                                     <div className="">
-                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                            order.status === 'in_progress'
-                                                ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
-                                                : order.status === 'completed'
-                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                                                : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                                        }`}>
+                                        <span
+                                            className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                                order.status === 'in_progress'
+                                                    ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+                                                    : order.status === 'completed'
+                                                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                                                      : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                                            }`}
+                                        >
                                             {order.status === 'in_progress' ? 'In Service' : order.status === 'completed' ? 'For Payment' : 'Waiting'}
                                         </span>
                                     </div>
@@ -149,17 +149,19 @@ export default function JobOrderTable({ orders, selectedId, onSelect, variant, r
                                         <p className="text-xs text-muted-foreground">{getServiceName(order)}</p>
                                     </div>
                                     <div className="text-right text-sm font-semibold text-[#d4af37]">{formatPeso(amount)}</div>
-                                    <div className="text-right text-sm font-semibold flex items-center justify-end gap-2">
+                                    <div className="flex items-center justify-end gap-2 text-right text-sm font-semibold">
                                         {order.balance !== undefined && order.balance > 0 ? (
                                             <span className="text-[#d4af37]">{formatPeso(order.balance)}</span>
                                         ) : (
                                             <span className="text-emerald-300">P0.00</span>
                                         )}
-                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                            order.settled_flag || (order.balance !== undefined && order.balance <= 0)
-                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                                                : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                                        }`}>
+                                        <span
+                                            className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                                order.settled_flag || (order.balance !== undefined && order.balance <= 0)
+                                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                                                    : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                                            }`}
+                                        >
                                             {order.settled_flag || (order.balance !== undefined && order.balance <= 0) ? 'Paid' : 'Pending'}
                                         </span>
                                     </div>
@@ -184,7 +186,9 @@ export default function JobOrderTable({ orders, selectedId, onSelect, variant, r
                                     </div>
                                     <div className="text-right text-sm font-semibold text-[#d4af37]">{formatPeso(amount)}</div>
                                     <div className="text-right text-sm text-muted-foreground">
-                                        {order.updated_at ? new Date(order.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                                        {order.updated_at
+                                            ? new Date(order.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                            : '—'}
                                     </div>
                                     <div className="flex justify-end">
                                         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${status.className}`}>

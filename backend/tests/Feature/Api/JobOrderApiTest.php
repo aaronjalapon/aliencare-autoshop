@@ -66,6 +66,8 @@ class JobOrderApiTest extends TestCase
             ->postJson('/api/v1/job-orders', [
                 'customer_id' => $this->customer->id,
                 'vehicle_id' => $this->vehicle->id,
+                'arrival_date' => now()->toDateString(),
+                'arrival_time' => '09:00',
             ])
             ->assertStatus(403);
 
@@ -178,6 +180,8 @@ class JobOrderApiTest extends TestCase
         $payload = [
             'customer_id' => $this->customer->id,
             'vehicle_id' => $this->vehicle->id,
+            'arrival_date' => now()->toDateString(),
+            'arrival_time' => '09:00',
             'service_fee' => 1500.00,
             'notes' => 'Regular maintenance',
         ];
@@ -186,12 +190,12 @@ class JobOrderApiTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.status', 'created');
+            ->assertJsonPath('data.status', 'approved');
 
         $this->assertDatabaseHas('job_orders', [
             'customer_id' => $this->customer->id,
             'vehicle_id' => $this->vehicle->id,
-            'status' => 'created',
+            'status' => 'approved',
         ]);
     }
 
@@ -222,6 +226,8 @@ class JobOrderApiTest extends TestCase
         $payload = [
             'customer_id' => $this->customer->id,
             'vehicle_id' => $this->vehicle->id,
+            'arrival_date' => now()->toDateString(),
+            'arrival_time' => '09:00',
             'service_fee' => 1500.00,
         ];
 
@@ -504,27 +510,19 @@ class JobOrderApiTest extends TestCase
 
     public function test_full_lifecycle_create_to_settle(): void
     {
-        // Step 1: Create
+        // Step 1: Create (auto-approved when slot has capacity)
         $response = $this->actingAs($this->user)->postJson('/api/v1/job-orders', [
             'customer_id' => $this->customer->id,
             'vehicle_id' => $this->vehicle->id,
+            'arrival_date' => now()->toDateString(),
+            'arrival_time' => '09:00',
             'service_fee' => 2000.00,
             'notes' => 'Full lifecycle test',
         ]);
         $response->assertStatus(201);
         $jobOrderId = $response->json('data.id');
 
-        // Step 2: Submit for approval (created -> pending_approval)
-        $response = $this->actingAs($this->user)
-            ->putJson("/api/v1/job-orders/{$jobOrderId}/submit");
-        $response->assertStatus(200)->assertJsonPath('data.status', 'pending_approval');
-
-        // Step 3: Approve
-        $response = $this->actingAs($this->user)
-            ->putJson("/api/v1/job-orders/{$jobOrderId}/approve");
-        $response->assertStatus(200)->assertJsonPath('data.status', 'approved');
-
-        // Step 4: Start
+        // Step 2: Start (approved -> in_progress)
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/start", [
                 'mechanic_id' => $this->mechanic->id,
@@ -532,12 +530,12 @@ class JobOrderApiTest extends TestCase
             ]);
         $response->assertStatus(200)->assertJsonPath('data.status', 'in_progress');
 
-        // Step 5: Complete
+        // Step 3: Complete (in_progress -> completed)
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/complete");
         $response->assertStatus(200)->assertJsonPath('data.status', 'completed');
 
-        // Step 6: Settle
+        // Step 4: Settle (completed -> settled)
         $response = $this->actingAs($this->user)
             ->putJson("/api/v1/job-orders/{$jobOrderId}/settle", [
                 'invoice_id' => 'INV-LIFECYCLE-001',

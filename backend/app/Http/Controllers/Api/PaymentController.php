@@ -7,12 +7,14 @@ namespace App\Http\Controllers\Api;
 use App\Enums\CustomerTransactionType;
 use App\Exceptions\PaymentGatewayException;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CustomerTransactionResource;
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
 use App\Models\JobOrder;
 use App\Services\XenditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -422,7 +424,7 @@ class PaymentController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'transaction' => new \App\Http\Resources\CustomerTransactionResource($transaction),
+                'transaction' => new CustomerTransactionResource($transaction),
                 'settled' => $settled,
             ],
             'message' => $settled
@@ -481,7 +483,7 @@ class PaymentController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'transaction' => new \App\Http\Resources\CustomerTransactionResource($transaction->fresh()),
+                'transaction' => new CustomerTransactionResource($transaction->fresh()),
                 'status_changed' => $normalizedStatus !== ($previousStatus ?? ''),
                 'xendit_status' => $normalizedStatus,
             ],

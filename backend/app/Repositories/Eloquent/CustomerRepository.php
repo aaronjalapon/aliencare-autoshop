@@ -64,10 +64,8 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
             }
 
             if ($segment === 'inactive') {
-                $query->where(function (Builder $inactiveQuery): void {
-                    $inactiveQuery->where('is_active', false)
-                        ->orWhere('account_status', '!=', AccountStatus::Approved->value);
-                });
+                $query->where('account_status', AccountStatus::Approved->value)
+                    ->where('is_active', false);
             }
 
             if ($segment === 'pending') {

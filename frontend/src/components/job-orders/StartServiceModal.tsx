@@ -110,7 +110,7 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
                 <p className="mt-1 text-sm text-muted-foreground">Assign a mechanic and bay before moving this job order to In Progress.</p>
 
                 {hasSchedulingContext && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/20 px-2.5 py-1 text-[11px] text-[#d4af37]">
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/20 bg-[#d4af37]/10 px-2.5 py-1 text-[11px] text-[#d4af37]">
                         <Clock className="h-3 w-3" />
                         Scheduled: {scheduling?.arrival_date} &middot; {scheduling?.arrival_time}
                     </div>
@@ -118,10 +118,12 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
 
                 <form onSubmit={handleSubmit} className="mt-4 space-y-3">
                     <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mechanic</label>
-                        <select value={mechanicId}
+                        <label className="mb-1 block text-xs font-semibold tracking-wider text-muted-foreground uppercase">Mechanic</label>
+                        <select
+                            value={mechanicId}
                             onChange={(e) => setMechanicId(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none">
+                            className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                        >
                             <option value="">Select mechanic</option>
                             {mechanics.map((m) => {
                                 const badge = getMatchBadge(m.service_match_score);
@@ -129,7 +131,8 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
                                 return (
                                     <option key={m.id} value={m.id}>
                                         {m.name ?? `Mechanic #${m.id}`} - {m.specialization ?? 'General'}
-                                        {badge ? ` ★ ${badge}` : ''}{conflictLabel}
+                                        {badge ? ` ★ ${badge}` : ''}
+                                        {conflictLabel}
                                     </option>
                                 );
                             })}
@@ -142,15 +145,20 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
                     </div>
 
                     <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bay</label>
-                        <select value={bayId}
+                        <label className="mb-1 block text-xs font-semibold tracking-wider text-muted-foreground uppercase">Bay</label>
+                        <select
+                            value={bayId}
                             onChange={(e) => setBayId(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none">
+                            className="h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-sm focus:border-[#d4af37] focus:outline-none"
+                        >
                             <option value="">Select bay</option>
                             {bays.map((b) => {
                                 const conflictLabel = b.has_time_conflict ? ' [Time Conflict]' : '';
                                 return (
-                                    <option key={b.id} value={b.id}>{b.name}{conflictLabel}</option>
+                                    <option key={b.id} value={b.id}>
+                                        {b.name}
+                                        {conflictLabel}
+                                    </option>
                                 );
                             })}
                         </select>
@@ -165,12 +173,18 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
                     {submitError && <p className="text-sm text-red-300">{submitError}</p>}
 
                     <div className="flex justify-end gap-2">
-                        <button type="button" onClick={onClose}
-                            className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="rounded-lg border border-[#2a2a2e] px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                        >
                             Cancel
                         </button>
-                        <button type="submit" disabled={isSubmitting}
-                            className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
                             {isSubmitting ? 'Starting...' : 'Start Service'}
                         </button>
                     </div>

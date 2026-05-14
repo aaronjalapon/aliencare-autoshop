@@ -1,4 +1,4 @@
-import { CustomerProfile, JobOrder, JobOrderItem, JobOrderStatus, ServiceCatalogItem, Vehicle } from '@/types/customer';
+import { CustomerProfile, CustomerTransaction, JobOrder, JobOrderItem, JobOrderStatus, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { api, ApiResponse, buildQueryParams, PaginatedResponse } from './api';
 
 export interface JobOrderFilters {
@@ -118,7 +118,14 @@ class JobOrderService {
         return api.get<ApiResponse<PaginatedResponse<JobOrder>>>('/v1/job-orders', params);
     }
 
-    async getSlotAvailability(arrivalDate: string): Promise<ApiResponse<{ arrival_date: string; slots: Array<{ time: string; label: string; status: string; slots_left: number; capacity: number; booked: number }> }>> {
+    async getSlotAvailability(
+        arrivalDate: string,
+    ): Promise<
+        ApiResponse<{
+            arrival_date: string;
+            slots: Array<{ time: string; label: string; status: string; slots_left: number; capacity: number; booked: number }>;
+        }>
+    > {
         return api.get('/v1/job-orders/slot-availability', { arrival_date: arrivalDate });
     }
 
@@ -156,6 +163,10 @@ class JobOrderService {
 
     async cancelJobOrder(id: number): Promise<ApiResponse<JobOrder>> {
         return api.delete<ApiResponse<JobOrder>>(`/v1/job-orders/${id}/cancel`);
+    }
+
+    async prepareInvoice(jobOrderId: number, notes?: string): Promise<ApiResponse<CustomerTransaction>> {
+        return api.post<ApiResponse<CustomerTransaction>>(`/v1/job-orders/${jobOrderId}/prepare-invoice`, { notes });
     }
 
     async getCustomers(filters: CustomerFilters = {}): Promise<ApiResponse<PaginatedResponse<CustomerProfile>>> {

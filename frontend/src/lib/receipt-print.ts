@@ -24,11 +24,7 @@ export interface ReceiptPrintData {
 }
 
 function escapeHtml(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function formatDateLabel(value: string | null | undefined): string {
@@ -69,13 +65,8 @@ function formatPaymentMethod(value: string | null | undefined): string {
 export function mapCustomerBillingReceiptToPrintData(receipt: CustomerBillingReceipt): ReceiptPrintData {
     const receiptDate = receipt.paid_at ?? receipt.created_at;
     const year = receiptDate ? new Date(receiptDate).getFullYear() : new Date().getFullYear();
-    const branch = receipt.branch_address
-        ? `${receipt.branch_name}, ${receipt.branch_address}`
-        : receipt.branch_name;
-    const vehicle = [receipt.vehicle_make, receipt.vehicle_model]
-        .filter(Boolean)
-        .join(' ')
-        .trim() || 'Vehicle';
+    const branch = receipt.branch_address ? `${receipt.branch_name}, ${receipt.branch_address}` : receipt.branch_name;
+    const vehicle = [receipt.vehicle_make, receipt.vehicle_model].filter(Boolean).join(' ').trim() || 'Vehicle';
 
     return {
         receiptNo: `RC-${year}-${String(receipt.transaction_id).padStart(5, '0')}`,

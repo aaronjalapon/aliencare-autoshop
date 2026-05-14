@@ -79,11 +79,13 @@ class PaymentService {
         payment_method?: string;
         reference_number?: string;
         notes?: string;
-    }): Promise<ApiResponse<{
-        payment_url: string;
-        transaction_id: number;
-        xendit_invoice_id: string;
-    }>> {
+    }): Promise<
+        ApiResponse<{
+            payment_url: string;
+            transaction_id: number;
+            xendit_invoice_id: string;
+        }>
+    > {
         return api.post('/v1/payments/frontdesk/invoice', payload);
     }
 
@@ -98,21 +100,25 @@ class PaymentService {
         payment_method: string;
         reference_number?: string;
         notes?: string;
-    }): Promise<ApiResponse<{
-        transaction: any;
-        settled: boolean;
-    }>> {
+    }): Promise<
+        ApiResponse<{
+            transaction: Record<string, unknown>;
+            settled: boolean;
+        }>
+    > {
         return api.post('/v1/payments/record', payload);
     }
 
     /**
      * Syncs a single transaction's Xendit invoice status from the frontdesk.
      */
-    async syncFrontdeskStatus(transactionId: number): Promise<ApiResponse<{
-        transaction: any;
-        status_changed: boolean;
-        xendit_status: string;
-    }>> {
+    async syncFrontdeskStatus(transactionId: number): Promise<
+        ApiResponse<{
+            transaction: Record<string, unknown>;
+            status_changed: boolean;
+            xendit_status: string;
+        }>
+    > {
         return api.post('/v1/payments/frontdesk/sync', { transaction_id: transactionId });
     }
 }

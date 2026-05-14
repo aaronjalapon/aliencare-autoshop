@@ -36,3 +36,11 @@ export interface User {
     updated_at: string;
     [key: string]: unknown;
 }
+
+export interface SystemSettings {
+    [key: string]: unknown;
+}
+
+export interface UserPreferences {
+    [key: string]: unknown;
+}

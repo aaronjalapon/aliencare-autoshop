@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CustomerTransactionType;
+use App\Enums\InvoiceStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -15,6 +16,7 @@ class CustomerTransaction extends Model
         'job_order_id',
         'reservation_id',
         'type',
+        'status',
         'amount',
         'reference_number',
         'notes',
@@ -31,6 +33,7 @@ class CustomerTransaction extends Model
     {
         return [
             'type' => CustomerTransactionType::class,
+            'status' => InvoiceStatus::class,
             'amount' => 'decimal:2',
             'paid_at' => 'datetime',
         ];

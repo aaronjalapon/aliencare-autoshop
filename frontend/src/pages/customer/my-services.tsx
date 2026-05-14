@@ -1,5 +1,5 @@
-import CustomerLayout from '@/components/layout/customer-layout';
 import { RescheduleModal } from '@/components/job-orders/RescheduleModal';
+import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerJobOrders } from '@/hooks/useCustomerJobOrders';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { getApiErrorMessage } from '@/lib/api-error-message';
