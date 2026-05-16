@@ -12,12 +12,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Customer\BookingAvailabilityRequest;
 use App\Http\Requests\Api\Customer\StoreCustomerBookingRequest;
 use App\Http\Requests\Api\Customer\StoreCustomerBookingWithPaymentRequest;
+use App\Http\Requests\Api\Customer\VerifyBookingOtpRequest;
 use App\Http\Resources\JobOrderResource;
+use App\Mail\BookingOtpMail;
 use App\Models\BookingSlot;
 use App\Models\Customer;
 use App\Models\CustomerTransaction;
 use App\Models\JobOrder;
 use App\Models\JobOrderItem;
+use App\Models\OtpCode;
 use App\Models\ServiceCatalog;
 use App\Services\XenditService;
 use Carbon\Carbon;
@@ -26,6 +29,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -283,49 +288,90 @@ class CustomerBookingController extends Controller
                     $jobOrder = $this->createPendingJobOrder($customer, $service, $bookingPayload)
                         ->fresh(['customer', 'vehicle', 'service', 'items']);
 
-                    $transaction = CustomerTransaction::create([
-                        'customer_id' => $customer->id,
-                        'job_order_id' => $jobOrder->id,
-                        'type' => CustomerTransactionType::Invoice,
-                        'amount' => $reservationFeeAmount,
-                        'notes' => 'Reservation fee for booking '.$jobOrder->jo_number,
-                        'payment_method' => $validated['payment_method'],
-                    ]);
+                    $isCash = ($validated['payment_method'] ?? '') === 'cash';
+                    $paymentUrl = null;
+                    $otpCode = null;
 
-                    // Create the remaining balance transaction immediately so it
-                    // appears in the customer's Billing & Payment pending tab.
-                    $remaining = round((float) $service->price_fixed - $reservationFeeAmount, 2);
-
-                    if ($remaining > 0) {
-                        CustomerTransaction::create([
+                    if ($isCash) {
+                        // Cash booking: single invoice for the full service amount.
+                        $transaction = CustomerTransaction::create([
                             'customer_id' => $customer->id,
                             'job_order_id' => $jobOrder->id,
                             'type' => CustomerTransactionType::Invoice,
-                            'amount' => $remaining,
-                            'notes' => 'Remaining balance for '.$jobOrder->jo_number.' (reservation fee of ₱'.number_format($reservationFeeAmount, 2).' deducted)',
+                            'amount' => (float) $service->price_fixed,
+                            'notes' => 'Full service fee for '.$jobOrder->jo_number.' (pay at shop)',
+                            'payment_method' => 'cash',
                         ]);
-                    }
 
-                    $paymentUrl = $xenditService->createInvoice($transaction, $customer);
+                        $otpCode = OtpCode::create([
+                            'customer_id' => $customer->id,
+                            'job_order_id' => $jobOrder->id,
+                            'code' => str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT),
+                            'purpose' => 'booking_verification',
+                            'expires_at' => now()->addMinutes(10),
+                        ]);
+
+                        try {
+                            Mail::to($customer->email)->send(new BookingOtpMail($otpCode->code, $jobOrder));
+                        } catch (\Throwable $e) {
+                            Log::warning('Failed to send booking OTP email', [
+                                'email' => $customer->email,
+                                'job_order' => $jobOrder->jo_number,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    } else {
+                        // Online payment: reservation fee + remaining balance.
+                        $transaction = CustomerTransaction::create([
+                            'customer_id' => $customer->id,
+                            'job_order_id' => $jobOrder->id,
+                            'type' => CustomerTransactionType::Invoice,
+                            'amount' => $reservationFeeAmount,
+                            'notes' => 'Reservation fee for booking '.$jobOrder->jo_number,
+                            'payment_method' => $validated['payment_method'],
+                        ]);
+
+                        $remaining = round((float) $service->price_fixed - $reservationFeeAmount, 2);
+
+                        if ($remaining > 0) {
+                            CustomerTransaction::create([
+                                'customer_id' => $customer->id,
+                                'job_order_id' => $jobOrder->id,
+                                'type' => CustomerTransactionType::Invoice,
+                                'amount' => $remaining,
+                                'notes' => 'Remaining balance for '.$jobOrder->jo_number.' (reservation fee of ₱'.number_format($reservationFeeAmount, 2).' deducted)',
+                            ]);
+                        }
+
+                        $paymentUrl = $xenditService->createInvoice($transaction, $customer);
+                    }
 
                     return [
                         'job_order' => $jobOrder,
                         'transaction_id' => $transaction->id,
                         'payment_url' => $paymentUrl,
+                        'otp_sent' => $otpCode !== null,
+                        'otp_expires_at' => $otpCode?->expires_at?->toISOString(),
                     ];
                 });
             });
+
+            $isCash = ($validated['payment_method'] ?? '') === 'cash';
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'job_order' => new JobOrderResource($result['job_order']),
                     'transaction_id' => $result['transaction_id'],
-                    'reservation_fee_amount' => $reservationFeeAmount,
+                    'reservation_fee_amount' => $isCash ? (float) $service->price_fixed : $reservationFeeAmount,
                     'payment_url' => $result['payment_url'],
                     'payment_method' => $validated['payment_method'],
+                    'otp_sent' => $result['otp_sent'] ?? false,
+                    'otp_expires_at' => $result['otp_expires_at'] ?? null,
                 ],
-                'message' => 'Booking created. Continue payment to secure your slot.',
+                'message' => $isCash
+                    ? 'Booking created. A verification code has been sent to your email.'
+                    : 'Booking created. Continue payment to secure your slot.',
             ], 201);
         } catch (LockTimeoutException) {
             return response()->json([
@@ -344,11 +390,69 @@ class CustomerBookingController extends Controller
                 'message' => $e->getMessage(),
             ], $e->getStatusCode());
         } catch (\Throwable $e) {
+            Log::error('Booking with payment failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to initialize booking payment. Please try again.',
             ], 500);
         }
+    }
+
+    /**
+     * Verify a booking OTP code and approve the job order.
+     */
+    public function verifyBookingOtp(VerifyBookingOtpRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $user = $request->user();
+
+        $otp = OtpCode::query()
+            ->where('job_order_id', (int) $validated['job_order_id'])
+            ->where('code', $validated['code'])
+            ->where('purpose', 'booking_verification')
+            ->whereNull('used_at')
+            ->first();
+
+        if (! $otp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired verification code.',
+            ], 422);
+        }
+
+        if (! $otp->isValid()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This verification code has expired.',
+            ], 422);
+        }
+
+        $jobOrder = $otp->jobOrder;
+        $customer = Customer::where('email', $user->email)->first();
+
+        if (! $customer || $otp->customer_id !== $customer->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This verification code does not belong to your account.',
+            ], 403);
+        }
+
+        DB::transaction(function () use ($otp, $jobOrder) {
+            $otp->markUsed();
+            $jobOrder->update(['status' => JobOrderStatus::Approved]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'job_order' => new JobOrderResource($jobOrder->fresh(['customer', 'vehicle', 'service', 'items'])),
+            ],
+            'message' => 'Booking verified successfully. Your slot is now confirmed.',
+        ]);
     }
 
     private function slotHasCapacity(string $arrivalDate, BookingSlot $slotSetting): bool

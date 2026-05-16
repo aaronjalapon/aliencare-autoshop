@@ -114,7 +114,7 @@ export interface CreateBookingData {
     notes?: string;
 }
 
-export type BookingPayMethod = 'gcash' | 'maya' | 'card' | 'bank';
+export type BookingPayMethod = 'xendit' | 'cash';
 
 export interface CreateBookingWithPaymentData extends CreateBookingData {
     payment_method: BookingPayMethod;
@@ -124,8 +124,14 @@ export interface CreateBookingWithPaymentResponse {
     job_order: JobOrder;
     transaction_id: number;
     reservation_fee_amount: number;
-    payment_url: string;
+    payment_url: string | null;
     payment_method: BookingPayMethod;
+    otp_sent: boolean;
+    otp_expires_at: string | null;
+}
+
+export interface VerifyBookingOtpResponse {
+    job_order: JobOrder;
 }
 
 export interface RescheduleMyJobOrderData {
@@ -233,6 +239,13 @@ class CustomerService {
 
     async createBookingWithPayment(data: CreateBookingWithPaymentData): Promise<ApiResponse<CreateBookingWithPaymentResponse>> {
         return api.post<ApiResponse<CreateBookingWithPaymentResponse>>('/v1/customer/book-with-payment', data);
+    }
+
+    async verifyBookingOtp(jobOrderId: number, code: string): Promise<ApiResponse<VerifyBookingOtpResponse>> {
+        return api.post<ApiResponse<VerifyBookingOtpResponse>>('/v1/customer/verify-booking-otp', {
+            job_order_id: jobOrderId,
+            code,
+        });
     }
 
     async getBookingAvailability(arrivalDate: string): Promise<ApiResponse<BookingAvailability>> {

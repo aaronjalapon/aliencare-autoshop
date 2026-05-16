@@ -34,11 +34,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (email: string, password: string, remember?: boolean) => {
         const response = await authService.login({ email, password, remember });
         setUser(response.user);
+        // Merge guest cart into user's cart after successful login
+        try {
+            // dynamic import to avoid circular type issues
+            const { migrateGuestCartToUser } = await import('@/utils/cartUtils');
+            if (response.user && response.user.id) {
+                migrateGuestCartToUser(response.user.id);
+            }
+        } catch {
+            // no-op
+        }
     };
 
     const register = async (name: string, email: string, password: string, password_confirmation: string) => {
         const response = await authService.register({ name, email, password, password_confirmation });
         setUser(response.user);
+        try {
+            const { migrateGuestCartToUser } = await import('@/utils/cartUtils');
+            if (response.user && response.user.id) {
+                migrateGuestCartToUser(response.user.id);
+            }
+        } catch { /* noop */ }
     };
 
     const logout = async () => {

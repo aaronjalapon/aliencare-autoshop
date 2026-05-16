@@ -135,7 +135,7 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
 
             const basePayload = {
                 payment_method: method,
-                reference_number: (ticket.job_order_no ?? ticket.pos_reference ?? null) as string | null,
+                reference_number: (ticket.job_order_no ?? ticket.pos_reference) || undefined,
                 notes: `Online payment invoice for ${ticket.invoice_no}`,
                 amount: parsedAmount,
             };
@@ -227,11 +227,11 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
                 amount: parsedAmount,
                 job_order_id: ticket.job_order_id ?? undefined,
                 payment_method: method,
-                reference_number: reference.trim() || ticket.pos_reference || null,
-                notes: note.trim() || null,
+                reference_number: reference.trim() || ticket.pos_reference || undefined,
+                notes: note.trim() || undefined,
             });
 
-            setPaymentSuccess({ transactionId: response.data.id });
+            setPaymentSuccess({ transactionId: (response.data.transaction as Record<string, unknown>)?.id as number });
             // Queue refresh deferred to resetAndClose so the user
             // has time to print the receipt before the ticket list updates.
         } catch (err) {

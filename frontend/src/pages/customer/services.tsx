@@ -2,6 +2,7 @@ import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { useServiceCatalog } from '@/hooks/useServiceCatalog';
 import { ApiError } from '@/services/api';
+import type { BookingPayMethod } from '@/services/customerService';
 import { customerService } from '@/services/customerService';
 import { BookingTimeSlot, JobOrder, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { AlertTriangle, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Loader2, Star, Users, X } from 'lucide-react';
@@ -213,7 +214,7 @@ function CalendarDropdown({
 type ModalStep = 'confirm' | 'secure' | 'payment' | 'verify-phone' | 'verify-otp' | 'success' | 'reserved' | null;
 type SecureOption = 'reservation' | 'no-payment';
 
-const DEFAULT_PAYMENT_METHOD = 'gcash' as const;
+const DEFAULT_PAYMENT_METHOD = 'xendit' as const;
 const RESERVATION_FEE = 200;
 const SLOT_POLL_INTERVAL_MS = 8000;
 
@@ -243,6 +244,7 @@ export default function CustomerServices() {
     const [onboardingCheckError, setOnboardingCheckError] = useState<string | null>(null);
     const [checkingOnboarding, setCheckingOnboarding] = useState(false);
     const [confirmedJO, setConfirmedJO] = useState<JobOrder | null>(null);
+    const [isCashBooking, setIsCashBooking] = useState(false);
     const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
     const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
     const onboardingCheckInFlightRef = useRef(false);
@@ -394,7 +396,7 @@ export default function CustomerServices() {
 
     const fmtCountdown = `00:${String(otpCountdown).padStart(2, '0')}`;
 
-    async function submitBooking() {
+    async function submitBookingWithPayment(paymentMethod?: BookingPayMethod) {
         if (!selectedService || !selectedVehicle || !slot) return;
 
         if (slot.status === 'full' || slot.slots_left <= 0) {
@@ -409,51 +411,22 @@ export default function CustomerServices() {
         const arrivalDate = arrivalDateYmd;
 
         try {
-            const response = await customerService.createBooking({
-                vehicle_id: selectedVehicle.id,
-                service_id: selectedService.id,
-                arrival_date: arrivalDate,
-                arrival_time: arrivalTime,
-            });
-            setConfirmedJO(response.data);
-            setModalStep('reserved');
-        } catch (err) {
-            const isSlotConflict = err instanceof ApiError && (err.status === 409 || err.status === 422);
-            if (isSlotConflict) {
-                await fetchAvailability();
-            }
-
-            const msg = err instanceof Error ? err.message : 'Booking failed. Please try again.';
-            setBookingError(isSlotConflict ? `${msg} Availability has been refreshed.` : msg);
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
-
-    async function submitBookingWithPayment() {
-        if (!selectedService || !selectedVehicle || !slot) return;
-
-        if (slot.status === 'full' || slot.slots_left <= 0) {
-            setBookingError('Selected arrival slot is full. Please choose another time.');
-            return;
-        }
-
-        setIsSubmitting(true);
-        setBookingError(null);
-
-        const arrivalTime = slot.time;
-        const arrivalDate = arrivalDateYmd;
-
-        try {
+            const pm = paymentMethod ?? DEFAULT_PAYMENT_METHOD;
             const response = await customerService.createBookingWithPayment({
                 vehicle_id: selectedVehicle.id,
                 service_id: selectedService.id,
                 arrival_date: arrivalDate,
                 arrival_time: arrivalTime,
-                payment_method: DEFAULT_PAYMENT_METHOD,
+                payment_method: pm,
             });
 
             setConfirmedJO(response.data.job_order);
+            setIsCashBooking(pm === 'cash');
+
+            if (pm === 'cash' && response.data.otp_sent) {
+                startOtp();
+                return;
+            }
 
             if (!response.data.payment_url) {
                 setBookingError('Payment link unavailable. Please try again.');
@@ -469,6 +442,25 @@ export default function CustomerServices() {
 
             const msg = err instanceof Error ? err.message : 'Failed to initialize payment. Please try again.';
             setBookingError(isSlotConflict ? `${msg} Availability has been refreshed.` : msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function verifyOtpForBooking() {
+        const code = otp.join('');
+        if (!confirmedJO || code.length !== 6) return;
+
+        setIsSubmitting(true);
+        setBookingError(null);
+
+        try {
+            const response = await customerService.verifyBookingOtp(confirmedJO.id, code);
+            setConfirmedJO(response.data.job_order);
+            setModalStep('reserved');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Verification failed. Please try again.';
+            setBookingError(msg);
         } finally {
             setIsSubmitting(false);
         }
@@ -1063,7 +1055,10 @@ export default function CustomerServices() {
 
                             {/* Option 1 */}
                             <button
-                                onClick={() => setSecureOption('reservation')}
+                                onClick={() => {
+                                    setSecureOption('reservation');
+                                    setBookingError(null);
+                                }}
                                 className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-colors ${
                                     secureOption === 'reservation' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
                                 }`}
@@ -1084,7 +1079,10 @@ export default function CustomerServices() {
 
                             {/* Option 2 */}
                             <button
-                                onClick={() => setSecureOption('no-payment')}
+                                onClick={() => {
+                                    setSecureOption('no-payment');
+                                    setBookingError(null);
+                                }}
                                 className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-colors ${
                                     secureOption === 'no-payment' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
                                 }`}
@@ -1099,29 +1097,42 @@ export default function CustomerServices() {
                                 </div>
                                 <div className="flex flex-col gap-0.5">
                                     <p className="text-sm font-semibold">Reserve Without Online Payment</p>
-                                    <p className="text-xs text-muted-foreground">Phone verification is required.</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Email verification is required. A code will be sent to your email.
+                                    </p>
                                     <p className="text-xs text-muted-foreground">Your booking will still need shop approval.</p>
                                 </div>
                             </button>
                         </div>
 
                         {/* Footer */}
-                        <div className="flex items-center justify-end gap-3 border-t border-[#2a2a2e] px-6 py-4">
-                            <button
-                                onClick={() => setModalStep('confirm')}
-                                className="rounded-lg border border-[#2a2a2e] px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-[#2a2a2e]"
-                            >
-                                Back
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (secureOption === 'reservation') setModalStep('payment');
-                                    else setModalStep('verify-phone');
-                                }}
-                                className="rounded-lg bg-[#d4af37] px-5 py-2 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90"
-                            >
-                                Continue
-                            </button>
+                        <div className="flex flex-col gap-3 border-t border-[#2a2a2e] px-6 py-4">
+                            {bookingError && (
+                                <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">{bookingError}</p>
+                            )}
+                            <div className="flex items-center justify-end gap-3">
+                                <button
+                                    onClick={() => {
+                                        setModalStep('confirm');
+                                        setBookingError(null);
+                                    }}
+                                    disabled={isSubmitting}
+                                    className="rounded-lg border border-[#2a2a2e] px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-[#2a2a2e] disabled:opacity-50"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (secureOption === 'reservation') setModalStep('payment');
+                                        else submitBookingWithPayment('cash');
+                                    }}
+                                    disabled={isSubmitting}
+                                    className="flex items-center gap-2 rounded-lg bg-[#d4af37] px-5 py-2 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                    Continue
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1210,7 +1221,7 @@ export default function CustomerServices() {
                                     Back
                                 </button>
                                 <button
-                                    onClick={submitBookingWithPayment}
+                                    onClick={() => submitBookingWithPayment()}
                                     disabled={isSubmitting}
                                     className="flex items-center gap-2 rounded-lg bg-[#d4af37] px-5 py-2 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -1385,7 +1396,7 @@ export default function CustomerServices() {
                         {/* Body */}
                         <div className="flex flex-col items-center gap-5 px-6 py-6">
                             <p className="text-center text-sm text-muted-foreground">
-                                We sent a 6-digit code to <span className="font-medium text-foreground">+63 9{phone.slice(0, 2)}X XXX XXXX</span>
+                                We sent a 6-digit verification code to your email address. Please check your inbox.
                             </p>
 
                             {/* 6-box OTP input */}
@@ -1409,7 +1420,7 @@ export default function CustomerServices() {
 
                             {/* Verify button */}
                             <button
-                                onClick={submitBooking}
+                                onClick={verifyOtpForBooking}
                                 disabled={otp.some((d) => d === '') || isSubmitting}
                                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_12px_rgba(212,175,55,0.3)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                             >
@@ -1503,33 +1514,55 @@ export default function CustomerServices() {
                                 </div>
                             </div>
 
-                            {/* Reservation fee deduction info */}
+                            {/* Payment info */}
                             <div className="rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-4 py-3">
-                                <div className="flex flex-col gap-1 text-xs">
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Service Total</span>
-                                        <span className="font-medium">
-                                            ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                        </span>
+                                {isCashBooking ? (
+                                    <div className="flex flex-col gap-1 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Service Total</span>
+                                            <span className="font-medium">
+                                                ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="my-0.5 h-px bg-[#2a2a2e]" />
+                                        <div className="flex justify-between font-semibold">
+                                            <span>Amount Due</span>
+                                            <span className="text-[#d4af37]">
+                                                ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between text-[#d4af37]">
-                                        <span>Reservation Fee (paid)</span>
-                                        <span className="font-medium">−₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                ) : (
+                                    <div className="flex flex-col gap-1 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Service Total</span>
+                                            <span className="font-medium">
+                                                ₱{selectedService.price_fixed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-[#d4af37]">
+                                            <span>Reservation Fee (paid)</span>
+                                            <span className="font-medium">
+                                                −₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="my-0.5 h-px bg-[#2a2a2e]" />
+                                        <div className="flex justify-between font-semibold">
+                                            <span>Remaining Balance</span>
+                                            <span className="text-[#d4af37]">
+                                                ₱
+                                                {Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', {
+                                                    minimumFractionDigits: 2,
+                                                })}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="my-0.5 h-px bg-[#2a2a2e]" />
-                                    <div className="flex justify-between font-semibold">
-                                        <span>Remaining Balance</span>
-                                        <span className="text-[#d4af37]">
-                                            ₱
-                                            {Math.max(0, selectedService.price_fixed - RESERVATION_FEE).toLocaleString('en-PH', {
-                                                minimumFractionDigits: 2,
-                                            })}
-                                        </span>
-                                    </div>
-                                </div>
-                                <p className="mt-1.5 text-[10px] text-muted-foreground">
-                                    Remaining balance will appear in your Billing &amp; Payment page.
-                                </p>
+                                )}
+                                {!isCashBooking && (
+                                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                                        Remaining balance will appear in your Billing &amp; Payment page.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Notice */}

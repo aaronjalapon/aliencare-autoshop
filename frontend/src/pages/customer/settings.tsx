@@ -57,7 +57,6 @@ export default function CustomerSettings() {
     // Customer vehicles
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
-
     const loadData = useCallback(async () => {
         setLoading(true);
         setLoadError(null);

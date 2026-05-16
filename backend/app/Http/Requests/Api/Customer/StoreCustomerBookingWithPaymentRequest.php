@@ -11,7 +11,7 @@ class StoreCustomerBookingWithPaymentRequest extends StoreCustomerBookingRequest
     public function rules(): array
     {
         return array_merge(parent::rules(), [
-            'payment_method' => ['required', 'string', Rule::in(['gcash', 'maya', 'card', 'bank'])],
+            'payment_method' => ['required', 'string', Rule::in(['xendit', 'cash'])],
         ]);
     }
 

@@ -34,8 +34,6 @@ class InventoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeManageInventory();
-
         $filters = [
             'category' => $request->input('category'),
             'low_stock' => $request->boolean('low_stock'),
@@ -102,8 +100,6 @@ class InventoryController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $this->authorizeManageInventory();
-
         try {
             $inventory = $this->inventoryRepository->findByIdOrFail($id);
 

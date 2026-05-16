@@ -156,6 +156,7 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
         $customer = $this->model->findOrFail($customerId);
         $customer->update([
             'is_active' => $isActive,
+            'account_status' => $isActive ? AccountStatus::Approved->value : AccountStatus::Deleted->value,
         ]);
 
         return $customer->fresh();

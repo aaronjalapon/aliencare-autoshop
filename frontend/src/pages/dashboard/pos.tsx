@@ -947,8 +947,29 @@ export default function PointOfSale() {
                                 </div>
 
                                 {checkoutError && (
-                                    <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                                        {checkoutError}
+                                    <div className="space-y-2 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2">
+                                        <div className="flex items-start gap-2">
+                                            <span className="mt-0.5 shrink-0 text-xs text-red-400">⚠</span>
+                                            <p className="flex-1 text-xs text-red-300">{checkoutError}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setCheckoutError(null);
+                                                    checkout();
+                                                }}
+                                                disabled={isCheckingOut}
+                                                className="flex-1 rounded-md bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/30 disabled:opacity-50"
+                                            >
+                                                {isCheckingOut ? 'Retrying…' : 'Retry'}
+                                            </button>
+                                            <button
+                                                onClick={() => setCheckoutError(null)}
+                                                className="rounded-md border border-[#2a2a2e] px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-[#1a1a1e]"
+                                            >
+                                                Dismiss
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 

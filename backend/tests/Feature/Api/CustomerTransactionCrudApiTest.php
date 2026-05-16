@@ -93,7 +93,7 @@ class CustomerTransactionCrudApiTest extends TestCase
         $payload = [
             'type' => 'payment',
             'amount' => 1000,
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
             'reference_number' => 'PMT-2026-2001',
             'notes' => 'Updated by frontdesk',
         ];
@@ -104,7 +104,7 @@ class CustomerTransactionCrudApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.type', 'payment')
-            ->assertJsonPath('data.payment_method', 'gcash')
+            ->assertJsonPath('data.payment_method', 'xendit')
             ->assertJsonPath('data.reference_number', 'PMT-2026-2001')
             ->assertJsonPath('data.notes', 'Updated by frontdesk');
 
@@ -112,7 +112,7 @@ class CustomerTransactionCrudApiTest extends TestCase
             'id' => $transaction->id,
             'type' => 'payment',
             'amount' => 1000,
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
             'reference_number' => 'PMT-2026-2001',
             'notes' => 'Updated by frontdesk',
         ]);
