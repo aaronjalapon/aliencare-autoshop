@@ -10,6 +10,7 @@ use App\Contracts\Repositories\ReservationRepositoryInterface;
 use App\Contracts\Repositories\StockTransactionRepositoryInterface;
 use App\Contracts\Services\ReportServiceInterface;
 use App\Enums\JobOrderStatus;
+use App\Models\CustomerTransaction;
 use App\Models\JobOrder;
 use App\Models\Report;
 use App\Models\StockTransaction;
@@ -190,6 +191,57 @@ class ReportService implements ReportServiceInterface
             'report_type' => 'reconciliation',
             'generated_date' => now(),
             'report_date' => $endDate->toDateString(),
+            'data_summary' => $summary,
+            'generated_by' => $generatedBy,
+        ]);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function generateDailyFinancialReport(Carbon $date, string $generatedBy = 'System'): Report
+    {
+        $startOfDay = $date->copy()->startOfDay();
+        $endOfDay = $date->copy()->endOfDay();
+
+        $transactions = CustomerTransaction::query()
+            ->whereBetween('created_at', [$startOfDay, $endOfDay])
+            ->get();
+
+        $paidTransactions = $transactions->filter(fn ($t) => $t->xendit_status === 'PAID');
+        $pendingTransactions = $transactions->filter(fn ($t) => $t->xendit_status !== 'PAID');
+
+        $totalRevenue = $paidTransactions->sum('amount');
+        $pendingAmount = $pendingTransactions->sum('amount');
+        $totalTransactions = $transactions->count();
+
+        $byPaymentMethod = $transactions
+            ->groupBy('payment_method')
+            ->map(fn ($group) => [
+                'count' => $group->count(),
+                'total' => $group->sum('amount'),
+            ]);
+
+        $byType = $transactions
+            ->groupBy('type')
+            ->map(fn ($group) => [
+                'count' => $group->count(),
+                'total' => $group->sum('amount'),
+            ]);
+
+        $summary = [
+            'date' => $date->toDateString(),
+            'total_revenue' => $totalRevenue,
+            'pending_amount' => $pendingAmount,
+            'total_transactions' => $totalTransactions,
+            'by_payment_method' => $byPaymentMethod,
+            'by_type' => $byType,
+        ];
+
+        return $this->reportRepository->create([
+            'report_type' => 'daily_financial',
+            'generated_date' => now(),
+            'report_date' => $date->toDateString(),
             'data_summary' => $summary,
             'generated_by' => $generatedBy,
         ]);

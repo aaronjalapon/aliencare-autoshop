@@ -84,7 +84,7 @@ class InventoryApiTest extends TestCase
 
         $this->actingAs($this->customerUser)
             ->getJson('/api/v1/inventory')
-            ->assertStatus(403);
+            ->assertStatus(200);
 
         $this->actingAs($this->customerUser)
             ->postJson('/api/v1/inventory', [

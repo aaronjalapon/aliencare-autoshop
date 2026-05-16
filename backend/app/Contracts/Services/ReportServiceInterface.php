@@ -65,6 +65,14 @@ interface ReportServiceInterface
     public function generateReconciliationReport(Carbon $startDate, Carbon $endDate, string $generatedBy = 'System'): Report;
 
     /**
+     * Generate daily financial report.
+     *
+     * @param  Carbon  $date  Date to generate report for
+     * @param  string  $generatedBy  Identity of who generated the report
+     */
+    public function generateDailyFinancialReport(Carbon $date, string $generatedBy = 'System'): Report;
+
+    /**
      * Get dashboard analytics.
      *
      * @return array{

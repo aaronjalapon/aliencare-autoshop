@@ -74,7 +74,7 @@ class CustomerDashboardApiTest extends TestCase
             'type' => 'invoice',
             'amount' => 2100,
             'notes' => 'Engine tune up invoice',
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
             'paid_at' => now()->subDay(),
         ]);
 
@@ -92,7 +92,7 @@ class CustomerDashboardApiTest extends TestCase
             'type' => 'invoice',
             'amount' => 1800,
             'notes' => 'Engine timing check',
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
             'paid_at' => now()->subDays(20),
         ]);
 
@@ -105,7 +105,7 @@ class CustomerDashboardApiTest extends TestCase
             ->update(['created_at' => now()->subDay()]);
 
         $response = $this->actingAs($this->customerUser)
-            ->getJson('/api/v1/customer/transactions?search=engine&payment_method=gcash&from_date='.
+            ->getJson('/api/v1/customer/transactions?search=engine&payment_method=xendit&from_date='.
                 now()->subDays(2)->toDateString().'&to_date='.now()->toDateString().'&per_page=100');
 
         $response->assertStatus(200)

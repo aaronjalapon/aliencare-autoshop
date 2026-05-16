@@ -23,7 +23,6 @@ import Billing from '@/pages/dashboard/billing';
 import Customers from '@/pages/dashboard/customers';
 import Dashboard from '@/pages/dashboard/dashboard';
 import Inventory from '@/pages/dashboard/Inventory';
-import InvoiceDrafts from '@/pages/dashboard/invoice-drafts';
 import JobOrders from '@/pages/dashboard/job-orders';
 import PointOfSale from '@/pages/dashboard/pos';
 import FrontdeskProfile from '@/pages/dashboard/profile';
@@ -60,6 +59,7 @@ export default function App() {
         <Routes>
             {/* Public routes */}
             <Route path="/" element={<Welcome />} />
+            <Route path="/customer/shop" element={<CustomerShop />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/faqs" element={<FAQs />} />
 
@@ -107,7 +107,7 @@ export default function App() {
                 <Route path="/job-orders" element={<JobOrders />} />
                 <Route path="/pos" element={<PointOfSale />} />
                 <Route path="/billing" element={<Billing />} />
-                <Route path="/invoice-drafts" element={<InvoiceDrafts />} />
+
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/notifications" element={<FrontdeskNotifications />} />
@@ -157,7 +157,6 @@ export default function App() {
                 <Route path="/customer/services" element={<CustomerServices />} />
                 <Route path="/customer/my-services" element={<MyServices />} />
                 <Route path="/customer/reservations" element={<CustomerReservations />} />
-                <Route path="/customer/shop" element={<CustomerShop />} />
                 <Route path="/customer/billing" element={<BillingPayment />} />
                 <Route path="/customer/profile" element={<CustomerProfile />} />
                 <Route path="/customer/logs" element={<CustomerLogs />} />

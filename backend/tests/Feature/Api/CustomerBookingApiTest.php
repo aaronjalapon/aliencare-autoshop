@@ -306,7 +306,7 @@ class CustomerBookingApiTest extends TestCase
             'service_id' => $this->service->id,
             'arrival_date' => $date,
             'arrival_time' => '10:00',
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
         ];
 
         $response = $this->actingAs($this->user)
@@ -317,7 +317,7 @@ class CustomerBookingApiTest extends TestCase
             ->assertJsonPath('data.job_order.status', 'pending_approval')
             ->assertJsonPath('data.job_order.source', 'Online Booking')
             ->assertJsonPath('data.payment_url', 'https://checkout.xendit.co/inv-test-booking-fee')
-            ->assertJsonPath('data.payment_method', 'gcash');
+            ->assertJsonPath('data.payment_method', 'xendit');
 
         $jobOrder = JobOrder::query()->latest('id')->first();
 
@@ -327,7 +327,7 @@ class CustomerBookingApiTest extends TestCase
             'customer_id' => $this->customer->id,
             'job_order_id' => $jobOrder?->id,
             'type' => 'invoice',
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
             'payment_url' => 'https://checkout.xendit.co/inv-test-booking-fee',
             'xendit_status' => 'PENDING',
         ]);
@@ -344,7 +344,7 @@ class CustomerBookingApiTest extends TestCase
             'service_id' => $this->service->id,
             'arrival_date' => now()->addDay()->toDateString(),
             'arrival_time' => '10:00',
-            'payment_method' => 'cash',
+            'payment_method' => 'gcash',
         ];
 
         $this->actingAs($this->user)
@@ -372,7 +372,7 @@ class CustomerBookingApiTest extends TestCase
             'service_id' => $this->service->id,
             'arrival_date' => now()->addDay()->toDateString(),
             'arrival_time' => '10:00',
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
         ];
 
         $this->actingAs($this->user)

@@ -812,7 +812,7 @@ class CustomerController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $customer->jobOrders()->with(['vehicle', 'mechanic.user', 'bay'])->orderBy('created_at', 'desc')->get(),
+                'data' => JobOrderResource::collection($customer->jobOrders()->with(['vehicle', 'mechanic.user', 'bay'])->orderBy('created_at', 'desc')->get()),
             ]);
         } catch (\Exception $e) {
             return response()->json([

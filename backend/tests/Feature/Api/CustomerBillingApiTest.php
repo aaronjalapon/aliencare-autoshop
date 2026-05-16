@@ -97,7 +97,7 @@ class CustomerBillingApiTest extends TestCase
             'type' => 'invoice',
             'amount' => 2000,
             'xendit_status' => 'PAID',
-            'payment_method' => 'gcash',
+            'payment_method' => 'xendit',
             'paid_at' => now(),
             'notes' => 'Paid invoice',
         ]);

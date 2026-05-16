@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Contracts\Services\ReportServiceInterface;
 use App\Exceptions\ReportGenerationException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\Report\GenerateDailyFinancialReportRequest;
 use App\Http\Requests\Api\Report\GenerateDailyReportRequest;
 use App\Http\Requests\Api\Report\GenerateMonthlyReportRequest;
 use App\Http\Requests\Api\Report\GenerateReconciliationReportRequest;
@@ -125,6 +126,39 @@ class ReportController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to generate reconciliation report: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate daily financial report.
+     */
+    public function generateDailyFinancialReport(GenerateDailyFinancialReportRequest $request): JsonResponse
+    {
+        Gate::authorize('generate-reports');
+
+        try {
+            $date = Carbon::parse($request->input('date', now()->format('Y-m-d')));
+
+            $report = $this->reportService->generateDailyFinancialReport(
+                $date,
+                Auth::check() ? Auth::user()->name : 'System'
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => new ReportResource($report),
+                'message' => 'Daily financial report generated successfully',
+            ]);
+        } catch (ReportGenerationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate daily financial report: '.$e->getMessage(),
             ], 500);
         }
     }

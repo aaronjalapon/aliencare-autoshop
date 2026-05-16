@@ -175,6 +175,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::post('/daily-usage', [ReportController::class, 'generateDailyUsageReport'])->name('generate.daily');
         Route::post('/monthly-procurement', [ReportController::class, 'generateMonthlyProcurementReport'])->name('generate.monthly');
         Route::post('/reconciliation', [ReportController::class, 'generateReconciliationReport'])->name('generate.reconciliation');
+        Route::post('/daily-financial', [ReportController::class, 'generateDailyFinancialReport'])->name('generate.daily-financial');
         Route::get('/analytics/dashboard', [ReportController::class, 'getDashboardAnalytics'])->name('analytics.dashboard');
         Route::get('/analytics/usage', [ReportController::class, 'getUsageAnalytics'])->name('analytics.usage');
         Route::get('/analytics/procurement', [ReportController::class, 'getProcurementAnalytics'])->name('analytics.procurement');
@@ -347,6 +348,7 @@ Route::prefix('v1')->name('api.v1.')->middleware(['auth:sanctum', 'throttle:api'
         Route::get('/job-orders/{id}/receipt-url', [CustomerController::class, 'myJobOrderReceiptUrl'])->name('job-orders.receipt-url');
         Route::post('/book', [CustomerBookingController::class, 'store'])->name('book');
         Route::post('/book-with-payment', [CustomerBookingController::class, 'storeWithPayment'])->name('book-with-payment');
+        Route::post('/verify-booking-otp', [CustomerBookingController::class, 'verifyBookingOtp'])->name('verify-booking-otp');
     });
 });
 

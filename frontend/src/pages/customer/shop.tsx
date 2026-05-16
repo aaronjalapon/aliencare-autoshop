@@ -19,7 +19,9 @@ import {
     Wind,
     X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { getGuestCart, setGuestCart, clearGuestCart, getUserCart, setUserCart } from '@/utils/cartUtils';
 import { useNavigate } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -52,7 +54,7 @@ const PRODUCT_IMAGES: Record<number, string> = {
 };
 
 // Map InventoryItem → Product display shape
-interface Product {
+export interface Product {
     id: number;
     name: string;
     description: string;
@@ -61,7 +63,7 @@ interface Product {
     inStock: boolean;
 }
 
-interface CartItem {
+export interface CartItem {
     product: Product;
     quantity: number;
 }
@@ -84,6 +86,7 @@ export default function Shop() {
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState<string>('All');
     const [cart, setCart] = useState<CartItem[]>([]);
+    const { user } = useAuth();
     const [shopModal, setShopModal] = useState<ShopModalStep>(null);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -122,6 +125,43 @@ export default function Shop() {
         setCart((prev) => prev.filter((item) => item.product.id !== productId));
     };
 
+    // Load cart from localStorage (user-specific if logged in, otherwise guest)
+    useEffect(() => {
+        try {
+            if (user && user.id) {
+                const existing = getUserCart(user.id);
+                if (existing && existing.length > 0) {
+                    setCart(existing);
+                    return;
+                }
+            }
+
+            const guest = getGuestCart();
+            if (guest && guest.length > 0) {
+                setCart(guest);
+            }
+        } catch {
+            // ignore
+        }
+    }, [user]);
+
+    // Persist cart to localStorage whenever it changes. Use user-specific key when logged in.
+    useEffect(() => {
+        try {
+            if (user && user.id) {
+                setUserCart(user.id, cart);
+                // also clear guest cart to avoid duplicates
+                try {
+                    clearGuestCart();
+                } catch {}
+            } else {
+                setGuestCart(cart);
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }, [cart, user]);
+
     const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -131,10 +171,21 @@ export default function Shop() {
         setCheckoutError(null);
         const notes = 'Shop Order: ' + cart.map((i) => `${i.product.name} x${i.quantity}`).join(', ');
 
+        // Require authentication for checkout
+        if (!user) {
+            setIsCheckingOut(false);
+            setShopModal(null);
+            navigate('/login', { state: { from: '/customer/shop' } });
+            return;
+        }
+
         if (paymentOption === 'cash') {
             try {
                 await paymentService.shopPayAtShop(cartTotal, notes + ' (pay at shop)');
                 setCart([]);
+                try {
+                    clearGuestCart();
+                } catch {}
                 setShopModal(null);
                 navigate('/customer/billing');
             } catch (err) {
@@ -191,7 +242,12 @@ export default function Shop() {
                     {productsError && (
                         <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
                             <AlertCircle className="h-4 w-4 shrink-0" />
-                            {productsError}
+                            {/* Show a clearer message for authentication errors, otherwise display API message */}
+                            {productsError === 'Unauthenticated' || productsError.toLowerCase().includes('unauthor') ? (
+                                'This action is unauthorized.'
+                            ) : (
+                                productsError
+                            )}
                         </div>
                     )}
 
@@ -256,7 +312,7 @@ export default function Shop() {
                                   })}
                         </div>
 
-                        {!productsLoading && filtered.length === 0 && (
+                        {!productsLoading && !productsError && filtered.length === 0 && (
                             <div className="flex items-center justify-center py-12 text-muted-foreground">
                                 <p className="text-sm">No products found matching your criteria.</p>
                             </div>
@@ -279,7 +335,15 @@ export default function Shop() {
                                 )}
                             </h2>
                             {cartCount > 0 && (
-                                <button onClick={() => setCart([])} className="text-xs text-muted-foreground transition-colors hover:text-red-400">
+                                <button
+                                    onClick={() => {
+                                        setCart([]);
+                                        try {
+                                            clearGuestCart();
+                                        } catch {}
+                                    }}
+                                    className="text-xs text-muted-foreground transition-colors hover:text-red-400"
+                                >
                                     Clear all
                                 </button>
                             )}
@@ -367,10 +431,10 @@ export default function Shop() {
                     {cart.length > 0 && (
                         <div className="shrink-0 pt-4">
                             <button
-                                onClick={() => setShopModal('invoice')}
+                                onClick={() => (user ? setShopModal('invoice') : navigate('/login', { state: { from: '/customer/shop' } }))}
                                 className="w-full rounded-lg bg-[#d4af37] py-2.5 text-sm font-bold text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)] transition-opacity hover:opacity-90"
                             >
-                                Proceed to Checkout
+                                {user ? 'Proceed to Checkout' : 'Login to Checkout'}
                             </button>
                         </div>
                     )}
