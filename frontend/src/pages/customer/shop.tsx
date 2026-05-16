@@ -1,8 +1,10 @@
 import CustomerLayout from '@/components/layout/customer-layout';
+import { useAuth } from '@/context/AuthContext';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { paymentService } from '@/services/paymentService';
 import { type BreadcrumbItem } from '@/types';
 import { InventoryItem } from '@/types/inventory';
+import { clearGuestCart, getGuestCart, getUserCart, setGuestCart, setUserCart } from '@/utils/cartUtils';
 import {
     AlertCircle,
     ArrowRight,
@@ -20,8 +22,6 @@ import {
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { getGuestCart, setGuestCart, clearGuestCart, getUserCart, setUserCart } from '@/utils/cartUtils';
 import { useNavigate } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -153,7 +153,7 @@ export default function Shop() {
                 // also clear guest cart to avoid duplicates
                 try {
                     clearGuestCart();
-                } catch {}
+                } catch { /* noop */ }
             } else {
                 setGuestCart(cart);
             }
@@ -185,7 +185,7 @@ export default function Shop() {
                 setCart([]);
                 try {
                     clearGuestCart();
-                } catch {}
+                } catch { /* noop */ }
                 setShopModal(null);
                 navigate('/customer/billing');
             } catch (err) {
@@ -243,11 +243,9 @@ export default function Shop() {
                         <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
                             <AlertCircle className="h-4 w-4 shrink-0" />
                             {/* Show a clearer message for authentication errors, otherwise display API message */}
-                            {productsError === 'Unauthenticated' || productsError.toLowerCase().includes('unauthor') ? (
-                                'This action is unauthorized.'
-                            ) : (
-                                productsError
-                            )}
+                            {productsError === 'Unauthenticated' || productsError.toLowerCase().includes('unauthor')
+                                ? 'This action is unauthorized.'
+                                : productsError}
                         </div>
                     )}
 
@@ -340,7 +338,7 @@ export default function Shop() {
                                         setCart([]);
                                         try {
                                             clearGuestCart();
-                                        } catch {}
+                                        } catch { /* noop */ }
                                     }}
                                     className="text-xs text-muted-foreground transition-colors hover:text-red-400"
                                 >

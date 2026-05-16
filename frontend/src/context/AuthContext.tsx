@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.user && response.user.id) {
                 migrateGuestCartToUser(response.user.id);
             }
-        } catch {}
+        } catch { /* noop */ }
     };
 
     const logout = async () => {

@@ -2,8 +2,8 @@ import CustomerLayout from '@/components/layout/customer-layout';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { useServiceCatalog } from '@/hooks/useServiceCatalog';
 import { ApiError } from '@/services/api';
-import { customerService } from '@/services/customerService';
 import type { BookingPayMethod } from '@/services/customerService';
+import { customerService } from '@/services/customerService';
 import { BookingTimeSlot, JobOrder, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { AlertTriangle, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Loader2, Star, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -395,42 +395,6 @@ export default function CustomerServices() {
     }, [ensureOnboardingForBooking, selectedId]);
 
     const fmtCountdown = `00:${String(otpCountdown).padStart(2, '0')}`;
-
-    async function submitBooking() {
-        if (!selectedService || !selectedVehicle || !slot) return;
-
-        if (slot.status === 'full' || slot.slots_left <= 0) {
-            setBookingError('Selected arrival slot is full. Please choose another time.');
-            return;
-        }
-
-        setIsSubmitting(true);
-        setBookingError(null);
-
-        const arrivalTime = slot.time;
-        const arrivalDate = arrivalDateYmd;
-
-        try {
-            const response = await customerService.createBooking({
-                vehicle_id: selectedVehicle.id,
-                service_id: selectedService.id,
-                arrival_date: arrivalDate,
-                arrival_time: arrivalTime,
-            });
-            setConfirmedJO(response.data);
-            setModalStep('reserved');
-        } catch (err) {
-            const isSlotConflict = err instanceof ApiError && (err.status === 409 || err.status === 422);
-            if (isSlotConflict) {
-                await fetchAvailability();
-            }
-
-            const msg = err instanceof Error ? err.message : 'Booking failed. Please try again.';
-            setBookingError(isSlotConflict ? `${msg} Availability has been refreshed.` : msg);
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
 
     async function submitBookingWithPayment(paymentMethod?: BookingPayMethod) {
         if (!selectedService || !selectedVehicle || !slot) return;
@@ -1091,7 +1055,10 @@ export default function CustomerServices() {
 
                             {/* Option 1 */}
                             <button
-                                onClick={() => { setSecureOption('reservation'); setBookingError(null); }}
+                                onClick={() => {
+                                    setSecureOption('reservation');
+                                    setBookingError(null);
+                                }}
                                 className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-colors ${
                                     secureOption === 'reservation' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
                                 }`}
@@ -1112,7 +1079,10 @@ export default function CustomerServices() {
 
                             {/* Option 2 */}
                             <button
-                                onClick={() => { setSecureOption('no-payment'); setBookingError(null); }}
+                                onClick={() => {
+                                    setSecureOption('no-payment');
+                                    setBookingError(null);
+                                }}
                                 className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-colors ${
                                     secureOption === 'no-payment' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-[#2a2a2e] hover:border-[#d4af37]/40'
                                 }`}
@@ -1127,7 +1097,9 @@ export default function CustomerServices() {
                                 </div>
                                 <div className="flex flex-col gap-0.5">
                                     <p className="text-sm font-semibold">Reserve Without Online Payment</p>
-                                    <p className="text-xs text-muted-foreground">Email verification is required. A code will be sent to your email.</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Email verification is required. A code will be sent to your email.
+                                    </p>
                                     <p className="text-xs text-muted-foreground">Your booking will still need shop approval.</p>
                                 </div>
                             </button>
@@ -1140,7 +1112,10 @@ export default function CustomerServices() {
                             )}
                             <div className="flex items-center justify-end gap-3">
                                 <button
-                                    onClick={() => { setModalStep('confirm'); setBookingError(null); }}
+                                    onClick={() => {
+                                        setModalStep('confirm');
+                                        setBookingError(null);
+                                    }}
                                     disabled={isSubmitting}
                                     className="rounded-lg border border-[#2a2a2e] px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-[#2a2a2e] disabled:opacity-50"
                                 >
@@ -1156,7 +1131,7 @@ export default function CustomerServices() {
                                 >
                                     {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                     Continue
-                            </button>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1567,7 +1542,9 @@ export default function CustomerServices() {
                                         </div>
                                         <div className="flex justify-between text-[#d4af37]">
                                             <span>Reservation Fee (paid)</span>
-                                            <span className="font-medium">−₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                                            <span className="font-medium">
+                                                −₱{RESERVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                            </span>
                                         </div>
                                         <div className="my-0.5 h-px bg-[#2a2a2e]" />
                                         <div className="flex justify-between font-semibold">

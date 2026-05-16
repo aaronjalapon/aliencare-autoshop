@@ -26,7 +26,7 @@ return new class extends Migration
             $table->index(['generated_date']);
         });
 
-        DB::statement("INSERT INTO reports_new SELECT * FROM reports");
+        DB::statement('INSERT INTO reports_new SELECT * FROM reports');
 
         Schema::drop('reports');
 
