@@ -92,6 +92,17 @@ export default function App() {
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
             </Route>
 
+            {/* Routes available to any authenticated user (no role restriction, no verification required) */}
+            <Route
+                element={
+                    <ProtectedRoute requireVerified={false}>
+                        <Outlet />
+                    </ProtectedRoute>
+                }
+            >
+                <Route path="/verify-email" element={<VerifyEmail />} />
+            </Route>
+
             {/* Front Desk protected routes */}
             <Route
                 element={
@@ -112,7 +123,6 @@ export default function App() {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/notifications" element={<FrontdeskNotifications />} />
                 <Route path="/confirm-password" element={<ConfirmPassword />} />
-                <Route path="/verify-email" element={<VerifyEmail />} />
 
                 {/* Settings */}
                 <Route path="/settings" element={<FrontdeskSettings />} />
@@ -137,6 +147,18 @@ export default function App() {
                 <Route path="/admin/notifications" element={<AdminNotifications />} />
             </Route>
 
+            {/* Customer onboarding — accessible before email verification */}
+            <Route
+                path="/customer/onboarding"
+                element={
+                    <ProtectedRoute allowedRoles={['customer']} requireVerified={false}>
+                        <CustomerOnboardingOnlyRoute>
+                            <CustomerOnboarding />
+                        </CustomerOnboardingOnlyRoute>
+                    </ProtectedRoute>
+                }
+            />
+
             {/* Customer protected routes */}
             <Route
                 element={
@@ -145,14 +167,6 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-                <Route
-                    path="/customer/onboarding"
-                    element={
-                        <CustomerOnboardingOnlyRoute>
-                            <CustomerOnboarding />
-                        </CustomerOnboardingOnlyRoute>
-                    }
-                />
                 <Route path="/customer" element={<CustomerDashboard />} />
                 <Route path="/customer/services" element={<CustomerServices />} />
                 <Route path="/customer/my-services" element={<MyServices />} />

@@ -75,9 +75,6 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
         Route::get('/verify-email', EmailVerificationPromptController::class)->name('verification.notice');
-        Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
-            ->middleware(['signed', 'throttle:6,1'])
-            ->name('verification.verify');
         Route::post('/email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
             ->middleware('throttle:6,1')
             ->name('verification.send');
@@ -85,6 +82,12 @@ Route::prefix('auth')->group(function () {
             ->middleware('throttle:6,1')
             ->name('password.confirm');
     });
+
+    // Email verification — must be outside auth:sanctum since the signed URL
+    // authenticates the user via the route parameters, not a session.
+    Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('verification.verify');
 });
 
 /*
