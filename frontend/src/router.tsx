@@ -23,7 +23,7 @@ function FullScreenLoading() {
     );
 }
 
-export function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles?: UserRole[] }) {
+export function ProtectedRoute({ children, allowedRoles, requireVerified = true }: { children: ReactNode; allowedRoles?: UserRole[]; requireVerified?: boolean }) {
     const { user, loading } = useAuth();
 
     if (loading) {
@@ -32,6 +32,10 @@ export function ProtectedRoute({ children, allowedRoles }: { children: ReactNode
 
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (requireVerified && !user.email_verified_at) {
+        return <Navigate to="/verify-email" replace />;
     }
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -49,6 +53,9 @@ export function GuestRoute({ children }: { children: ReactNode }) {
     }
 
     if (user) {
+        if (!user.email_verified_at) {
+            return <Navigate to="/verify-email" replace />;
+        }
         return <Navigate to={getRoleHome(user.role)} replace />;
     }
 
