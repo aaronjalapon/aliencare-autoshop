@@ -31,6 +31,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshUser().finally(() => setLoading(false));
     }, [refreshUser]);
 
+    useEffect(() => {
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === 'aliencare.emailVerifiedAt') {
+                refreshUser();
+                return;
+            }
+
+            if (event.key === 'aliencare.verificationComplete') {
+                authService
+                    .logout()
+                    .catch(() => undefined)
+                    .finally(() => {
+                        setUser(null);
+                        window.location.assign('/login?verified=1');
+                    });
+            }
+        };
+
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, [refreshUser]);
+
     const login = async (email: string, password: string, remember?: boolean) => {
         const response = await authService.login({ email, password, remember });
         setUser(response.user);

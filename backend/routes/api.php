@@ -83,11 +83,6 @@ Route::prefix('auth')->group(function () {
             ->name('password.confirm');
     });
 
-    // Email verification — must be outside auth:sanctum since the signed URL
-    // authenticates the user via the route parameters, not a session.
-    Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
-        ->name('verification.verify');
 });
 
 /*

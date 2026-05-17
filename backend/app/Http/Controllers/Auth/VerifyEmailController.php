@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\EmailVerificationRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 
 class VerifyEmailController extends Controller
 {
@@ -17,12 +18,18 @@ class VerifyEmailController extends Controller
             $request->fulfill();
         }
 
+        Auth::login($request->user());
+        $request->session()->regenerate();
+
         $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
 
-        $path = $request->user()->role === UserRole::Customer
-            ? '/customer?verified=1'
-            : '/dashboard?verified=1';
+        $role = $request->user()->role;
+        $next = match ($role) {
+            UserRole::Admin => '/admin',
+            UserRole::Customer => '/customer',
+            default => '/dashboard',
+        };
 
-        return redirect($frontendUrl . $path);
+        return redirect($frontendUrl . '/verify-complete?next=' . urlencode($next));
     }
 }

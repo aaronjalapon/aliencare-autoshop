@@ -75,6 +75,7 @@ class AuthService {
     }
 
     async sendVerificationEmail(): Promise<{ message: string }> {
+        await api.getCsrfCookie();
         return api.post('/auth/email/verification-notification');
     }
 

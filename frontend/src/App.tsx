@@ -17,6 +17,7 @@ import OAuthCallback from '@/pages/auth/oauth-callback';
 import Register from '@/pages/auth/register';
 import ResetPassword from '@/pages/auth/reset-password';
 import VerifyEmail from '@/pages/auth/verify-email';
+import VerifyComplete from '@/pages/auth/verify-complete';
 
 // Front Desk pages
 import Billing from '@/pages/dashboard/billing';
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="/customer/shop" element={<CustomerShop />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/faqs" element={<FAQs />} />
+            <Route path="/verify-complete" element={<VerifyComplete />} />
 
             {/* Guest-only routes (auth) */}
             <Route
