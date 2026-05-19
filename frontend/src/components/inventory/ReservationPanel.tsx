@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, Loader2, Package, Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useToast } from '../ui/toast';
 import { useInventoryItems } from '../../hooks/useInventory';
 import { useReservations } from '../../hooks/useReservations';
 import { getApiErrorMessage } from '../../lib/api-error-message';
@@ -55,6 +56,8 @@ export function ReservationPanel() {
 
     const inventoryItems = Array.isArray(inventoryData?.data?.data) ? inventoryData.data.data : [];
     const loading = reservationsLoading || inventoryLoading;
+
+    const { success, error: toastError } = useToast();
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -299,11 +302,16 @@ export function ReservationPanel() {
                     type: 'success',
                     message: `Reservation${validItems.length > 1 ? 's' : ''} created successfully.`,
                 });
+                success(`Reservation${validItems.length > 1 ? 's' : ''} created successfully.`);
             } else {
-                setCreateReservationError(result.error || 'Failed to create reservation. Please try again.');
+                const message = result.error || 'Failed to create reservation. Please try again.';
+                setCreateReservationError(message);
+                toastError(message);
             }
         } catch (error) {
-            setCreateReservationError(getApiErrorMessage(error, 'An unexpected error occurred. Please try again.'));
+            const message = getApiErrorMessage(error, 'An unexpected error occurred. Please try again.');
+            setCreateReservationError(message);
+            toastError(message);
         } finally {
             setIsCreatingReservation(false);
         }
@@ -367,11 +375,16 @@ export function ReservationPanel() {
 
             if (result.success) {
                 setActionMessage({ type: 'success', message: 'Reservation approved successfully.' });
+                success('Reservation approved successfully.');
             } else {
-                setActionMessage({ type: 'error', message: result.error || 'Failed to approve reservation.' });
+                const message = result.error || 'Failed to approve reservation.';
+                setActionMessage({ type: 'error', message });
+                toastError(message);
             }
         } catch (error) {
-            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to approve reservation.') });
+            const message = getApiErrorMessage(error, 'Failed to approve reservation.');
+            setActionMessage({ type: 'error', message });
+            toastError(message);
         } finally {
             setActionLoading(null);
         }
@@ -387,11 +400,16 @@ export function ReservationPanel() {
 
             if (result.success) {
                 setActionMessage({ type: 'success', message: 'Reservation rejected successfully.' });
+                success('Reservation rejected successfully.');
             } else {
-                setActionMessage({ type: 'error', message: result.error || 'Failed to reject reservation.' });
+                const message = result.error || 'Failed to reject reservation.';
+                setActionMessage({ type: 'error', message });
+                toastError(message);
             }
         } catch (error) {
-            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to reject reservation.') });
+            const message = getApiErrorMessage(error, 'Failed to reject reservation.');
+            setActionMessage({ type: 'error', message });
+            toastError(message);
         } finally {
             setActionLoading(null);
         }
@@ -405,11 +423,16 @@ export function ReservationPanel() {
 
             if (result.success) {
                 setActionMessage({ type: 'success', message: 'Reservation completed successfully.' });
+                success('Reservation completed successfully.');
             } else {
-                setActionMessage({ type: 'error', message: result.error || 'Failed to complete reservation.' });
+                const message = result.error || 'Failed to complete reservation.';
+                setActionMessage({ type: 'error', message });
+                toastError(message);
             }
         } catch (error) {
-            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to complete reservation.') });
+            const message = getApiErrorMessage(error, 'Failed to complete reservation.');
+            setActionMessage({ type: 'error', message });
+            toastError(message);
         } finally {
             setActionLoading(null);
         }
@@ -425,11 +448,16 @@ export function ReservationPanel() {
 
             if (result.success) {
                 setActionMessage({ type: 'success', message: 'Reservation cancelled successfully.' });
+                success('Reservation cancelled successfully.');
             } else {
-                setActionMessage({ type: 'error', message: result.error || 'Failed to cancel reservation.' });
+                const message = result.error || 'Failed to cancel reservation.';
+                setActionMessage({ type: 'error', message });
+                toastError(message);
             }
         } catch (error) {
-            setActionMessage({ type: 'error', message: getApiErrorMessage(error, 'Failed to cancel reservation.') });
+            const message = getApiErrorMessage(error, 'Failed to cancel reservation.');
+            setActionMessage({ type: 'error', message });
+            toastError(message);
         } finally {
             setActionLoading(null);
         }

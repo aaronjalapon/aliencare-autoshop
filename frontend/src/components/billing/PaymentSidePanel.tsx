@@ -7,6 +7,7 @@ import { paymentService } from '@/services/paymentService';
 import type { BillingQueueItem, CustomerTransaction } from '@/types/customer';
 import { Banknote, Check, Copy, ExternalLink, Loader2, Printer, QrCode, Wallet } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 
 type InPersonMethod = 'cash';
 type OnlineMethod = 'xendit';
@@ -82,6 +83,8 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
         wasOpenRef.current = open;
     }, [open, onPaymentRecorded]);
 
+    const { success, error: toastError } = useToast();
+
     // Reset form when panel opens with new ticket
     const prevTicketKeyRef = useRef<string | null>(null);
     const ticketKey = `${ticket.entity_type}:${ticket.entity_id}`;
@@ -149,8 +152,11 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
                 url: response.data.payment_url,
                 transactionId: response.data.transaction_id,
             });
+            success('Payment link generated.');
         } catch (err) {
-            setError(getErrorMessage(err, 'Failed to generate payment link.'));
+            const message = getErrorMessage(err, 'Failed to generate payment link.');
+            setError(message);
+            toastError(message);
         } finally {
             setIsGeneratingLink(false);
         }
@@ -232,10 +238,13 @@ export default function PaymentSidePanel({ open, onOpenChange, ticket, transacti
             });
 
             setPaymentSuccess({ transactionId: (response.data.transaction as Record<string, unknown>)?.id as number });
+            success('Payment recorded.');
             // Queue refresh deferred to resetAndClose so the user
             // has time to print the receipt before the ticket list updates.
         } catch (err) {
-            setError(getErrorMessage(err, 'Failed to record payment.'));
+            const message = getErrorMessage(err, 'Failed to record payment.');
+            setError(message);
+            toastError(message);
         } finally {
             setIsSaving(false);
         }

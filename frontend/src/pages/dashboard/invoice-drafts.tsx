@@ -5,6 +5,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CustomerTransaction } from '@/types/customer';
 import { FileText, Loader2, Send, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Invoice Drafts', href: '/invoice-drafts' }];
 
@@ -33,13 +34,17 @@ export default function InvoiceDrafts() {
         loadDrafts();
     }, [loadDrafts]);
 
+    const { success, error: toastError } = useToast();
+
     const handleIssue = async (id: number) => {
         try {
             setIssuingId(id);
             await invoiceService.issueInvoice(id);
             setDrafts((prev) => prev.filter((d) => d.id !== id));
+            success('Invoice issued.');
         } catch {
-            // silently fail
+            const message = 'Failed to issue invoice draft.';
+            toastError(message);
         } finally {
             setIssuingId(null);
         }
@@ -51,8 +56,10 @@ export default function InvoiceDrafts() {
             setVoidingId(id);
             await invoiceService.voidInvoice(id);
             setDrafts((prev) => prev.filter((d) => d.id !== id));
+            success('Invoice draft voided.');
         } catch {
-            // silently fail
+            const message = 'Failed to void invoice draft.';
+            toastError(message);
         } finally {
             setVoidingId(null);
         }

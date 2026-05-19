@@ -16,7 +16,7 @@ import {
     TrendingUp,
     Wrench,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/customer' },
@@ -24,12 +24,19 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type LogType = 'all' | 'invoice' | 'payment' | 'refund';
+type PurchaseFilter = 'all' | 'service' | 'item';
 
 const TYPE_FILTERS: { key: LogType; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'invoice', label: 'Invoices' },
     { key: 'payment', label: 'Payments' },
     { key: 'refund', label: 'Refunds' },
+];
+
+const PURCHASE_FILTERS: { key: PurchaseFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'service', label: 'Services' },
+    { key: 'item', label: 'Items' },
 ];
 
 const TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -58,9 +65,14 @@ const isPaidOutTransaction = (t: CustomerTransaction): boolean => {
     return (t.type === 'invoice' || t.type === 'reservation_fee') && t.xendit_status === 'PAID';
 };
 
+const isServiceTransaction = (t: CustomerTransaction): boolean => {
+    return t.job_order_id !== null && t.job_order_id !== undefined;
+};
+
 export default function CustomerLogs() {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<LogType>('all');
+    const [purchaseFilter, setPurchaseFilter] = useState<PurchaseFilter>('all');
     const [paidSummary, setPaidSummary] = useState<{ totalPaid: number; paidCount: number } | null>(null);
 
     const { logs, loading, error, filters, pagination, updateFilters, setPage } = useCustomerLogs({ per_page: 20 });
@@ -126,12 +138,20 @@ export default function CustomerLogs() {
         });
     }, [filter, filters.payment_state, filters.type, updateFilters]);
 
-    const totalPaidOut = logs.filter((l) => isPaidOutTransaction(l)).reduce((s, l) => s + Math.abs(Number(l.amount)), 0);
-    const totalInvoices = logs.filter((l) => l.type === 'invoice').length;
-    const completedPayments = logs.filter((l) => isPaidOutTransaction(l)).length;
-    const pendingInvoices = logs.filter((l) => l.type === 'invoice' && l.xendit_status !== 'PAID').length;
-    const displayedTotalPaidOut = paidSummary?.totalPaid ?? totalPaidOut;
-    const displayedPaidCount = paidSummary?.paidCount ?? completedPayments;
+    const filteredLogs = useMemo(() => {
+        if (purchaseFilter === 'all') {
+            return logs;
+        }
+
+        return logs.filter((log) => (purchaseFilter === 'service' ? isServiceTransaction(log) : !isServiceTransaction(log)));
+    }, [logs, purchaseFilter]);
+
+    const totalPaidOut = filteredLogs.filter((l) => isPaidOutTransaction(l)).reduce((s, l) => s + Math.abs(Number(l.amount)), 0);
+    const totalInvoices = filteredLogs.filter((l) => l.type === 'invoice').length;
+    const completedPayments = filteredLogs.filter((l) => isPaidOutTransaction(l)).length;
+    const pendingInvoices = filteredLogs.filter((l) => l.type === 'invoice' && l.xendit_status !== 'PAID').length;
+    const displayedTotalPaidOut = purchaseFilter === 'all' ? paidSummary?.totalPaid ?? totalPaidOut : totalPaidOut;
+    const displayedPaidCount = purchaseFilter === 'all' ? paidSummary?.paidCount ?? completedPayments : completedPayments;
 
     return (
         <CustomerLayout breadcrumbs={breadcrumbs}>
@@ -150,7 +170,7 @@ export default function CustomerLogs() {
                             <TrendingUp className="h-4 w-4 text-[#d4af37]" />
                         </div>
                         <p className="mt-2 text-2xl font-bold">{loading ? '—' : pagination.total}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">Showing {logs.length} on this page</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Showing {filteredLogs.length} on this page</p>
                     </div>
                     <div className="profile-card rounded-xl p-4">
                         <div className="flex items-center justify-between">
@@ -186,20 +206,37 @@ export default function CustomerLogs() {
                             className="flex h-10 w-full rounded-lg border border-[#2a2a2e] bg-[#0d0d10] pr-4 pl-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]/40 focus:outline-none"
                         />
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {TYPE_FILTERS.map(({ key, label }) => (
-                            <button
-                                key={key}
-                                onClick={() => setFilter(key)}
-                                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                                    filter === key
-                                        ? 'bg-[#d4af37] text-black shadow-[0_0_12px_rgba(212,175,55,0.35)]'
-                                        : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
-                                }`}
-                            >
-                                {label}
-                            </button>
-                        ))}
+                    <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-2">
+                            {TYPE_FILTERS.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setFilter(key)}
+                                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                                        filter === key
+                                            ? 'bg-[#d4af37] text-black shadow-[0_0_12px_rgba(212,175,55,0.35)]'
+                                            : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {PURCHASE_FILTERS.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setPurchaseFilter(key)}
+                                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                                        purchaseFilter === key
+                                            ? 'bg-[#d4af37] text-black shadow-[0_0_12px_rgba(212,175,55,0.35)]'
+                                            : 'border border-[#2a2a2e] text-muted-foreground hover:border-[#d4af37]/50 hover:text-foreground'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -217,7 +254,7 @@ export default function CustomerLogs() {
                         </div>
                     ) : (
                         <>
-                            {logs.map((log) => {
+                            {filteredLogs.map((log) => {
                                 const ts = TYPE_STYLES[log.type] ?? TYPE_STYLES['invoice'];
                                 const isDebit = isPaidOutTransaction(log);
                                 const status = getStatus(log);
@@ -282,7 +319,7 @@ export default function CustomerLogs() {
                                 );
                             })}
 
-                            {logs.length === 0 && !loading && (
+                            {filteredLogs.length === 0 && !loading && (
                                 <div className="flex items-center justify-center py-14 text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2">
                                         <CheckCircle2 className="h-8 w-8 opacity-20" />

@@ -12,6 +12,7 @@ import { type BreadcrumbItem } from '@/types';
 import type { BillingQueueItem, BillingQueueStatus, CustomerTransaction, JobOrder, JobOrderItem } from '@/types/customer';
 import { Banknote, ChevronLeft, ChevronRight, CreditCard, Loader2, PencilLine, Printer, ReceiptText, Search, Send, Wallet } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 import { useSearchParams } from 'react-router-dom';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Billing & Payment', href: '/billing' }];
@@ -256,6 +257,7 @@ export default function Billing() {
     const [selectedTransactions, setSelectedTransactions] = useState<CustomerTransaction[]>([]);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
+    const { success, error: toastError } = useToast();
 
     const [showPaymentPanel, setShowPaymentPanel] = useState(false);
     const [printingTransactionId, setPrintingTransactionId] = useState<number | null>(null);
@@ -483,8 +485,9 @@ export default function Billing() {
             if (selectedTicket) {
                 await fetchTicketDetail(selectedTicket);
             }
+            success('Invoice issued.');
         } catch {
-            // silently fail; the button just won't update
+            toastError('Unable to issue invoice.');
         } finally {
             setIssuingTransactionId(null);
         }

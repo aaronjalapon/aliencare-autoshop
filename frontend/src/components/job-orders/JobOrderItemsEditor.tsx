@@ -1,6 +1,7 @@
 import { formatPeso } from '@/lib/jobOrderFormatters';
 import { inventoryService } from '@/services/inventoryService';
 import { AddJobOrderItemPayload, UpdateJobOrderItemPayload, jobOrderService } from '@/services/jobOrderService';
+import { useToast } from '@/components/ui/toast';
 import type { JobOrderItem } from '@/types/customer';
 import type { InventoryItem } from '@/types/inventory';
 import { Loader2, Minus, Plus, Search, X } from 'lucide-react';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged }: Props) {
+    const { success, error: toastError } = useToast();
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [isLoadingInventory, setIsLoadingInventory] = useState(true);
 
@@ -108,8 +110,10 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
             await jobOrderService.addItemToJobOrder(jobOrderId, payload);
             clearSelection();
             onItemsChanged();
+            success('Item added to the job order.');
         } catch (error) {
             setAddError(error instanceof Error ? error.message : 'Failed to add item.');
+            toastError(error instanceof Error ? error.message : 'Failed to add item.');
         } finally {
             setIsAdding(false);
         }
@@ -126,8 +130,10 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
             const payload: UpdateJobOrderItemPayload = { quantity: newQty };
             await jobOrderService.updateJobOrderItem(jobOrderId, itemId, payload);
             onItemsChanged();
+            success('Item quantity updated.');
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Failed to update quantity.');
+            toastError(error instanceof Error ? error.message : 'Failed to update quantity.');
         } finally {
             setUpdatingId(null);
         }
@@ -141,8 +147,10 @@ export default function JobOrderItemsEditor({ jobOrderId, items, onItemsChanged 
         try {
             await jobOrderService.removeJobOrderItem(jobOrderId, itemId);
             onItemsChanged();
+            success('Item removed from the job order.');
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Failed to remove item.');
+            toastError(error instanceof Error ? error.message : 'Failed to remove item.');
         }
     };
 

@@ -8,6 +8,7 @@ import { type ServiceCatalogItem } from '@/types/customer';
 import { type InventoryItem } from '@/types/inventory';
 import { AlertCircle, Check, Loader2, PencilLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Services', href: '/services' }];
 
@@ -239,6 +240,8 @@ export default function Services() {
         void loadServices();
     }, [loadServices]);
 
+    const { success, error: toastError } = useToast();
+
     const filteredServices = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -319,6 +322,8 @@ export default function Services() {
                 setSelectedServiceId(created.id);
                 setShowFormModal(false);
 
+                success('Service created.');
+
                 return;
             }
 
@@ -334,12 +339,15 @@ export default function Services() {
             setServices((prev) => prev.map((service) => (service.id === updated.id ? updated : service)));
             setSelectedServiceId(updated.id);
             setShowFormModal(false);
+            success('Service updated.');
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 setFormErrors(mapValidationErrors(error.validationErrors));
             }
 
-            setSubmitError(error instanceof Error ? error.message : 'Failed to save service.');
+            const message = error instanceof Error ? error.message : 'Failed to save service.';
+            setSubmitError(message);
+            toastError(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -359,8 +367,11 @@ export default function Services() {
 
             setServices((prev) => prev.map((service) => (service.id === deactivated.id ? deactivated : service)));
             setDeleteTarget(null);
+            success('Service deactivated.');
         } catch (error) {
-            setDeleteError(error instanceof Error ? error.message : 'Failed to deactivate service.');
+            const message = error instanceof Error ? error.message : 'Failed to deactivate service.';
+            setDeleteError(message);
+            toastError(message);
         } finally {
             setIsDeactivating(false);
         }

@@ -1,4 +1,5 @@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useToast } from '@/components/ui/toast';
 import { formatPeso, getServiceName, getVehicleLabel } from '@/lib/jobOrderFormatters';
 import { jobOrderService } from '@/services/jobOrderService';
 import type { JobOrder, JobOrderItem } from '@/types/customer';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSaved }: Props) {
+    const { success, error: toastError } = useToast();
     const [notes, setNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -28,8 +30,11 @@ export default function InvoiceDraftModal({ open, onOpenChange, order, onDraftSa
             setNotes('');
             onOpenChange(false);
             onDraftSaved();
+            success('Invoice draft saved.');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to save invoice draft.');
+            const message = err instanceof Error ? err.message : 'Failed to save invoice draft.';
+            setError(message);
+            toastError(message);
         } finally {
             setIsSaving(false);
         }

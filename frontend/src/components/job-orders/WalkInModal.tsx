@@ -2,6 +2,7 @@ import { formatPeso } from '@/lib/jobOrderFormatters';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { jobOrderService } from '@/services/jobOrderService';
+import { useToast } from '@/components/ui/toast';
 import type { CustomerProfile, ServiceCatalogItem, Vehicle } from '@/types/customer';
 import { Loader2 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
@@ -84,6 +85,7 @@ interface Props {
 }
 
 export default function WalkInModal({ open, onClose, onOrderCreated, initialCustomerId }: Props) {
+    const { success, error: toastError } = useToast();
     const [form, setForm] = useState<WalkInFormState>(initialWalkInForm);
     const [formErrors, setFormErrors] = useState<WalkInFormErrors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -258,13 +260,17 @@ export default function WalkInModal({ open, onClose, onOrderCreated, initialCust
 
             const createdOrder = createResponse.data;
             onOrderCreated(createdOrder.id);
+            success('Walk-in job order created.');
             close();
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 setFormErrors(mapWalkInValidationErrors(error.validationErrors));
                 setSubmitError('Please fix the highlighted fields and try again.');
+                toastError('Please fix the highlighted fields and try again.');
             } else {
-                setSubmitError(error instanceof Error ? error.message : 'Failed to create walk-in job order.');
+                const message = error instanceof Error ? error.message : 'Failed to create walk-in job order.';
+                setSubmitError(message);
+                toastError(message);
             }
         } finally {
             setIsSubmitting(false);
