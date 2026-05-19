@@ -4,6 +4,8 @@ import { useToast } from '../ui/toast';
 import { useInventoryItems } from '../../hooks/useInventory';
 import { useReservations } from '../../hooks/useReservations';
 import { getApiErrorMessage } from '../../lib/api-error-message';
+import { jobOrderService } from '../../services/jobOrderService';
+import type { JobOrder } from '../../types/customer';
 import { Reservation } from '../../types/inventory';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -50,6 +52,9 @@ export function ReservationPanel() {
         requested_by: '',
         notes: '',
     });
+    const [jobOrders, setJobOrders] = useState<JobOrder[]>([]);
+    const [jobOrdersLoading, setJobOrdersLoading] = useState(false);
+    const [jobOrdersError, setJobOrdersError] = useState<string | null>(null);
 
     // Extract data from responses with proper type checking
     const reservations: Reservation[] = useMemo(() => (Array.isArray(reservationsData?.data) ? reservationsData.data : []), [reservationsData?.data]);
@@ -58,6 +63,35 @@ export function ReservationPanel() {
     const loading = reservationsLoading || inventoryLoading;
 
     const { success, error: toastError } = useToast();
+
+    const loadActiveJobOrders = useCallback(async () => {
+        try {
+            setJobOrdersLoading(true);
+            setJobOrdersError(null);
+
+            const [approvedResponse, inProgressResponse] = await Promise.all([
+                jobOrderService.getJobOrders({ status: 'approved', per_page: 200 }),
+                jobOrderService.getJobOrders({ status: 'in_progress', per_page: 200 }),
+            ]);
+
+            const approvedOrders = Array.isArray(approvedResponse.data.data) ? approvedResponse.data.data : [];
+            const inProgressOrders = Array.isArray(inProgressResponse.data.data) ? inProgressResponse.data.data : [];
+            const combined = [...approvedOrders, ...inProgressOrders];
+            const deduped = Array.from(new Map(combined.map((order) => [order.id, order])).values());
+
+            deduped.sort((a, b) => a.jo_number.localeCompare(b.jo_number));
+            setJobOrders(deduped);
+        } catch (error) {
+            setJobOrdersError(error instanceof Error ? error.message : 'Failed to load job orders.');
+            setJobOrders([]);
+        } finally {
+            setJobOrdersLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadActiveJobOrders();
+    }, [loadActiveJobOrders]);
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -511,10 +545,13 @@ export function ReservationPanel() {
                     open={isDialogOpen}
                     onOpenChange={(open) => {
                         setIsDialogOpen(open);
-                        if (!open) {
-                            resetReservationForm();
-                            setActionLoading(null);
+                        if (open) {
+                            void loadActiveJobOrders();
+                            return;
                         }
+
+                        resetReservationForm();
+                        setActionLoading(null);
                     }}
                 >
                     <DialogTrigger asChild>
@@ -543,16 +580,65 @@ export function ReservationPanel() {
                                     <Label htmlFor="jobOrder" className="text-foreground">
                                         Job Order Number *
                                     </Label>
-                                    <Input
-                                        id="jobOrder"
+                                    <Select
                                         value={reservationDetails.job_order_number}
-                                        onChange={(e) => {
-                                            setReservationDetails((prev) => ({ ...prev, job_order_number: e.target.value }));
+                                        onValueChange={(value) => {
+                                            setReservationDetails((prev) => ({ ...prev, job_order_number: value }));
                                             if (createReservationError) setCreateReservationError(null);
                                         }}
-                                        placeholder="JO-2024-001"
-                                        className="border-border bg-input text-foreground"
-                                    />
+                                        disabled={jobOrdersLoading || jobOrders.length === 0}
+                                    >
+                                        <SelectTrigger id="jobOrder" className="border-border bg-input text-foreground">
+                                            <SelectValue
+                                                placeholder={
+                                                    jobOrdersLoading
+                                                        ? 'Loading job orders...'
+                                                        : jobOrders.length === 0
+                                                          ? 'No approved or ongoing job orders'
+                                                          : 'Select job order'
+                                                }
+                                            >
+                                                {reservationDetails.job_order_number || null}
+                                            </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-64 overflow-y-auto border-border bg-popover">
+                                            {jobOrdersLoading ? (
+                                                <SelectItem value="loading" disabled>
+                                                    Loading job orders...
+                                                </SelectItem>
+                                            ) : jobOrders.length === 0 ? (
+                                                <SelectItem value="none" disabled>
+                                                    No approved or ongoing job orders
+                                                </SelectItem>
+                                            ) : (
+                                                jobOrders.map((order) => {
+                                                    const customerName = order.customer?.full_name ?? 'Walk-in';
+                                                    const vehicleLabel = order.vehicle
+                                                        ? `${order.vehicle.make} ${order.vehicle.model}`
+                                                        : 'Vehicle';
+                                                    const statusLabel =
+                                                        order.status_label || (order.status === 'approved' ? 'Approved' : 'In Progress');
+
+                                                    return (
+                                                        <SelectItem key={order.id} value={order.jo_number}>
+                                                            <div className="flex w-full flex-col">
+                                                                <span className="text-sm font-medium">{order.jo_number}</span>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {customerName} | {vehicleLabel} | {statusLabel}
+                                                                </span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    {jobOrdersError && <p className="mt-1 text-xs text-destructive">{jobOrdersError}</p>}
+                                    {!jobOrdersError && (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Only approved or in-progress job orders are available.
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <Label htmlFor="requestedBy" className="text-foreground">
