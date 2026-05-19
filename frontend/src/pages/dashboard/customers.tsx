@@ -1,8 +1,12 @@
 import AppLayout from '@/components/layout/app-layout';
+import { useToast } from '@/components/ui/toast';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
+import { customerService } from '@/services/customerService';
 import { frontdeskCustomerService } from '@/services/frontdeskCustomerService';
+import { posService } from '@/services/posService';
 import { type BreadcrumbItem } from '@/types';
+import type { CustomerTransaction, JobOrder } from '@/types/customer';
 import {
     CustomerTier,
     CustomerTierMode,
@@ -12,7 +16,7 @@ import {
     FrontdeskVehicle,
     FrontdeskVehiclePayload,
 } from '@/types/frontdesk/customers';
-import { Car, Check, Crown, Download, Loader2, Mail, Minus, Phone, Plus, Search, UserPlus, X } from 'lucide-react';
+import { Car, Check, ClipboardList, Crown, Download, Loader2, Mail, Minus, Phone, Plus, Search, ShoppingCart, UserPlus, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -243,6 +247,7 @@ function TierChip({ tier }: { tier: TierBadge }) {
 
 export default function Customers() {
     const navigate = useNavigate();
+    const { success, error: toastError } = useToast();
 
     const [customers, setCustomers] = useState<FrontdeskCustomer[]>([]);
     const [totalCustomers, setTotalCustomers] = useState(0);
@@ -285,6 +290,16 @@ export default function Customers() {
     const [vehicleSubmitError, setVehicleSubmitError] = useState<string | null>(null);
     const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
     const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null);
+
+    const [showJobOrderHistory, setShowJobOrderHistory] = useState(false);
+    const [jobOrderHistory, setJobOrderHistory] = useState<JobOrder[]>([]);
+    const [isLoadingJobOrderHistory, setIsLoadingJobOrderHistory] = useState(false);
+    const [jobOrderHistoryError, setJobOrderHistoryError] = useState<string | null>(null);
+
+    const [showPosHistory, setShowPosHistory] = useState(false);
+    const [posHistory, setPosHistory] = useState<CustomerTransaction[]>([]);
+    const [isLoadingPosHistory, setIsLoadingPosHistory] = useState(false);
+    const [posHistoryError, setPosHistoryError] = useState<string | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -452,6 +467,8 @@ export default function Customers() {
                 await loadCustomers();
                 await loadCustomerDetail(created.id);
 
+                success(`${created.full_name ?? 'Customer'} created.`);
+
                 return;
             }
 
@@ -467,12 +484,16 @@ export default function Customers() {
             closeCustomerModal();
             await loadCustomers();
             await loadCustomerDetail(updated.id);
+
+            success('Customer updated.');
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 setCustomerFormErrors(mapCustomerValidationErrors(error.validationErrors));
             }
 
-            setCustomerSubmitError(error instanceof Error ? error.message : 'Failed to save customer.');
+            const message = error instanceof Error ? error.message : 'Failed to save customer.';
+            setCustomerSubmitError(message);
+            toastError(message);
         } finally {
             setIsSubmittingCustomer(false);
         }
@@ -490,8 +511,11 @@ export default function Customers() {
             await frontdeskCustomerService.approveCustomer(selectedCustomer.id);
             await loadCustomers();
             await loadCustomerDetail(selectedCustomer.id);
+            success('Customer approved.');
         } catch (error) {
-            setActionError(error instanceof Error ? error.message : 'Failed to approve customer.');
+            const message = error instanceof Error ? error.message : 'Failed to approve customer.';
+            setActionError(message);
+            toastError(message);
         } finally {
             setIsApproving(false);
         }
@@ -523,8 +547,11 @@ export default function Customers() {
             closeRejectModal();
             await loadCustomers();
             await loadCustomerDetail(selectedCustomer.id);
+            success('Customer rejected.');
         } catch (error) {
-            setActionError(error instanceof Error ? error.message : 'Failed to reject customer.');
+            const message = error instanceof Error ? error.message : 'Failed to reject customer.';
+            setActionError(message);
+            toastError(message);
         } finally {
             setIsRejecting(false);
         }
@@ -542,8 +569,11 @@ export default function Customers() {
             await frontdeskCustomerService.setActivation(selectedCustomer.id, !selectedCustomer.is_active);
             await loadCustomers();
             await loadCustomerDetail(selectedCustomer.id);
+            success(selectedCustomer.is_active ? 'Customer deactivated.' : 'Customer activated.');
         } catch (error) {
-            setActionError(error instanceof Error ? error.message : 'Failed to update customer activation.');
+            const message = error instanceof Error ? error.message : 'Failed to update customer activation.';
+            setActionError(message);
+            toastError(message);
         } finally {
             setIsTogglingActivation(false);
         }
@@ -574,8 +604,11 @@ export default function Customers() {
             });
             await loadCustomers();
             await loadCustomerDetail(selectedCustomer.id);
+            success('Tier settings updated.');
         } catch (error) {
-            setActionError(error instanceof Error ? error.message : 'Failed to update customer tiers.');
+            const message = error instanceof Error ? error.message : 'Failed to update customer tiers.';
+            setActionError(message);
+            toastError(message);
         } finally {
             setIsSavingTiers(false);
         }
@@ -633,6 +666,7 @@ export default function Customers() {
                 closeVehicleModal();
                 await loadCustomers();
                 await loadCustomerDetail(selectedCustomer.id);
+                success('Vehicle added.');
                 return;
             }
 
@@ -645,12 +679,15 @@ export default function Customers() {
             closeVehicleModal();
             await loadCustomers();
             await loadCustomerDetail(selectedCustomer.id);
+            success('Vehicle updated.');
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 setVehicleFormErrors(mapVehicleValidationErrors(error.validationErrors));
             }
 
-            setVehicleSubmitError(error instanceof Error ? error.message : 'Failed to save vehicle.');
+            const message = error instanceof Error ? error.message : 'Failed to save vehicle.';
+            setVehicleSubmitError(message);
+            toastError(message);
         } finally {
             setIsSubmittingVehicle(false);
         }
@@ -673,11 +710,66 @@ export default function Customers() {
             await frontdeskCustomerService.deleteVehicle(vehicle.id);
             await loadCustomers();
             await loadCustomerDetail(selectedCustomer.id);
+            success('Vehicle removed.');
         } catch (error) {
-            setActionError(error instanceof Error ? error.message : 'Failed to delete vehicle.');
+            const message = error instanceof Error ? error.message : 'Failed to delete vehicle.';
+            setActionError(message);
+            toastError(message);
         } finally {
             setDeletingVehicleId(null);
         }
+    };
+
+    const openJobOrderHistory = async () => {
+        if (!selectedCustomer) {
+            return;
+        }
+
+        setShowJobOrderHistory(true);
+        setIsLoadingJobOrderHistory(true);
+        setJobOrderHistoryError(null);
+        setJobOrderHistory([]);
+
+        try {
+            const response = await customerService.getJobOrders(selectedCustomer.id);
+            setJobOrderHistory(response.data ?? []);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to load job order history.';
+            setJobOrderHistoryError(message);
+            toastError(message);
+        } finally {
+            setIsLoadingJobOrderHistory(false);
+        }
+    };
+
+    const openPosHistory = async () => {
+        if (!selectedCustomer) {
+            return;
+        }
+
+        setShowPosHistory(true);
+        setIsLoadingPosHistory(true);
+        setPosHistoryError(null);
+        setPosHistory([]);
+
+        try {
+            const response = await posService.getTransactions({ customer_id: selectedCustomer.id, per_page: 25 });
+            setPosHistory(response.data.data ?? []);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to load POS transaction history.';
+            setPosHistoryError(message);
+            toastError(message);
+        } finally {
+            setIsLoadingPosHistory(false);
+        }
+    };
+
+    const closeJobOrderHistory = () => {
+        setShowJobOrderHistory(false);
+    };
+
+    const closePosHistory = () => {
+        setShowPosHistory(false);
     };
 
     return (
@@ -957,6 +1049,27 @@ export default function Customers() {
                                                         {formatRelativeTime(selectedCustomer.customer_since, 'Unknown')}
                                                     </span>
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-[#2a2a2e] bg-[#0a0b0f] p-3">
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <p className="text-sm font-semibold">Transaction History</p>
+                                                <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <button
+                                                    onClick={openJobOrderHistory}
+                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                                >
+                                                    <ClipboardList className="h-3.5 w-3.5" /> Job Order History
+                                                </button>
+                                                <button
+                                                    onClick={openPosHistory}
+                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-[#2a2a2e] px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                                                >
+                                                    <ShoppingCart className="h-3.5 w-3.5" /> POS Transaction History
+                                                </button>
                                             </div>
                                         </div>
 
@@ -1434,6 +1547,128 @@ export default function Customers() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {showJobOrderHistory && selectedCustomer && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+                    <div className="w-full max-w-2xl rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-5 shadow-2xl">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#d4af37] uppercase">Customers</p>
+                                <h3 className="text-xl font-bold">Job Order History</h3>
+                                <p className="text-xs text-muted-foreground">{selectedCustomer.full_name}</p>
+                            </div>
+                            <button
+                                onClick={closeJobOrderHistory}
+                                className="rounded-full border border-[#2a2a2e] p-1.5 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {jobOrderHistoryError && (
+                            <div className="mb-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                                {jobOrderHistoryError}
+                            </div>
+                        )}
+
+                        {isLoadingJobOrderHistory ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Loading job orders...
+                            </div>
+                        ) : jobOrderHistory.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-[#2a2a2e] p-4 text-center text-sm text-muted-foreground">
+                                No job order history yet.
+                            </div>
+                        ) : (
+                            <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                                {jobOrderHistory.map((order) => {
+                                    const total = Number(order.total_cost ?? order.service_fee ?? 0);
+                                    const statusLabel = order.status_label || order.status;
+                                    const orderLabel = order.jo_number || `Job Order #${order.id}`;
+
+                                    return (
+                                        <div key={order.id} className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-3 text-sm">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="font-semibold text-foreground">{orderLabel}</p>
+                                                <p className="font-semibold text-[#d4af37]">{formatPeso(total)}</p>
+                                            </div>
+                                            <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>{order.service?.name ?? 'Service request'}</span>
+                                                <span>{formatRelativeTime(order.updated_at)}</span>
+                                            </div>
+                                            <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                <span>{statusLabel}</span>
+                                                <span>{order.vehicle?.plate_number ?? 'No vehicle'}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {showPosHistory && selectedCustomer && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+                    <div className="w-full max-w-2xl rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-5 shadow-2xl">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#d4af37] uppercase">Customers</p>
+                                <h3 className="text-xl font-bold">POS Transaction History</h3>
+                                <p className="text-xs text-muted-foreground">{selectedCustomer.full_name}</p>
+                            </div>
+                            <button
+                                onClick={closePosHistory}
+                                className="rounded-full border border-[#2a2a2e] p-1.5 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {posHistoryError && (
+                            <div className="mb-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                                {posHistoryError}
+                            </div>
+                        )}
+
+                        {isLoadingPosHistory ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Loading POS transactions...
+                            </div>
+                        ) : posHistory.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-[#2a2a2e] p-4 text-center text-sm text-muted-foreground">
+                                No POS transaction history yet.
+                            </div>
+                        ) : (
+                            <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                                {posHistory.map((transaction) => {
+                                    const amount = Math.abs(Number(transaction.amount));
+                                    const reference = transaction.reference_number ?? `Transaction #${transaction.id}`;
+                                    const method = (transaction.payment_method || 'unknown').toUpperCase();
+                                    const status = transaction.xendit_status ?? (transaction.paid_at ? 'PAID' : 'PENDING');
+
+                                    return (
+                                        <div key={transaction.id} className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-3 text-sm">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="font-semibold text-foreground">{reference}</p>
+                                                <p className="font-semibold text-[#d4af37]">{formatPeso(amount)}</p>
+                                            </div>
+                                            <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>{method}</span>
+                                                <span>{status}</span>
+                                            </div>
+                                            <div className="mt-1 text-[11px] text-muted-foreground">
+                                                {formatRelativeTime(transaction.created_at)}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

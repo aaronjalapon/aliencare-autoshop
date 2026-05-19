@@ -6,6 +6,7 @@ import JobOrderTable from '@/components/job-orders/JobOrderTable';
 import StartServiceModal from '@/components/job-orders/StartServiceModal';
 import WalkInModal from '@/components/job-orders/WalkInModal';
 import AppLayout from '@/components/layout/app-layout';
+import { useToast } from '@/components/ui/toast';
 import {
     getOnlineSortKey,
     getPrimaryAction,
@@ -44,6 +45,7 @@ const TABS: TabDef[] = [
 ];
 
 export default function JobOrders() {
+    const { success, error: toastError } = useToast();
     const [jobOrders, setJobOrders] = useState<JobOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -254,8 +256,10 @@ export default function JobOrders() {
                         invoice_id: selectedOrder.invoice_id ?? null,
                     });
                     upsertJobOrder(response.data);
+                    success('Job order settled.');
                 } catch (error) {
                     setActionError(error instanceof Error ? error.message : 'Failed to settle job order.');
+                    toastError(error instanceof Error ? error.message : 'Failed to settle job order.');
                 } finally {
                     setIsProcessingAction(false);
                 }
@@ -269,9 +273,13 @@ export default function JobOrders() {
         setIsProcessingAction(true);
         try {
             let response;
-            if (action === 'submit') response = await jobOrderService.submitJobOrder(selectedOrder.id);
-            else if (action === 'approve') response = await jobOrderService.approveJobOrder(selectedOrder.id);
-            else if (action === 'complete') {
+            if (action === 'submit') {
+                response = await jobOrderService.submitJobOrder(selectedOrder.id);
+                success('Job order submitted for approval.');
+            } else if (action === 'approve') {
+                response = await jobOrderService.approveJobOrder(selectedOrder.id);
+                success('Job order approved.');
+            } else if (action === 'complete') {
                 response = await jobOrderService.completeJobOrder(selectedOrder.id);
                 if (response?.data) {
                     upsertJobOrder(response.data);
@@ -281,8 +289,10 @@ export default function JobOrders() {
                             invoice_id: response.data.invoice_id ?? null,
                         });
                         upsertJobOrder(settleRes.data);
+                        success('Job order completed and settled.');
                     } else {
                         navigate(`/billing?job_order_id=${response.data.id}`);
+                        success('Job order completed.');
                     }
                     return; // Skip the generic upsert at the end since we handled it
                 }
@@ -290,6 +300,7 @@ export default function JobOrders() {
             if (response) upsertJobOrder(response.data);
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Failed to process action.');
+            toastError(error instanceof Error ? error.message : 'Failed to process action.');
         } finally {
             setIsProcessingAction(false);
         }
@@ -303,8 +314,10 @@ export default function JobOrders() {
         try {
             const response = await jobOrderService.cancelJobOrder(selectedOrder.id);
             upsertJobOrder(response.data);
+            success('Job order cancelled.');
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Failed to cancel.');
+            toastError(error instanceof Error ? error.message : 'Failed to cancel job order.');
         } finally {
             setIsProcessingAction(false);
         }
@@ -312,11 +325,17 @@ export default function JobOrders() {
 
     const handleStartService = async (mechanicId: number, bayId: number) => {
         if (!selectedOrder) return;
-        const response = await jobOrderService.startJobOrder(selectedOrder.id, {
-            mechanic_id: mechanicId,
-            bay_id: bayId,
-        });
-        upsertJobOrder(response.data);
+        try {
+            const response = await jobOrderService.startJobOrder(selectedOrder.id, {
+                mechanic_id: mechanicId,
+                bay_id: bayId,
+            });
+            upsertJobOrder(response.data);
+            success('Job order moved to In Progress.');
+        } catch (err) {
+            toastError(err instanceof Error ? err.message : 'Failed to start job order.');
+            throw err;
+        }
     };
 
     const handleApproveOrder = async (order: JobOrder) => {
@@ -324,8 +343,10 @@ export default function JobOrders() {
         try {
             const response = await jobOrderService.approveJobOrder(order.id);
             upsertJobOrder(response.data);
+            success(`Approved ${order.jo_number}.`);
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Failed to approve booking.');
+            toastError(error instanceof Error ? error.message : 'Failed to approve booking.');
         } finally {
             setIsProcessingAction(false);
         }
@@ -337,8 +358,10 @@ export default function JobOrders() {
         try {
             const response = await jobOrderService.cancelJobOrder(order.id);
             upsertJobOrder(response.data);
+            success(`Rejected ${order.jo_number}.`);
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Failed to reject booking.');
+            toastError(error instanceof Error ? error.message : 'Failed to reject booking.');
         } finally {
             setIsProcessingAction(false);
         }

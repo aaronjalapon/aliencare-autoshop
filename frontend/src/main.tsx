@@ -1,5 +1,6 @@
 import App from '@/App';
 import ErrorBoundary from '@/components/shared/error-boundary';
+import { ToastProvider } from '@/components/ui/toast';
 import { AuthProvider } from '@/context/AuthContext';
 import { initializeTheme } from '@/hooks/use-appearance';
 import { StrictMode } from 'react';
@@ -15,7 +16,9 @@ if (root) {
             <ErrorBoundary>
                 <BrowserRouter>
                     <AuthProvider>
-                        <App />
+                        <ToastProvider>
+                            <App />
+                        </ToastProvider>
                     </AuthProvider>
                 </BrowserRouter>
             </ErrorBoundary>

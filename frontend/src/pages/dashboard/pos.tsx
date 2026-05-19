@@ -10,6 +10,7 @@ import type { CustomerProfile, CustomerTransaction } from '@/types/customer';
 import type { InventoryItem } from '@/types/inventory';
 import { Banknote, Check, Copy, ExternalLink, Loader2, Plus, Printer, QrCode, ReceiptText, Search, ShoppingCart, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Point of Sale', href: '/pos' }];
 
@@ -219,6 +220,8 @@ export default function PointOfSale() {
         void loadRecentTransactions();
     }, [loadProducts, loadCustomers, loadRecentTransactions]);
 
+    const { success, error: toastError } = useToast();
+
     const categoryOptions = useMemo(() => {
         const unique = new Set<string>();
 
@@ -342,15 +345,20 @@ export default function PointOfSale() {
             setCheckoutNotice(`${customerLabel(createdCustomer)} added as walk-in customer.`);
             setCheckoutError(null);
             setShowWalkInModal(false);
+            success(`${customerLabel(createdCustomer)} added.`);
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 const flatErrors = flattenValidationErrors(error.validationErrors);
                 setWalkInFormErrors(mapWalkInValidationErrors(flatErrors));
                 setWalkInFormErrorMessage(error.message || 'Please fix the walk-in customer fields.');
             } else if (error instanceof Error) {
-                setWalkInFormErrorMessage(error.message || 'Unable to save walk-in customer right now.');
+                const message = error.message || 'Unable to save walk-in customer right now.';
+                setWalkInFormErrorMessage(message);
+                toastError(message);
             } else {
-                setWalkInFormErrorMessage('Unable to save walk-in customer right now.');
+                const message = 'Unable to save walk-in customer right now.';
+                setWalkInFormErrorMessage(message);
+                toastError(message);
             }
         } finally {
             setIsSavingWalkInCustomer(false);
@@ -566,6 +574,8 @@ export default function PointOfSale() {
                 checkoutNotes: checkoutNotes.trim() || undefined,
             });
 
+            success(`Checkout ${summary.reference_number} completed.`);
+
             await Promise.all([loadProducts(), loadRecentTransactions()]);
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
@@ -573,9 +583,13 @@ export default function PointOfSale() {
                 const firstError = Object.values(flatErrors)[0];
                 setCheckoutError(firstError || error.message || 'Checkout failed due to validation errors.');
             } else if (error instanceof Error) {
-                setCheckoutError(error.message || 'Checkout failed. Please try again.');
+                const message = error.message || 'Checkout failed. Please try again.';
+                setCheckoutError(message);
+                toastError(message);
             } else {
-                setCheckoutError('Checkout failed. Please try again.');
+                const message = 'Checkout failed. Please try again.';
+                setCheckoutError(message);
+                toastError(message);
             }
         } finally {
             setIsCheckingOut(false);

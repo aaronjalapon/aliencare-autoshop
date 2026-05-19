@@ -1,5 +1,6 @@
 import { AlertCircle, Download, FileText, Loader2, Package, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '../ui/toast';
 import { useUsageReports } from '../../hooks/useUsageReports';
 import { reportsService } from '../../services/reportsService';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -30,6 +31,8 @@ export function UsageReports() {
         reportPeriod,
         selectedCategory,
     });
+
+    const { success, error: toastError } = useToast();
 
     const exportReport = () => {
         if (!data) return;
@@ -66,12 +69,14 @@ export function UsageReports() {
             if (reportPeriod === 'daily') {
                 await reportsService.generateDailyUsageReport({ date: todayIso });
                 setGenerationMessage('Daily usage report generated successfully.');
+                success('Daily usage report generated successfully.');
             } else if (reportPeriod === 'monthly') {
                 await reportsService.generateMonthlyProcurementReport({
                     year: now.getFullYear(),
                     month: now.getMonth() + 1,
                 });
                 setGenerationMessage('Monthly procurement report generated successfully.');
+                success('Monthly procurement report generated successfully.');
             } else {
                 const endDate = new Date();
                 const startDate = new Date();
@@ -82,11 +87,14 @@ export function UsageReports() {
                     end_date: endDate.toISOString().split('T')[0],
                 });
                 setGenerationMessage('Weekly reconciliation report generated successfully.');
+                success('Weekly reconciliation report generated successfully.');
             }
 
             await refetch();
         } catch (err) {
-            setGenerationError(err instanceof Error ? err.message : 'Failed to generate report.');
+            const message = err instanceof Error ? err.message : 'Failed to generate report.';
+            setGenerationError(message);
+            toastError(message);
         } finally {
             setIsGenerating(false);
         }

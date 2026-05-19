@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowDownCircle, CheckCircle, Edit, Loader2, Package, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useToast } from '../ui/toast';
 import { useInventoryItems } from '../../hooks/useInventory';
 import { InventoryItem } from '../../types/inventory';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -123,6 +124,8 @@ export function InventoryTable() {
         );
     }
 
+    const { success, error: toastError } = useToast();
+
     const handleAddStock = async () => {
         setAddStockError(null);
         setWorkspaceMessage(null);
@@ -150,12 +153,13 @@ export function InventoryTable() {
             setStockToAdd('');
             setSelectedPartId('');
             setIsAddStockDialogOpen(false);
-            setWorkspaceMessage({
-                type: 'success',
-                message: `Added ${quantity} unit${quantity === 1 ? '' : 's'} to inventory.`,
-            });
+            const message = `Added ${quantity} unit${quantity === 1 ? '' : 's'} to inventory.`;
+            setWorkspaceMessage({ type: 'success', message });
+            success(message);
         } else {
-            setAddStockError(result.error || 'Failed to add stock.');
+            const message = result.error || 'Failed to add stock.';
+            setAddStockError(message);
+            toastError(message);
         }
 
         setIsAddingStock(false);
@@ -206,8 +210,11 @@ export function InventoryTable() {
                 type: 'success',
                 message: `${stockActionType === 'deduct' ? 'Deduction' : stockActionType === 'return' ? 'Return' : 'Damage'} logged successfully.`,
             });
+            success(`${stockActionType === 'deduct' ? 'Deduction' : stockActionType === 'return' ? 'Return' : 'Damage'} logged successfully.`);
         } else {
-            setStockActionError(result.error || 'Failed to submit stock transaction.');
+            const message = result.error || 'Failed to submit stock transaction.';
+            setStockActionError(message);
+            toastError(message);
         }
 
         setIsSubmittingStockAction(false);
@@ -232,11 +239,13 @@ export function InventoryTable() {
                     type: 'success',
                     message: `${item.item_name} was marked as discontinued.`,
                 });
+                success(`${item.item_name} was marked as discontinued.`);
             } else {
                 setWorkspaceMessage({
                     type: 'error',
                     message: result.error || 'Failed to discontinue item.',
                 });
+                toastError(result.error || 'Failed to discontinue item.');
             }
         } finally {
             setIsDiscontinuingItemId(null);
@@ -303,8 +312,11 @@ export function InventoryTable() {
                     type: 'success',
                     message: `${itemData.item_name} was added to inventory.`,
                 });
+                success(`${itemData.item_name} was added to inventory.`);
             } else {
-                setAddItemError(result.error || 'Failed to add item. Please try again.');
+                const message = result.error || 'Failed to add item. Please try again.';
+                setAddItemError(message);
+                toastError(message);
             }
         } finally {
             setIsAddingItem(false);
@@ -359,8 +371,11 @@ export function InventoryTable() {
                     type: 'success',
                     message: `${updateData.item_name} was updated successfully.`,
                 });
+                    success(`${updateData.item_name} was updated successfully.`);
             } else {
-                setUpdateItemError(result.error || 'Failed to update item. Please try again.');
+                    const message = result.error || 'Failed to update item. Please try again.';
+                    setUpdateItemError(message);
+                    toastError(message);
             }
         } finally {
             setIsUpdatingItem(false);

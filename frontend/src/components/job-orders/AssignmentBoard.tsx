@@ -1,5 +1,6 @@
 import { getServiceName, getVehicleLabel } from '@/lib/jobOrderFormatters';
 import { BayOption, MechanicOption, jobOrderService } from '@/services/jobOrderService';
+import { useToast } from '@/components/ui/toast';
 import type { JobOrder } from '@/types/customer';
 import { CheckCircle2, Clock, Loader2, Sparkles, UserCheck, Warehouse, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -16,6 +17,7 @@ interface AssignmentState {
 }
 
 export default function AssignmentBoard({ selectedOrder, allOrders, onAssignmentComplete }: Props) {
+    const { success, error: toastError } = useToast();
     const [mechanics, setMechanics] = useState<MechanicOption[]>([]);
     const [bays, setBays] = useState<BayOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -81,8 +83,10 @@ export default function AssignmentBoard({ selectedOrder, allOrders, onAssignment
             });
             setAssignment({ mechanicId: '', bayId: '' });
             onAssignmentComplete();
+            success('Assignment confirmed. Job order is now in progress.');
         } catch (error) {
             setSubmitError(error instanceof Error ? error.message : 'Failed to assign.');
+            toastError(error instanceof Error ? error.message : 'Failed to assign mechanic and bay.');
         } finally {
             setIsSubmitting(false);
         }

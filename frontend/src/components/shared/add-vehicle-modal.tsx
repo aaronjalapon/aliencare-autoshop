@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/toast';
 import { customerService } from '@/services/customerService';
 import { useState } from 'react';
 
@@ -27,6 +28,7 @@ const INITIAL_FORM: VehicleForm = {
 };
 
 export function AddVehicleModal({ open, onClose, customerId, onSuccess }: AddVehicleModalProps) {
+    const { success, error } = useToast();
     const [form, setForm] = useState<VehicleForm>(INITIAL_FORM);
     const [errors, setErrors] = useState<Partial<VehicleForm>>({});
     const [submitting, setSubmitting] = useState(false);
@@ -63,6 +65,7 @@ export function AddVehicleModal({ open, onClose, customerId, onSuccess }: AddVeh
                 plate_number: form.plateNumber.trim(),
                 color: form.color.trim() || undefined,
             });
+            success('Vehicle added to your profile.');
             setForm(INITIAL_FORM);
             setErrors({});
             onSuccess?.();
@@ -70,6 +73,7 @@ export function AddVehicleModal({ open, onClose, customerId, onSuccess }: AddVeh
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to add vehicle.';
             setSubmitError(message);
+            error(message);
         } finally {
             setSubmitting(false);
         }

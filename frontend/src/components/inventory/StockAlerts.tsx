@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle, Clock, Package, RefreshCw, Settings } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '../ui/toast';
 import { useAlerts } from '../../hooks/useAlerts';
 import { getApiErrorMessage } from '../../lib/api-error-message';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -14,6 +15,8 @@ export function StockAlerts() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+    const { success, error: toastError } = useToast();
+
     const handleAcknowledgeAlert = async (alertId: number) => {
         try {
             setActionMessage(null);
@@ -23,11 +26,13 @@ export function StockAlerts() {
                 type: 'success',
                 message: 'Alert acknowledged successfully.',
             });
+            success('Alert acknowledged successfully.');
         } catch (err) {
             setActionMessage({
                 type: 'error',
                 message: getApiErrorMessage(err, 'Failed to acknowledge alert.'),
             });
+            toastError(getApiErrorMessage(err, 'Failed to acknowledge alert.'));
         } finally {
             setActionLoading(null);
         }
@@ -52,11 +57,13 @@ export function StockAlerts() {
                 type: 'success',
                 message: `Acknowledged ${selectedCount} alert${selectedCount === 1 ? '' : 's'}.`,
             });
+            success(`Acknowledged ${selectedCount} alert${selectedCount === 1 ? '' : 's'}.`);
         } catch (err) {
             setActionMessage({
                 type: 'error',
                 message: getApiErrorMessage(err, 'Failed to acknowledge selected alerts.'),
             });
+            toastError(getApiErrorMessage(err, 'Failed to acknowledge selected alerts.'));
         } finally {
             setActionLoading(null);
         }
@@ -71,11 +78,13 @@ export function StockAlerts() {
                 type: 'success',
                 message: `Generated ${result.alerts_created} new alert${result.alerts_created === 1 ? '' : 's'} and refreshed ${result.total_alerts} total tracked alert${result.total_alerts === 1 ? '' : 's'}.`,
             });
+            success(`Generated ${result.alerts_created} new alert${result.alerts_created === 1 ? '' : 's'} and refreshed ${result.total_alerts} total tracked alert${result.total_alerts === 1 ? '' : 's'}.`);
         } catch (err) {
             setActionMessage({
                 type: 'error',
                 message: getApiErrorMessage(err, 'Failed to generate alerts.'),
             });
+            toastError(getApiErrorMessage(err, 'Failed to generate alerts.'));
         } finally {
             setActionLoading(null);
         }
@@ -90,11 +99,13 @@ export function StockAlerts() {
                 type: 'success',
                 message: `Cleaned up ${result.deleted_count} old acknowledged alert${result.deleted_count === 1 ? '' : 's'}.`,
             });
+            success(`Cleaned up ${result.deleted_count} old acknowledged alert${result.deleted_count === 1 ? '' : 's'}.`);
         } catch (err) {
             setActionMessage({
                 type: 'error',
                 message: getApiErrorMessage(err, 'Failed to clean up alerts.'),
             });
+            toastError(getApiErrorMessage(err, 'Failed to clean up alerts.'));
         } finally {
             setActionLoading(null);
         }

@@ -1,10 +1,11 @@
 import { RoleAvatar } from '@/components/shared/role-avatar';
+import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { authService } from '@/services/authService';
 import { customerService } from '@/services/customerService';
-import type { Vehicle } from '@/types/customer';
-import { CalendarDays, Car, FileText, History, Mail, MapPin, Phone, SquarePen } from 'lucide-react';
+import type { JobOrder, Vehicle } from '@/types/customer';
+import { CalendarDays, Car, FileText, History, Loader2, Mail, MapPin, Phone, SquarePen, X } from 'lucide-react';
 import { useState } from 'react';
 import { AddVehicleModal } from './add-vehicle-modal';
 import { type EditField, ProfileEditModal } from './profile-edit-modal';
@@ -16,6 +17,7 @@ interface UserProfileContentProps {
 
 export function UserProfileContent({ showTitle = true, subtitle }: UserProfileContentProps) {
     const { user, refreshUser } = useAuth();
+    const { success, error } = useToast();
 
     const isCustomer = user?.role === 'customer';
     const isFrontdesk = user?.role === 'frontdesk';
@@ -27,6 +29,10 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
     const [specialEditOpen, setSpecialEditOpen] = useState(false);
     const [vehicleEditTarget, setVehicleEditTarget] = useState<Vehicle | null>(null);
     const [addVehicleOpen, setAddVehicleOpen] = useState(false);
+    const [serviceHistoryVehicle, setServiceHistoryVehicle] = useState<Vehicle | null>(null);
+    const [serviceHistoryOrders, setServiceHistoryOrders] = useState<JobOrder[]>([]);
+    const [serviceHistoryLoading, setServiceHistoryLoading] = useState(false);
+    const [serviceHistoryError, setServiceHistoryError] = useState<string | null>(null);
 
     const [nonCustomerSection, setNonCustomerSection] = useState<'personal' | 'account' | 'special' | null>(null);
 
@@ -63,56 +69,85 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
     };
 
     const handleFrontdeskPersonalSave = async (values: Record<string, string>) => {
-        await handleFrontdeskProfileUpdate({
-            phone_number: normalizeOptionalText(values.phone),
-            address: normalizeOptionalText(values.address),
-        });
+        try {
+            await handleFrontdeskProfileUpdate({
+                phone_number: normalizeOptionalText(values.phone),
+                address: normalizeOptionalText(values.address),
+            });
+            success('Personal information updated.');
+        } catch (err) {
+            error(err instanceof Error ? err.message : 'Failed to update personal information.');
+            throw err;
+        }
     };
 
     const handleFrontdeskAccountSave = async (values: Record<string, string>) => {
-        await handleFrontdeskProfileUpdate({
-            name: values.name?.trim() ?? '',
-            email: values.email?.trim() ?? '',
-        });
+        try {
+            await handleFrontdeskProfileUpdate({
+                name: values.name?.trim() ?? '',
+                email: values.email?.trim() ?? '',
+            });
+            success('Account details updated.');
+        } catch (err) {
+            error(err instanceof Error ? err.message : 'Failed to update account details.');
+            throw err;
+        }
     };
 
     // ── Customer: Personal Information save ──────────────────────────────────
     const handlePersonalSave = async (values: Record<string, string>) => {
         if (!customer) return;
-        await customerService.updatePersonalInfo(customer.id, {
-            phone_number: values.phone || undefined,
-            address: values.address || undefined,
-        });
-        await refetch();
+        try {
+            await customerService.updatePersonalInfo(customer.id, {
+                phone_number: values.phone || undefined,
+                address: values.address || undefined,
+            });
+            await refetch();
+            success('Personal information updated.');
+        } catch (err) {
+            error(err instanceof Error ? err.message : 'Failed to update personal information.');
+            throw err;
+        }
     };
 
     // ── Customer: Vehicle edit save ──────────────────────────────────────────
     const handleVehicleSave = async (values: Record<string, string>) => {
         if (!vehicleEditTarget) return;
-        await customerService.updateVehicle(vehicleEditTarget.id, {
-            make: values.make || undefined,
-            model: values.model || undefined,
-            year: values.year ? parseInt(values.year, 10) : undefined,
-            plate_number: values.plate_number || undefined,
-            color: values.color || undefined,
-        });
-        await refetch();
+        try {
+            await customerService.updateVehicle(vehicleEditTarget.id, {
+                make: values.make || undefined,
+                model: values.model || undefined,
+                year: values.year ? parseInt(values.year, 10) : undefined,
+                plate_number: values.plate_number || undefined,
+                color: values.color || undefined,
+            });
+            await refetch();
+            success('Vehicle details updated.');
+        } catch (err) {
+            error(err instanceof Error ? err.message : 'Failed to update vehicle details.');
+            throw err;
+        }
     };
 
     // ── Customer: Special Information save ─────────────────────────────────
     const handleSpecialSave = async (values: Record<string, string>) => {
         if (!customer) return;
+        try {
+            const preferredContact = values.preferred_contact_method?.trim().toLowerCase();
+            if (!preferredContact || !['sms', 'call', 'email'].includes(preferredContact)) {
+                throw new Error('Preferred contact must be one of: sms, call, or email.');
+            }
 
-        const preferredContact = values.preferred_contact_method?.trim().toLowerCase();
-        if (!preferredContact || !['sms', 'call', 'email'].includes(preferredContact)) {
-            throw new Error('Preferred contact must be one of: sms, call, or email.');
+            await customerService.updateSpecialInfo(customer.id, {
+                preferred_contact_method: preferredContact as 'sms' | 'call' | 'email',
+                special_notes: values.special_notes?.trim() || null,
+            });
+            await refetch();
+            success('Special information updated.');
+        } catch (err) {
+            error(err instanceof Error ? err.message : 'Failed to update special information.');
+            throw err;
         }
-
-        await customerService.updateSpecialInfo(customer.id, {
-            preferred_contact_method: preferredContact as 'sms' | 'call' | 'email',
-            special_notes: values.special_notes?.trim() || null,
-        });
-        await refetch();
     };
 
     const vehicleEditFields = (v: Vehicle): EditField[] => [
@@ -125,6 +160,42 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
 
     // ── Hero stats ───────────────────────────────────────────────────────────
     const vehicleCount = customer?.vehicles.length ?? 0;
+
+    const formatShortDate = (value?: string | null): string => {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const matchesVehicle = (order: JobOrder, vehicle: Vehicle): boolean => {
+        if (order.vehicle?.id && order.vehicle.id === vehicle.id) return true;
+        if (order.vehicle?.plate_number && order.vehicle.plate_number === vehicle.plate_number) return true;
+        return false;
+    };
+
+    const openServiceHistory = async (vehicle: Vehicle) => {
+        if (!customer) return;
+
+        setServiceHistoryVehicle(vehicle);
+        setServiceHistoryLoading(true);
+        setServiceHistoryError(null);
+        setServiceHistoryOrders([]);
+
+        try {
+            const response = await customerService.getMyJobOrders();
+            const orders = response.data ?? [];
+            const filtered = orders.filter((order) => matchesVehicle(order, vehicle));
+            filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+            setServiceHistoryOrders(filtered);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to load service history.';
+            setServiceHistoryError(message);
+            error(message);
+        } finally {
+            setServiceHistoryLoading(false);
+        }
+    };
 
     return (
         <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-6">
@@ -240,7 +311,10 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
                                                     >
                                                         <SquarePen className="h-3.5 w-3.5 text-[#d4af37] transition-opacity hover:opacity-70" />
                                                     </button>
-                                                    <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                                                    <button
+                                                        onClick={() => openServiceHistory(vehicle)}
+                                                        className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                                    >
                                                         <History className="h-3 w-3" />
                                                         <span>Service History</span>
                                                     </button>
@@ -413,6 +487,68 @@ export function UserProfileContent({ showTitle = true, subtitle }: UserProfileCo
             {/* Customer: Add Vehicle modal */}
             {isCustomer && customer && (
                 <AddVehicleModal open={addVehicleOpen} onClose={() => setAddVehicleOpen(false)} customerId={customer.id} onSuccess={refetch} />
+            )}
+
+            {/* Customer: Vehicle service history modal */}
+            {isCustomer && serviceHistoryVehicle && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+                    <div className="w-full max-w-2xl rounded-xl border border-[#2a2a2e] bg-[#0d0d10] p-5 shadow-2xl">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#d4af37] uppercase">Service History</p>
+                                <h3 className="text-xl font-bold">
+                                    {serviceHistoryVehicle.make} {serviceHistoryVehicle.model}
+                                </h3>
+                                <p className="text-xs text-muted-foreground">{serviceHistoryVehicle.plate_number}</p>
+                            </div>
+                            <button
+                                onClick={() => setServiceHistoryVehicle(null)}
+                                className="rounded-full border border-[#2a2a2e] p-1.5 text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {serviceHistoryError && (
+                            <div className="mb-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                                {serviceHistoryError}
+                            </div>
+                        )}
+
+                        {serviceHistoryLoading ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Loading service history...
+                            </div>
+                        ) : serviceHistoryOrders.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-[#2a2a2e] p-4 text-center text-sm text-muted-foreground">
+                                No service history for this vehicle yet.
+                            </div>
+                        ) : (
+                            <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                                {serviceHistoryOrders.map((order) => {
+                                    const statusLabel = order.status_label || order.status;
+                                    const orderLabel = order.jo_number || `Job Order #${order.id}`;
+                                    const serviceLabel = order.service?.name ?? order.notes ?? 'Service request';
+                                    const scheduleLabel = order.arrival_date ? formatShortDate(order.arrival_date) : formatShortDate(order.created_at);
+
+                                    return (
+                                        <div key={order.id} className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-3 text-sm">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="font-semibold text-foreground">{orderLabel}</p>
+                                                <span className="text-xs text-muted-foreground">{statusLabel}</span>
+                                            </div>
+                                            <p className="mt-1 text-xs text-muted-foreground">{serviceLabel}</p>
+                                            <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                <span>{scheduleLabel}</span>
+                                                <span>{order.vehicle?.plate_number ?? 'No plate number'}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
             )}
 
             {/* Frontdesk: connected modals */}

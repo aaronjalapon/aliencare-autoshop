@@ -22,6 +22,7 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reports and Analytics', href: '/reports' }];
 
@@ -783,6 +784,8 @@ function HistoryTab() {
         fetchReports();
     }, [fetchReports]);
 
+    const { success, error: toastError } = useToast();
+
     const handleGenerate = async (type: string) => {
         setGenMessage(null);
         setGenError(null);
@@ -799,9 +802,12 @@ function HistoryTab() {
                 await reportsService.generateReconciliationReport({ start_date: start, end_date: end });
             }
             setGenMessage(`Report generated successfully.`);
+            success('Report generated successfully.');
             await fetchReports();
         } catch (e) {
-            setGenError(e instanceof Error ? e.message : 'Generation failed');
+            const message = e instanceof Error ? e.message : 'Generation failed';
+            setGenError(message);
+            toastError(message);
         } finally {
             setGenerating(null);
         }
@@ -817,7 +823,9 @@ function HistoryTab() {
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (e) {
-            setGenError(e instanceof Error ? e.message : 'Export failed');
+            const message = e instanceof Error ? e.message : 'Export failed';
+            setGenError(message);
+            toastError(message);
         }
     };
 

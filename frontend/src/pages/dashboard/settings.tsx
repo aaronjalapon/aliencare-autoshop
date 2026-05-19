@@ -13,6 +13,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Transition } from '@headlessui/react';
 import { ArrowLeft, Bell, ChevronRight, CreditCard, Lock, ReceiptText, ShieldCheck, SlidersHorizontal, UserCircle2 } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -293,6 +294,7 @@ function ProfileInformationForm({
     const [formError, setFormError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [recentlySuccessful, setRecentlySuccessful] = useState(false);
+    const { success, error: toastError } = useToast();
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -306,13 +308,16 @@ function ProfileInformationForm({
             await authService.updateProfile(payload);
             await refreshUser();
             setRecentlySuccessful(true);
+            success('Profile updated.');
             setTimeout(() => setRecentlySuccessful(false), 2000);
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 const flatErrors = flattenValidationErrors(error.validationErrors);
                 if (Object.keys(flatErrors).length > 0) setErrors(flatErrors);
             } else {
-                setFormError('Unable to save your profile. Please try again.');
+                const message = 'Unable to save your profile. Please try again.';
+                setFormError(message);
+                toastError(message);
             }
         } finally {
             setProcessing(false);
@@ -360,6 +365,7 @@ function PasswordForm({ onBack }: { onBack: () => void }) {
     const [formError, setFormError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [recentlySuccessful, setRecentlySuccessful] = useState(false);
+    const { success, error: toastError } = useToast();
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -373,6 +379,7 @@ function PasswordForm({ onBack }: { onBack: () => void }) {
                 password_confirmation: passwordConfirmation,
             });
             setRecentlySuccessful(true);
+            success('Password updated.');
             setCurrentPassword('');
             setPassword('');
             setPasswordConfirmation('');
@@ -382,7 +389,9 @@ function PasswordForm({ onBack }: { onBack: () => void }) {
                 const flatErrors = flattenValidationErrors(error.validationErrors);
                 if (Object.keys(flatErrors).length > 0) setErrors(flatErrors);
             } else {
-                setFormError('Unable to update password. Please try again.');
+                const message = 'Unable to update password. Please try again.';
+                setFormError(message);
+                toastError(message);
             }
         } finally {
             setProcessing(false);
@@ -451,6 +460,7 @@ function SessionSecurityForm({
     const [processing, setProcessing] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [recentlySuccessful, setRecentlySuccessful] = useState(false);
+    const { success, error: toastError } = useToast();
 
     const handleSave = async () => {
         setProcessing(true);
@@ -459,9 +469,12 @@ function SessionSecurityForm({
             const res = await settingsService.updateUserPreferences({ session_timeout_minutes: Number(timeoutMinutes) });
             onUpdate(res.preferences);
             setRecentlySuccessful(true);
+            success('Session preferences saved.');
             setTimeout(() => setRecentlySuccessful(false), 2000);
         } catch {
-            setFormError('Unable to save. Please try again.');
+            const message = 'Unable to save. Please try again.';
+            setFormError(message);
+            toastError(message);
         } finally {
             setProcessing(false);
         }
@@ -543,6 +556,7 @@ function InvoiceFormatForm({
     const [processing, setProcessing] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [recentlySuccessful, setRecentlySuccessful] = useState(false);
+    const { success, error: toastError } = useToast();
 
     const handleSave = async () => {
         if (!canManage) return;
@@ -557,9 +571,12 @@ function InvoiceFormatForm({
             });
             onUpdate(res.settings);
             setRecentlySuccessful(true);
+            success('Invoice format settings saved.');
             setTimeout(() => setRecentlySuccessful(false), 2000);
         } catch {
-            setFormError('Unable to save. Only administrators can change these settings.');
+            const message = 'Unable to save. Only administrators can change these settings.';
+            setFormError(message);
+            toastError(message);
         } finally {
             setProcessing(false);
         }
@@ -646,6 +663,7 @@ function CounterWorkflowForm({
     const [processing, setProcessing] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [recentlySuccessful, setRecentlySuccessful] = useState(false);
+    const { success, error: toastError } = useToast();
 
     const handleSave = async () => {
         if (!canManage) return;
@@ -659,9 +677,12 @@ function CounterWorkflowForm({
             });
             onUpdate(res.settings);
             setRecentlySuccessful(true);
+            success('Workflow settings saved.');
             setTimeout(() => setRecentlySuccessful(false), 2000);
         } catch {
-            setFormError('Unable to save. Only administrators can change these settings.');
+            const message = 'Unable to save. Only administrators can change these settings.';
+            setFormError(message);
+            toastError(message);
         } finally {
             setProcessing(false);
         }
@@ -734,6 +755,7 @@ function NotificationToggleForm({
     const [processing, setProcessing] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [recentlySuccessful, setRecentlySuccessful] = useState(false);
+    const { success, error: toastError } = useToast();
 
     const handleSave = async () => {
         setProcessing(true);
@@ -742,9 +764,12 @@ function NotificationToggleForm({
             const res = await settingsService.updateUserPreferences({ [prefKey]: enabled });
             onUpdate(res.preferences);
             setRecentlySuccessful(true);
+            success('Preference saved.');
             setTimeout(() => setRecentlySuccessful(false), 2000);
         } catch {
-            setFormError('Unable to save. Please try again.');
+            const message = 'Unable to save. Please try again.';
+            setFormError(message);
+            toastError(message);
         } finally {
             setProcessing(false);
         }
