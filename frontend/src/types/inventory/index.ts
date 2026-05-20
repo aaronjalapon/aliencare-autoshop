@@ -179,10 +179,34 @@ export interface UsageReport {
 
 // Audit Log types for real-time tracking
 export interface AuditLog {
+    id?: number;
     archive_id: number;
-    entity_type: 'inventory' | 'reservation' | 'transaction';
+    entity_type: 'inventory' | 'reservation' | 'transaction' | 'job_order' | 'job_order_item' | 'service';
     entity_id: string | number;
-    action: 'create' | 'update' | 'delete' | 'reserve' | 'approve' | 'reject' | 'complete' | 'cancel' | 'consume' | 'restock' | 'adjust';
+    action:
+        | 'create'
+        | 'update'
+        | 'delete'
+        | 'reserve'
+        | 'approve'
+        | 'reject'
+        | 'complete'
+        | 'cancel'
+        | 'consume'
+        | 'restock'
+        | 'adjust'
+        | 'created'
+        | 'updated'
+        | 'deactivated'
+        | 'item_added'
+        | 'item_updated'
+        | 'item_removed'
+        | 'pending_approval'
+        | 'approved'
+        | 'in_progress'
+        | 'completed'
+        | 'settled'
+        | 'cancelled';
     old_data?: Record<string, unknown>;
     new_data?: Record<string, unknown>;
     user_id?: string;

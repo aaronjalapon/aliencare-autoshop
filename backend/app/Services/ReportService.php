@@ -250,13 +250,17 @@ class ReportService implements ReportServiceInterface
     /**
      * {@inheritDoc}
      */
-    public function getDashboardAnalytics(): array
+    public function getDashboardAnalytics(?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
         $today = Carbon::today();
         $todayStart = $today->copy()->startOfDay();
         $todayEnd = $today->copy()->endOfDay();
         $weekAgo = $todayStart->copy()->subDays(6);
         $monthAgo = $todayStart->copy()->subDays(29);
+
+        $rangeStart = $startDate?->copy()->startOfDay();
+        $rangeEnd = $endDate?->copy()->endOfDay();
+        $useRange = $rangeStart !== null && $rangeEnd !== null;
 
         $inventoryValue = $this->inventoryRepository->getTotalInventoryValue();
         $activeItemsCount = $this->inventoryRepository->getActiveItems()->count();
@@ -265,24 +269,24 @@ class ReportService implements ReportServiceInterface
         $activeReservations = $this->reservationRepository->getActiveReservations()->count();
 
         $todayTransactions = $this->transactionRepository
-            ->getByDateRange($todayStart, $todayEnd);
+            ->getByDateRange($useRange ? $rangeStart : $todayStart, $useRange ? $rangeEnd : $todayEnd);
 
         $weeklySales = $this->transactionRepository
-            ->getByDateRange($weekAgo, $todayEnd)
+            ->getByDateRange($useRange ? $rangeStart : $weekAgo, $useRange ? $rangeEnd : $todayEnd)
             ->where('transaction_type', 'sale')
             ->sum(function ($t) {
                 return abs($t->quantity) * ($t->inventory->unit_price ?? 0);
             });
 
         $monthlyProcurement = $this->transactionRepository
-            ->getByDateRange($monthAgo, $todayEnd)
+            ->getByDateRange($useRange ? $rangeStart : $monthAgo, $useRange ? $rangeEnd : $todayEnd)
             ->where('transaction_type', 'procurement')
             ->sum(function ($t) {
                 return $t->quantity * ($t->inventory->unit_price ?? 0);
             });
 
         $recentTransactions = $this->transactionRepository
-            ->getByDateRange($weekAgo, $todayEnd)
+            ->getByDateRange($useRange ? $rangeStart : $weekAgo, $useRange ? $rangeEnd : $todayEnd)
             ->take(10)
             ->values()
             ->map(fn ($transaction) => [
@@ -308,10 +312,11 @@ class ReportService implements ReportServiceInterface
                 'value' => (float) ($category->total_value ?? 0),
             ]);
 
-        $statusCounts = JobOrder::query()
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status');
+        $statusQuery = JobOrder::query()->selectRaw('status, COUNT(*) as count');
+        if ($useRange) {
+            $statusQuery->whereBetween('updated_at', [$rangeStart, $rangeEnd]);
+        }
+        $statusCounts = $statusQuery->groupBy('status')->pluck('count', 'status');
 
         $completedJobs = (int) ($statusCounts[JobOrderStatus::Completed->value] ?? 0)
             + (int) ($statusCounts[JobOrderStatus::Settled->value] ?? 0);
@@ -320,30 +325,75 @@ class ReportService implements ReportServiceInterface
             + (int) ($statusCounts[JobOrderStatus::PendingApproval->value] ?? 0)
             + (int) ($statusCounts[JobOrderStatus::Approved->value] ?? 0);
 
-        // Compute real monthly trends for the last 6 months.
-        $monthlyTrends = collect(range(5, 0))->map(function (int $monthsAgo) {
-            $monthStart = Carbon::today()->subMonths($monthsAgo)->startOfMonth();
-            $monthEnd = $monthStart->copy()->endOfMonth();
+        $monthlyTrends = collect();
 
-            $procurementValue = (float) StockTransaction::query()
-                ->where('transaction_type', 'procurement')
-                ->whereBetween('created_at', [$monthStart, $monthEnd])
-                ->get()
-                ->sum(fn ($t) => (int) $t->quantity * (float) ($t->inventory->unit_price ?? 0));
+        if ($useRange) {
+            $periodStart = $rangeStart->copy()->startOfMonth();
+            $periodEnd = $rangeEnd->copy()->startOfMonth();
+            $months = [];
 
-            $usageValue = (float) StockTransaction::query()
-                ->where('transaction_type', '!=', 'procurement')
-                ->where('quantity', '<', 0)
-                ->whereBetween('created_at', [$monthStart, $monthEnd])
-                ->get()
-                ->sum(fn ($t) => abs((int) $t->quantity) * (float) ($t->inventory->unit_price ?? 0));
+            for ($cursor = $periodStart->copy(); $cursor->lte($periodEnd); $cursor->addMonth()) {
+                $months[] = $cursor->copy();
+            }
 
-            return [
-                'month' => $monthStart->format('M Y'),
-                'procurement_value' => round($procurementValue, 2),
-                'usage_value' => round($usageValue, 2),
-            ];
-        })->values()->all();
+            $monthlyTrends = collect($months)->map(function (Carbon $monthStart) use ($rangeStart, $rangeEnd) {
+                $monthEnd = $monthStart->copy()->endOfMonth();
+
+                $bucketStart = $rangeStart->copy();
+                if ($monthStart->gt($bucketStart)) {
+                    $bucketStart = $monthStart->copy();
+                }
+
+                $bucketEnd = $rangeEnd->copy();
+                if ($monthEnd->lt($bucketEnd)) {
+                    $bucketEnd = $monthEnd->copy();
+                }
+
+                $procurementValue = (float) StockTransaction::query()
+                    ->where('transaction_type', 'procurement')
+                    ->whereBetween('created_at', [$bucketStart, $bucketEnd])
+                    ->get()
+                    ->sum(fn ($t) => (int) $t->quantity * (float) ($t->inventory->unit_price ?? 0));
+
+                $usageValue = (float) StockTransaction::query()
+                    ->where('transaction_type', '!=', 'procurement')
+                    ->where('quantity', '<', 0)
+                    ->whereBetween('created_at', [$bucketStart, $bucketEnd])
+                    ->get()
+                    ->sum(fn ($t) => abs((int) $t->quantity) * (float) ($t->inventory->unit_price ?? 0));
+
+                return [
+                    'month' => $monthStart->format('M Y'),
+                    'procurement_value' => round($procurementValue, 2),
+                    'usage_value' => round($usageValue, 2),
+                ];
+            })->values();
+        } else {
+            // Compute real monthly trends for the last 6 months.
+            $monthlyTrends = collect(range(5, 0))->map(function (int $monthsAgo) {
+                $monthStart = Carbon::today()->subMonths($monthsAgo)->startOfMonth();
+                $monthEnd = $monthStart->copy()->endOfMonth();
+
+                $procurementValue = (float) StockTransaction::query()
+                    ->where('transaction_type', 'procurement')
+                    ->whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->get()
+                    ->sum(fn ($t) => (int) $t->quantity * (float) ($t->inventory->unit_price ?? 0));
+
+                $usageValue = (float) StockTransaction::query()
+                    ->where('transaction_type', '!=', 'procurement')
+                    ->where('quantity', '<', 0)
+                    ->whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->get()
+                    ->sum(fn ($t) => abs((int) $t->quantity) * (float) ($t->inventory->unit_price ?? 0));
+
+                return [
+                    'month' => $monthStart->format('M Y'),
+                    'procurement_value' => round($procurementValue, 2),
+                    'usage_value' => round($usageValue, 2),
+                ];
+            })->values();
+        }
 
         return [
             'inventory_value' => $inventoryValue,
@@ -364,7 +414,7 @@ class ReportService implements ReportServiceInterface
             'active_reservations' => $activeReservations,
             'recent_transactions' => $recentTransactions,
             'top_categories' => $topCategories,
-            'monthly_trends' => $monthlyTrends,
+            'monthly_trends' => $monthlyTrends->all(),
         ];
     }
 

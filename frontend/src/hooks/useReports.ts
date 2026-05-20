@@ -300,7 +300,7 @@ export function useReports(days: number) {
 
         try {
             const [dashRes, usageRes, procRes] = await Promise.allSettled([
-                reportsService.getDashboardAnalytics(),
+                reportsService.getDashboardAnalytics(startDate, endDate),
                 reportsService.getUsageAnalytics(startDate, endDate),
                 reportsService.getProcurementAnalytics(startDate, endDate),
             ]);

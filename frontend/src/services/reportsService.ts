@@ -163,8 +163,9 @@ class ReportsService {
     }
 
     // Get dashboard analytics
-    async getDashboardAnalytics(): Promise<ApiResponse<DashboardAnalytics>> {
-        return api.get<ApiResponse<DashboardAnalytics>>('/v1/reports/analytics/dashboard');
+    async getDashboardAnalytics(startDate?: string, endDate?: string): Promise<ApiResponse<DashboardAnalytics>> {
+        const params = startDate && endDate ? { start_date: startDate, end_date: endDate } : undefined;
+        return api.get<ApiResponse<DashboardAnalytics>>('/v1/reports/analytics/dashboard', params);
     }
 
     // Get usage analytics for specific period
@@ -182,7 +183,7 @@ class ReportsService {
 
     // Export report to PDF/CSV
     async exportReport(reportId: number, format: 'pdf' | 'csv'): Promise<Blob> {
-        const accept = format === 'pdf' ? 'text/html' : 'text/csv';
+        const accept = format === 'pdf' ? 'application/pdf' : 'text/csv';
         return api.getBlob(`/v1/reports/${reportId}/export`, { format }, accept);
     }
 }

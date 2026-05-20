@@ -1,9 +1,10 @@
 import AppLayout from '@/components/layout/app-layout';
 import { useReports, type DashboardView, type ProcurementView, type UsageView } from '@/hooks/useReports';
 import { clampPercent, formatCurrency, formatPercentage, formatTypeLabel, toShortDateLabel } from '@/lib/reports-utils';
+import { auditService } from '@/services/auditService';
 import { reportsService, type ReportFilters } from '@/services/reportsService';
 import { type BreadcrumbItem } from '@/types';
-import { type Report } from '@/types/inventory';
+import { type AuditLog, type Report } from '@/types/inventory';
 import {
     AlertTriangle,
     BarChart3,
@@ -19,17 +20,17 @@ import {
     TrendingUp,
     Truck,
     Wrench,
-    X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/ui/toast';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reports and Analytics', href: '/reports' }];
 
-type TabKey = 'overview' | 'usage' | 'procurement' | 'history';
-type RangeKey = '7d' | '30d' | '90d' | 'custom';
+type TabKey = 'overview' | 'usage' | 'procurement' | 'reports' | 'history';
+type RangeKey = 'daily' | '7d' | '30d' | '90d' | 'custom';
 
 const RANGE_CONFIG: Record<RangeKey, { label: string; days: number | null }> = {
+    daily: { label: 'Today', days: 0 },
     '7d': { label: '7 days', days: 7 },
     '30d': { label: '30 days', days: 30 },
     '90d': { label: '90 days', days: 90 },
@@ -40,6 +41,7 @@ const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
     { key: 'overview', label: 'Overview', icon: BarChart3 },
     { key: 'usage', label: 'Usage', icon: TrendingDown },
     { key: 'procurement', label: 'Procurement', icon: Truck },
+    { key: 'reports', label: 'Reports', icon: FileText },
     { key: 'history', label: 'History', icon: FileText },
 ];
 
@@ -736,21 +738,170 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
 /* ------------------------------------------------------------------ */
 
 function HistoryTab() {
-    const [reports, setReports] = useState<
-        Array<{
-            id: number;
-            report_type: string;
-            report_date: string;
-            generated_date: string;
-            generated_by: string;
-        }>
-    >([]);
+    const [archives, setArchives] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [typeFilter, setTypeFilter] = useState('');
+    const [entityFilter, setEntityFilter] = useState<string>('all');
+    const [actionFilter, setActionFilter] = useState<string>('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+
+    const fetchArchives = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await auditService.getAuditLogs({
+                entity_type: entityFilter,
+                action: actionFilter || undefined,
+                per_page: 25,
+                page: currentPage,
+            });
+
+            if (res.success && res.data) {
+                const paginatedData = res.data;
+                setArchives(paginatedData.data ?? []);
+                setLastPage(paginatedData.last_page ?? 1);
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to fetch history');
+        } finally {
+            setLoading(false);
+        }
+    }, [entityFilter, actionFilter, currentPage]);
+
+    useEffect(() => {
+        fetchArchives();
+    }, [fetchArchives]);
+
+    const entityOptions = [
+        { value: 'all', label: 'All Entities' },
+        { value: 'job_order', label: 'Job Orders' },
+        { value: 'job_order_item', label: 'Job Order Items' },
+        { value: 'service', label: 'Services' },
+        { value: 'inventory', label: 'Inventory' },
+        { value: 'reservation', label: 'Reservations' },
+        { value: 'transaction', label: 'Transactions' },
+    ];
+
+    return (
+        <div className="flex flex-col gap-5">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <select
+                    value={entityFilter}
+                    onChange={(e) => {
+                        setEntityFilter(e.target.value);
+                        setCurrentPage(1);
+                    }}
+                    className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground"
+                >
+                    {entityOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    value={actionFilter}
+                    onChange={(e) => {
+                        setActionFilter(e.target.value);
+                        setCurrentPage(1);
+                    }}
+                    placeholder="Filter action (optional)"
+                    className="h-9 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 text-xs text-foreground placeholder:text-muted-foreground"
+                />
+                <button
+                    onClick={fetchArchives}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                >
+                    <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                </button>
+            </div>
+
+            {/* History list */}
+            {loading ? (
+                <div className="space-y-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                </div>
+            ) : error ? (
+                <ErrorBanner message={error} onRetry={fetchArchives} />
+            ) : archives.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#2a2a2e] bg-[#0d0d10]/90 py-12 text-center">
+                    <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+                    <p className="mt-3 text-sm text-muted-foreground">No history events found.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto rounded-xl border border-[#2a2a2e]">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-[#0a0b0f] text-muted-foreground uppercase">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">Entity</th>
+                                <th className="px-4 py-3 font-semibold">Action</th>
+                                <th className="px-4 py-3 font-semibold">Reference</th>
+                                <th className="px-4 py-3 font-semibold">When</th>
+                                <th className="px-4 py-3 font-semibold">By</th>
+                                <th className="px-4 py-3 text-right font-semibold">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {archives.map((entry) => (
+                                <tr key={entry.archive_id ?? entry.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
+                                    <td className="px-4 py-2.5 font-medium text-foreground capitalize">{formatTypeLabel(entry.entity_type)}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{formatTypeLabel(entry.action)}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.reference_number ?? String(entry.entity_id)}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.archived_date?.slice(0, 19).replace('T', ' ')}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.user_id ?? 'System'}</td>
+                                    <td className="px-4 py-2.5 text-right text-muted-foreground">{entry.notes ?? '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div className="flex items-center justify-between border-t border-[#2a2a2e] px-4 py-3 text-xs text-muted-foreground">
+                        <span>
+                            Page {currentPage} of {lastPage}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                disabled={currentPage <= 1}
+                                className="rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] disabled:opacity-50"
+                            >
+                                Prev
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.min(lastPage, prev + 1))}
+                                disabled={currentPage >= lastPage}
+                                className="rounded-md border border-[#2a2a2e] px-2 py-1 text-[11px] disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reports Tab                                                       */
+/* ------------------------------------------------------------------ */
+
+function ReportsTab() {
+    const { success, error: toastError } = useToast();
+    const [reports, setReports] = useState<Report[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [typeFilter, setTypeFilter] = useState<string>('');
     const [generating, setGenerating] = useState<string | null>(null);
-    const [genMessage, setGenMessage] = useState<string | null>(null);
-    const [genError, setGenError] = useState<string | null>(null);
+    const [reportDate, setReportDate] = useState<string>(new Date().toISOString().slice(0, 10));
+    const [reconStart, setReconStart] = useState<string>(new Date().toISOString().slice(0, 10));
+    const [reconEnd, setReconEnd] = useState<string>(new Date().toISOString().slice(0, 10));
 
     const fetchReports = useCallback(async () => {
         setLoading(true);
@@ -762,16 +913,7 @@ function HistoryTab() {
             }
             const res = await reportsService.getReports(filters);
             if (res.success && res.data) {
-                const paginatedData = res.data;
-                setReports(
-                    (paginatedData.data ?? []).map((r: Report) => ({
-                        id: r.id,
-                        report_type: r.report_type ?? '',
-                        report_date: r.report_date ?? '',
-                        generated_date: r.generated_date ?? r.created_at ?? '',
-                        generated_by: r.generated_by ?? 'System',
-                    })),
-                );
+                setReports(res.data.data ?? []);
             }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to fetch reports');
@@ -784,36 +926,33 @@ function HistoryTab() {
         fetchReports();
     }, [fetchReports]);
 
-    const { success, error: toastError } = useToast();
-
-    const handleGenerate = async (type: string) => {
-        setGenMessage(null);
-        setGenError(null);
-        setGenerating(type);
+    const handleGenerateDaily = async () => {
+        setGenerating('daily_usage');
         try {
-            const now = new Date();
-            if (type === 'daily_usage') {
-                await reportsService.generateDailyUsageReport({ date: now.toISOString().slice(0, 10) });
-            } else if (type === 'monthly_procurement') {
-                await reportsService.generateMonthlyProcurementReport({ year: now.getFullYear(), month: now.getMonth() + 1 });
-            } else if (type === 'reconciliation') {
-                const end = now.toISOString().slice(0, 10);
-                const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-                await reportsService.generateReconciliationReport({ start_date: start, end_date: end });
-            }
-            setGenMessage(`Report generated successfully.`);
-            success('Report generated successfully.');
+            await reportsService.generateDailyUsageReport({ date: reportDate });
+            success('Daily usage report created successfully.');
             await fetchReports();
         } catch (e) {
-            const message = e instanceof Error ? e.message : 'Generation failed';
-            setGenError(message);
-            toastError(message);
+            toastError(e instanceof Error ? e.message : 'Failed to generate daily usage report.');
         } finally {
             setGenerating(null);
         }
     };
 
-    const handleExport = async (reportId: number, format: 'csv' | 'pdf') => {
+    const handleGenerateReconciliation = async () => {
+        setGenerating('reconciliation');
+        try {
+            await reportsService.generateReconciliationReport({ start_date: reconStart, end_date: reconEnd });
+            success('Reconciliation report created successfully.');
+            await fetchReports();
+        } catch (e) {
+            toastError(e instanceof Error ? e.message : 'Failed to generate reconciliation report.');
+        } finally {
+            setGenerating(null);
+        }
+    };
+
+    const handleExport = async (reportId: number, format: 'pdf' | 'csv') => {
         try {
             const blob = await reportsService.exportReport(reportId, format);
             const url = window.URL.createObjectURL(blob);
@@ -822,127 +961,143 @@ function HistoryTab() {
             a.download = `report-${reportId}.${format === 'pdf' ? 'html' : 'csv'}`;
             a.click();
             window.URL.revokeObjectURL(url);
+            success('Export completed successfully.');
         } catch (e) {
-            const message = e instanceof Error ? e.message : 'Export failed';
-            setGenError(message);
-            toastError(message);
+            toastError(e instanceof Error ? e.message : 'Export failed.');
         }
     };
 
-    const typeOptions = ['daily_usage', 'monthly_procurement', 'reconciliation', 'low_stock_alert'];
+    const reportTypeOptions = ['daily_usage', 'monthly_procurement', 'reconciliation', 'low_stock'];
 
     return (
         <div className="flex flex-col gap-5">
-            {/* Generate buttons */}
-            <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-foreground">Generate:</span>
-                {typeOptions.map((type) => (
-                    <button
-                        key={type}
-                        onClick={() => handleGenerate(type)}
-                        disabled={generating === type}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground disabled:opacity-60"
+            <Section title="Report Actions" subtitle="Generate daily usage and end-of-day reconciliation" icon={FileText}>
+                <div className="grid gap-4 lg:grid-cols-[1.2fr_1.2fr]">
+                    <div className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-4">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">Daily Usage</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <input
+                                type="date"
+                                value={reportDate}
+                                onChange={(e) => setReportDate(e.target.value)}
+                                className="h-9 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-xs text-foreground"
+                            />
+                            <button
+                                onClick={handleGenerateDaily}
+                                disabled={generating === 'daily_usage'}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-3 py-2 text-xs font-semibold text-black disabled:opacity-60"
+                            >
+                                {generating === 'daily_usage' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                                Generate Daily Usage
+                            </button>
+                        </div>
+                    </div>
+                    <div className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] p-4">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">End-of-Day Reconciliation</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <input
+                                type="date"
+                                value={reconStart}
+                                onChange={(e) => setReconStart(e.target.value)}
+                                className="h-9 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-xs text-foreground"
+                            />
+                            <span className="text-xs text-muted-foreground">to</span>
+                            <input
+                                type="date"
+                                value={reconEnd}
+                                onChange={(e) => setReconEnd(e.target.value)}
+                                className="h-9 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] px-3 text-xs text-foreground"
+                            />
+                            <button
+                                onClick={handleGenerateReconciliation}
+                                disabled={generating === 'reconciliation'}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-3 py-2 text-xs font-semibold text-black disabled:opacity-60"
+                            >
+                                {generating === 'reconciliation' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                                Run Reconciliation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Section>
+
+            <Section title="Archived Reports" subtitle="Stored for auditing and export" icon={FileText}>
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground"
                     >
-                        {generating === type ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                        {formatTypeLabel(type)}
+                        <option value="">All Types</option>
+                        {reportTypeOptions.map((t) => (
+                            <option key={t} value={t}>
+                                {formatTypeLabel(t)}
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={fetchReports}
+                        disabled={loading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
+                    >
+                        <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
                     </button>
-                ))}
-            </div>
+                </div>
 
-            {genMessage && (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-                    <CheckCircle2 className="h-4 w-4" /> {genMessage}
-                    <button onClick={() => setGenMessage(null)} className="ml-auto">
-                        <X className="h-3.5 w-3.5" />
-                    </button>
-                </div>
-            )}
-            {genError && (
-                <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                    <AlertTriangle className="h-4 w-4" /> {genError}
-                </div>
-            )}
-
-            {/* Filters */}
-            <div className="flex items-center gap-3">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground"
-                >
-                    <option value="">All Types</option>
-                    {typeOptions.map((t) => (
-                        <option key={t} value={t}>
-                            {formatTypeLabel(t)}
-                        </option>
-                    ))}
-                </select>
-                <button
-                    onClick={fetchReports}
-                    disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
-                >
-                    <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh
-                </button>
-            </div>
-
-            {/* Report list */}
-            {loading ? (
-                <div className="space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                </div>
-            ) : error ? (
-                <ErrorBanner message={error} onRetry={fetchReports} />
-            ) : reports.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#2a2a2e] bg-[#0d0d10]/90 py-12 text-center">
-                    <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-                    <p className="mt-3 text-sm text-muted-foreground">No reports found. Generate one above.</p>
-                </div>
-            ) : (
-                <div className="overflow-x-auto rounded-xl border border-[#2a2a2e]">
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-[#0a0b0f] text-muted-foreground uppercase">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold">Type</th>
-                                <th className="px-4 py-3 font-semibold">Report Date</th>
-                                <th className="px-4 py-3 font-semibold">Generated</th>
-                                <th className="px-4 py-3 font-semibold">By</th>
-                                <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {reports.map((r) => (
-                                <tr key={r.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
-                                    <td className="px-4 py-2.5 font-medium text-foreground capitalize">{formatTypeLabel(r.report_type)}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground">{r.report_date}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground">{r.generated_date?.slice(0, 10) ?? '—'}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground">{r.generated_by}</td>
-                                    <td className="px-4 py-2.5 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button
-                                                onClick={() => handleExport(r.id, 'csv')}
-                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
-                                            >
-                                                CSV
-                                            </button>
-                                            <button
-                                                onClick={() => handleExport(r.id, 'pdf')}
-                                                className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
-                                            >
-                                                Print
-                                            </button>
-                                        </div>
-                                    </td>
+                {loading ? (
+                    <div className="space-y-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                    </div>
+                ) : error ? (
+                    <ErrorBanner message={error} onRetry={fetchReports} />
+                ) : reports.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">No archived reports yet.</p>
+                ) : (
+                    <div className="overflow-x-auto rounded-xl border border-[#2a2a2e]">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-[#0a0b0f] text-muted-foreground uppercase">
+                                <tr>
+                                    <th className="px-4 py-3 font-semibold">Type</th>
+                                    <th className="px-4 py-3 font-semibold">Report Date</th>
+                                    <th className="px-4 py-3 font-semibold">Generated</th>
+                                    <th className="px-4 py-3 font-semibold">By</th>
+                                    <th className="px-4 py-3 text-right font-semibold">Export</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                            </thead>
+                            <tbody>
+                                {reports.map((r) => (
+                                    <tr key={r.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
+                                        <td className="px-4 py-2.5 font-medium text-foreground capitalize">{formatTypeLabel(r.report_type)}</td>
+                                        <td className="px-4 py-2.5 text-muted-foreground">{r.report_date}</td>
+                                        <td className="px-4 py-2.5 text-muted-foreground">{r.generated_date?.slice(0, 10) ?? r.created_at?.slice(0, 10) ?? '—'}</td>
+                                        <td className="px-4 py-2.5 text-muted-foreground">{r.generated_by ?? 'System'}</td>
+                                        <td className="px-4 py-2.5 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button
+                                                    onClick={() => handleExport(r.id, 'csv')}
+                                                    className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
+                                                >
+                                                    Excel
+                                                </button>
+                                                <button
+                                                    onClick={() => handleExport(r.id, 'pdf')}
+                                                    className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
+                                                >
+                                                    PDF
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Section>
         </div>
     );
 }
@@ -975,7 +1130,8 @@ export default function Reports() {
                                 <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">Reports & Analytics</h1>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     Shop performance, usage trends, procurement insights, and report history.
-                                    {rangeKey !== 'custom' && ` Showing last ${effectiveDays} days.`}
+                                    {rangeKey === 'daily' && ' Showing today.'}
+                                    {rangeKey !== 'custom' && rangeKey !== 'daily' && ` Showing last ${effectiveDays} days.`}
                                 </p>
                             </div>
 
@@ -1043,6 +1199,7 @@ export default function Reports() {
                             {activeTab === 'overview' && <OverviewTab dash={dash} usage={usage} proc={proc} />}
                             {activeTab === 'usage' && <UsageTab usage={usage} />}
                             {activeTab === 'procurement' && <ProcurementTab proc={proc} />}
+                            {activeTab === 'reports' && <ReportsTab />}
                             {activeTab === 'history' && <HistoryTab />}
                         </>
                     )}

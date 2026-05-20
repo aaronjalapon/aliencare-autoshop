@@ -84,7 +84,7 @@ interface ReportServiceInterface
      *     monthly_procurement: float
      * }
      */
-    public function getDashboardAnalytics(): array;
+    public function getDashboardAnalytics(?Carbon $startDate = null, ?Carbon $endDate = null): array;
 
     /**
      * Get usage analytics for a date range.

@@ -8,9 +8,11 @@ use App\Events\CustomerAccountApproved;
 use App\Events\CustomerAccountCreated;
 use App\Events\CustomerAccountRejected;
 use App\Events\LowStockAlert;
+use App\Events\JobOrderStatusChanged;
 use App\Events\ReservationUpdated;
 use App\Events\StockUpdated;
 use App\Listeners\HandleLowStockAlert;
+use App\Listeners\LogJobOrderActivity;
 use App\Listeners\LogReservationActivity;
 use App\Listeners\LogStockTransaction;
 use App\Listeners\NotifyCustomerOfApproval;
@@ -44,6 +46,10 @@ class EventServiceProvider extends ServiceProvider
 
         ReservationUpdated::class => [
             LogReservationActivity::class,
+        ],
+
+        JobOrderStatusChanged::class => [
+            LogJobOrderActivity::class,
         ],
 
         // CIM Events

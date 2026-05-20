@@ -93,7 +93,7 @@ export function extractDurationMinutes(duration: string | null | undefined): num
 
 // ── Job Order helpers ───────────────────────────────────────────────────────
 export function getSourceLabel(order: JobOrder): 'Online Booking' | 'Walk-in' {
-    if (order.source === 'Online Booking') return 'Online Booking';
+    if (order.source === 'Online Booking' || order.source === 'online_booking') return 'Online Booking';
     return 'Walk-in';
 }
 
@@ -126,6 +126,19 @@ export function getVehicleLabel(order: JobOrder): string {
 
 export function hasSchedule(order: JobOrder): boolean {
     return !!(order.arrival_date && order.arrival_time);
+}
+
+export function getScheduleSortValue(order: JobOrder): string {
+    if (order.arrival_date && order.arrival_time) {
+        return `${order.arrival_date}T${order.arrival_time}`;
+    }
+    return order.created_at;
+}
+
+export function compareNewestScheduleFirst(a: JobOrder, b: JobOrder): number {
+    const scheduleDiff = getScheduleSortValue(b).localeCompare(getScheduleSortValue(a));
+    if (scheduleDiff !== 0) return scheduleDiff;
+    return b.jo_number.localeCompare(a.jo_number);
 }
 
 export function getScheduleLabel(order: JobOrder): string {
@@ -233,10 +246,4 @@ export function getApprovalUrgencySortKey(order: JobOrder): string {
     }
     // No schedule — use creation time as fallback
     return order.created_at;
-}
-
-export function getOnlineSortKey(order: JobOrder): string {
-    // Pending approval first (prefix "0-"), then rest (prefix "1-")
-    const group = order.status === 'pending_approval' ? '0' : '1';
-    return `${group}-${getApprovalUrgencySortKey(order)}-${order.jo_number}`;
 }

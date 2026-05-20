@@ -203,7 +203,7 @@ export interface JobOrder {
     status: JobOrderStatus;
     status_label: string;
     status_color: string;
-    source: 'Online Booking' | 'Walk-in';
+    source: 'Online Booking' | 'Walk-in' | 'online_booking' | 'walk_in';
     service_fee: number;
     total_cost: number | null;
     balance?: number;

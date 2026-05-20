@@ -10,8 +10,10 @@ use App\Http\Requests\Api\ServiceCatalog\ServiceCatalogManageIndexRequest;
 use App\Http\Requests\Api\ServiceCatalog\StoreServiceCatalogRequest;
 use App\Http\Requests\Api\ServiceCatalog\UpdateServiceCatalogRequest;
 use App\Http\Resources\ServiceCatalogResource;
+use App\Models\Archive;
 use App\Models\ServiceCatalog;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class ServiceCatalogController extends Controller
@@ -70,6 +72,18 @@ class ServiceCatalogController extends Controller
 
         $service = ServiceCatalog::create($this->normalizePayload($request->validated()));
 
+        Archive::create([
+            'entity_type' => 'service',
+            'entity_id' => $service->id,
+            'action' => 'created',
+            'old_data' => null,
+            'new_data' => $service->getAttributes(),
+            'user_id' => Auth::id() ?? null,
+            'reference_number' => $service->name,
+            'notes' => "Service created: {$service->name}.",
+            'archived_date' => now(),
+        ]);
+
         return response()->json([
             'success' => true,
             'data' => new ServiceCatalogResource($service),
@@ -82,8 +96,21 @@ class ServiceCatalogController extends Controller
         Gate::authorize('manage-services');
 
         $service = ServiceCatalog::query()->findOrFail($id);
+        $oldData = $service->getAttributes();
         $service->fill($this->normalizePayload($request->validated()));
         $service->save();
+
+        Archive::create([
+            'entity_type' => 'service',
+            'entity_id' => $service->id,
+            'action' => 'updated',
+            'old_data' => $oldData,
+            'new_data' => $service->getAttributes(),
+            'user_id' => Auth::id() ?? null,
+            'reference_number' => $service->name,
+            'notes' => "Service updated: {$service->name}.",
+            'archived_date' => now(),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -97,8 +124,21 @@ class ServiceCatalogController extends Controller
         Gate::authorize('manage-services');
 
         $service = ServiceCatalog::query()->findOrFail($id);
+        $oldData = $service->getAttributes();
         $service->is_active = false;
         $service->save();
+
+        Archive::create([
+            'entity_type' => 'service',
+            'entity_id' => $service->id,
+            'action' => 'deactivated',
+            'old_data' => $oldData,
+            'new_data' => $service->getAttributes(),
+            'user_id' => Auth::id() ?? null,
+            'reference_number' => $service->name,
+            'notes' => "Service deactivated: {$service->name}.",
+            'archived_date' => now(),
+        ]);
 
         return response()->json([
             'success' => true,

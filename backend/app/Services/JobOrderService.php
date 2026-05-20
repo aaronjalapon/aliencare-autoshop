@@ -19,6 +19,7 @@ use App\Exceptions\JobOrderStateException;
 use App\Models\Bay;
 use App\Models\BookingSlot;
 use App\Models\CustomerTransaction;
+use App\Models\Archive;
 use App\Models\JobOrder;
 use App\Models\JobOrderItem;
 use App\Models\Mechanic;
@@ -28,6 +29,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class JobOrderService implements JobOrderServiceInterface
 {
@@ -63,7 +65,28 @@ class JobOrderService implements JobOrderServiceInterface
 
         $data['reservation_expires_at'] = now()->addHours(4);
 
-        return $this->jobOrderRepository->create($data);
+        $jobOrder = $this->jobOrderRepository->create($data);
+
+        Archive::create([
+            'entity_type' => 'job_order',
+            'entity_id' => $jobOrder->id,
+            'action' => 'created',
+            'old_data' => null,
+            'new_data' => [
+                'status' => $jobOrder->status->value,
+                'jo_number' => $jobOrder->jo_number,
+                'customer_id' => $jobOrder->customer_id,
+                'arrival_date' => $jobOrder->arrival_date?->format('Y-m-d'),
+                'arrival_time' => $jobOrder->arrival_time,
+                'source' => $jobOrder->source?->value ?? (string) $jobOrder->source,
+            ],
+            'user_id' => Auth::id() ?? null,
+            'reference_number' => $jobOrder->jo_number,
+            'notes' => "Job order {$jobOrder->jo_number} created.",
+            'archived_date' => now(),
+        ]);
+
+        return $jobOrder;
     }
 
     private function slotHasCapacity(string $arrivalDate, BookingSlot $slotSetting): bool
@@ -486,6 +509,27 @@ class JobOrderService implements JobOrderServiceInterface
 
             $item = JobOrderItem::create($itemData);
 
+            Archive::create([
+                'entity_type' => 'job_order_item',
+                'entity_id' => $item->id,
+                'action' => 'item_added',
+                'old_data' => null,
+                'new_data' => [
+                    'job_order_id' => $jobOrder->id,
+                    'jo_number' => $jobOrder->jo_number,
+                    'item_type' => $item->item_type->value,
+                    'item_id' => $item->item_id,
+                    'description' => $item->description,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'total_price' => $item->total_price,
+                ],
+                'user_id' => Auth::id() ?? null,
+                'reference_number' => $jobOrder->jo_number,
+                'notes' => "Item added to job order {$jobOrder->jo_number}.",
+                'archived_date' => now(),
+            ]);
+
             // If it's a part, create a reservation to reserve inventory
             if (($itemData['item_type'] ?? '') === JobOrderItemType::Part->value && ! empty($itemData['item_id'])) {
                 Reservation::create([
@@ -528,7 +572,25 @@ class JobOrderService implements JobOrderServiceInterface
                     ->update(['status' => 'cancelled']);
             }
 
-            return (bool) $item->delete();
+            $oldData = $item->getAttributes();
+
+            $deleted = (bool) $item->delete();
+
+            if ($deleted) {
+                Archive::create([
+                    'entity_type' => 'job_order_item',
+                    'entity_id' => $itemId,
+                    'action' => 'item_removed',
+                    'old_data' => $oldData,
+                    'new_data' => null,
+                    'user_id' => Auth::id() ?? null,
+                    'reference_number' => $jobOrder->jo_number,
+                    'notes' => "Item removed from job order {$jobOrder->jo_number}.",
+                    'archived_date' => now(),
+                ]);
+            }
+
+            return $deleted;
         });
     }
 
@@ -548,11 +610,25 @@ class JobOrderService implements JobOrderServiceInterface
 
             $item = JobOrderItem::where('job_order_id', $jobOrderId)->findOrFail($itemId);
 
+            $oldData = $item->getAttributes();
+
             $item->update([
                 'description' => $itemData['description'] ?? $item->description,
                 'quantity' => $itemData['quantity'] ?? $item->quantity,
                 'unit_price' => $itemData['unit_price'] ?? $item->unit_price,
                 'total_price' => ($itemData['quantity'] ?? $item->quantity) * ($itemData['unit_price'] ?? $item->unit_price),
+            ]);
+
+            Archive::create([
+                'entity_type' => 'job_order_item',
+                'entity_id' => $item->id,
+                'action' => 'item_updated',
+                'old_data' => $oldData,
+                'new_data' => $item->getAttributes(),
+                'user_id' => Auth::id() ?? null,
+                'reference_number' => $jobOrder->jo_number,
+                'notes' => "Item updated for job order {$jobOrder->jo_number}.",
+                'archived_date' => now(),
             ]);
 
             return $item;

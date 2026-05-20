@@ -8,8 +8,8 @@ import WalkInModal from '@/components/job-orders/WalkInModal';
 import AppLayout from '@/components/layout/app-layout';
 import { useToast } from '@/components/ui/toast';
 import {
-    getOnlineSortKey,
     getPrimaryAction,
+    compareNewestScheduleFirst,
     getQueueSortKey,
     getSourceLabel,
     hasSchedule,
@@ -146,7 +146,10 @@ export default function JobOrders() {
     );
 
     // ── Tab-filtered lists ────────────────────────────────────────────────
-    const allOrders = useMemo(() => jobOrders.filter(hasSchedule).filter(searchFilter), [jobOrders, searchFilter]);
+    const allOrders = useMemo(
+        () => jobOrders.filter(hasSchedule).filter(searchFilter).sort(compareNewestScheduleFirst),
+        [jobOrders, searchFilter],
+    );
 
     const queueOrders = useMemo(
         () =>
@@ -161,11 +164,7 @@ export default function JobOrders() {
     const isOnline = (o: JobOrder) => getSourceLabel(o) === 'Online Booking';
 
     const onlineOrders = useMemo(
-        () =>
-            jobOrders
-                .filter(hasSchedule)
-                .filter((o) => isOnline(o) && searchFilter(o))
-                .sort((a, b) => getOnlineSortKey(a).localeCompare(getOnlineSortKey(b))),
+        () => jobOrders.filter((o) => isOnline(o) && searchFilter(o)).sort(compareNewestScheduleFirst),
         [jobOrders, searchFilter],
     );
 
@@ -178,12 +177,15 @@ export default function JobOrders() {
             jobOrders
                 .filter(hasSchedule)
                 .filter((o) => getSourceLabel(o) === 'Walk-in' && searchFilter(o))
-                .sort((a, b) => getQueueSortKey(a).localeCompare(getQueueSortKey(b))),
+                .sort(compareNewestScheduleFirst),
         [jobOrders, searchFilter],
     );
 
     const unassignedOrders = useMemo(
-        () => jobOrders.filter(hasSchedule).filter((o) => o.status === 'approved' && searchFilter(o)),
+        () =>
+            jobOrders
+                .filter((o) => o.status === 'approved' && searchFilter(o))
+                .sort(compareNewestScheduleFirst),
         [jobOrders, searchFilter],
     );
 
@@ -205,7 +207,7 @@ export default function JobOrders() {
     const currentTabOrders = useMemo(() => {
         if (activeTab === 'all') return allOrders;
         if (activeTab === 'queue') return queueOrders;
-        if (activeTab === 'online') return onlineApproved;
+        if (activeTab === 'online') return onlineOrders;
         if (activeTab === 'walkin') return walkInOrders;
         if (activeTab === 'assignments') return unassignedOrders;
         if (activeTab === 'billing') return billingOrders;
