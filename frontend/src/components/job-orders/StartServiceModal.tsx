@@ -55,7 +55,7 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
                     return true;
                 }),
             );
-            setBays(bResponse.data.filter((b) => b.status.toLowerCase() === 'available'));
+            setBays(bResponse.data.filter((b) => b.status.toLowerCase() === 'available' && !b.has_time_conflict));
         } catch {
             setLoadError('Failed to load mechanics and bays.');
         } finally {
