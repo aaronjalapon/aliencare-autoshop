@@ -28,7 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reports and Analytics', href: '
 
 type TabKey = 'overview' | 'usage' | 'procurement' | 'reports' | 'history';
 type RangeKey = 'daily' | '7d' | '30d' | '90d' | 'custom';
-type HistoryEntityType = 'inventory' | 'job_order' | 'reservation' | 'pos';
+type HistoryEntityType = 'inventory' | 'job_order' | 'reservation' | 'pos' | 'billing';
 
 const RANGE_CONFIG: Record<RangeKey, { label: string; days: number | null }> = {
     daily: { label: 'Today', days: 0 },
@@ -53,6 +53,7 @@ const HISTORY_ENTITY_LABELS: Record<HistoryEntityType, string> = {
     job_order: 'Job Orders',
     reservation: 'Reservation',
     pos: 'POS',
+    billing: 'Billing & Payment',
 };
 
 function normalizeHistoryToken(value?: string | null): string {
@@ -88,6 +89,8 @@ function mapArchiveEntity(entry: AuditLog): HistoryEntityType {
             return 'job_order';
         case 'transaction':
             return inferHistoryEntity(entry.reference_number, entry.notes);
+        case 'billing':
+            return 'billing';
         case 'inventory':
         default:
             return 'inventory';
@@ -884,6 +887,7 @@ function HistoryTab() {
         { value: 'job_order', label: HISTORY_ENTITY_LABELS.job_order },
         { value: 'reservation', label: HISTORY_ENTITY_LABELS.reservation },
         { value: 'pos', label: HISTORY_ENTITY_LABELS.pos },
+        { value: 'billing', label: HISTORY_ENTITY_LABELS.billing },
     ];
 
     return (

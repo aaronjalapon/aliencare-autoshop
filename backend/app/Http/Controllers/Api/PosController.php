@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Contracts\Services\InventoryServiceInterface;
 use App\Enums\CustomerTransactionType;
+use App\Events\BillingTransactionUpdated;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InventoryNotFoundException;
 use App\Exceptions\PaymentGatewayException;
@@ -181,6 +182,14 @@ class PosController extends Controller
             }
 
             DB::commit();
+
+            event(new BillingTransactionUpdated(
+                $transaction->fresh(),
+                'pos_checkout',
+                null,
+                ['amount' => $total, 'payment_mode' => $paymentMode, 'reference_number' => $referenceNumber],
+                now(),
+            ));
 
             return response()->json([
                 'success' => true,

@@ -94,6 +94,31 @@ class AuditService {
         }
     }
 
+    // Get billing/payment audit logs
+    async getBillingAuditLogs(
+        filters: {
+            action?: string;
+            start_date?: string;
+            end_date?: string;
+            search?: string;
+            per_page?: number;
+            page?: number;
+        } = {},
+    ): Promise<ApiResponse<PaginatedResponse<AuditLog>>> {
+        const params: Record<string, string | number> = {
+            entity_type: 'billing',
+        };
+
+        if (filters.action) params.action = filters.action;
+        if (filters.start_date) params.start_date = filters.start_date;
+        if (filters.end_date) params.end_date = filters.end_date;
+        if (filters.search) params.search = filters.search;
+        if (filters.per_page) params.per_page = filters.per_page;
+        if (filters.page) params.page = filters.page;
+
+        return api.get<ApiResponse<PaginatedResponse<AuditLog>>>('/v1/archives', params);
+    }
+
     // Get single audit log entry
     async getAuditLog(id: number): Promise<ApiResponse<AuditLog>> {
         return api.get<ApiResponse<AuditLog>>(`/v1/archives/${id}`);

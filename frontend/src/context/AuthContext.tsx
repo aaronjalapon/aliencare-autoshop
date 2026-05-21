@@ -6,7 +6,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     login: (email: string, password: string, remember?: boolean) => Promise<void>;
-    register: (name: string, email: string, password: string, password_confirmation: string) => Promise<void>;
+    register: (first_name: string, last_name: string, email: string, password: string, password_confirmation: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
     socialLogin: (provider: string) => void;
@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const register = async (name: string, email: string, password: string, password_confirmation: string) => {
-        const response = await authService.register({ name, email, password, password_confirmation });
+    const register = async (first_name: string, last_name: string, email: string, password: string, password_confirmation: string) => {
+        const response = await authService.register({ first_name, last_name, email, password, password_confirmation });
         setUser(response.user);
         try {
             const { migrateGuestCartToUser } = await import('@/utils/cartUtils');

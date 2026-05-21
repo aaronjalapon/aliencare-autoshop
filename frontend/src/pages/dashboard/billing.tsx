@@ -1,4 +1,5 @@
 import PaymentSidePanel from '@/components/billing/PaymentSidePanel';
+import { BillingAuditLogPanel } from '@/components/billing/BillingAuditLogPanel';
 import AppLayout from '@/components/layout/app-layout';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { buildReceiptHtml, mapCustomerBillingReceiptToPrintData } from '@/lib/receipt-print';
@@ -251,6 +252,7 @@ export default function Billing() {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [page, setPage] = useState(1);
     const [selectedTicketKey, setSelectedTicketKey] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'queue' | 'audit'>('queue');
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [selectedJobOrder, setSelectedJobOrder] = useState<JobOrder | null>(null);
@@ -564,6 +566,33 @@ export default function Billing() {
                         <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{detailError}</div>
                     )}
 
+                    {/* Tab switcher */}
+                    <div className="mb-1 flex shrink-0 items-center gap-1 rounded-lg border border-[#2a2a2e] bg-[#0d0d10] p-1 w-fit">
+                        <button
+                            onClick={() => setActiveTab('queue')}
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                                activeTab === 'queue'
+                                    ? 'bg-[#d4af37] text-black shadow-[0_0_12px_rgba(212,175,55,0.3)]'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            Queue
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('audit')}
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                                activeTab === 'audit'
+                                    ? 'bg-[#d4af37] text-black shadow-[0_0_12px_rgba(212,175,55,0.3)]'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            Audit Log
+                        </button>
+                    </div>
+
+                    {activeTab === 'audit' ? (
+                        <BillingAuditLogPanel />
+                    ) : (
                     <div className="grid min-h-0 flex-1 gap-5 overflow-hidden lg:grid-cols-[1.6fr_1fr]">
                         <div className="profile-card flex min-h-0 flex-col rounded-xl p-5">
                             <div className="mb-4 flex shrink-0 flex-col gap-3">
@@ -949,6 +978,7 @@ export default function Billing() {
                             )}
                         </aside>
                     </div>
+                    )}
                 </div>
             </div>
 

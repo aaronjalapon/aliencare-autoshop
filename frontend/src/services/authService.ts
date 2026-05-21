@@ -8,7 +8,8 @@ export interface LoginData {
 }
 
 export interface RegisterData {
-    name: string;
+    first_name: string;
+    last_name: string;
     email: string;
     password: string;
     password_confirmation: string;
@@ -49,7 +50,12 @@ class AuthService {
 
     async register(data: RegisterData): Promise<{ message: string; user: User }> {
         await api.getCsrfCookie();
-        return api.post('/auth/register', data);
+        return api.post('/auth/register', {
+            name: `${data.first_name} ${data.last_name}`.trim(),
+            email: data.email,
+            password: data.password,
+            password_confirmation: data.password_confirmation,
+        });
     }
 
     async logout(): Promise<{ message: string }> {

@@ -181,7 +181,7 @@ export interface UsageReport {
 export interface AuditLog {
     id?: number;
     archive_id: number;
-    entity_type: 'inventory' | 'reservation' | 'transaction' | 'job_order' | 'job_order_item' | 'service';
+    entity_type: 'inventory' | 'reservation' | 'transaction' | 'job_order' | 'job_order_item' | 'service' | 'billing';
     entity_id: string | number;
     action:
         | 'create'
@@ -206,7 +206,18 @@ export interface AuditLog {
         | 'in_progress'
         | 'completed'
         | 'settled'
-        | 'cancelled';
+        | 'cancelled'
+        | 'invoice_created'
+        | 'invoice_issued'
+        | 'invoice_voided'
+        | 'invoice_updated'
+        | 'payment_recorded'
+        | 'xendit_invoice_created'
+        | 'xendit_status_changed'
+        | 'bulk_invoice_created'
+        | 'remaining_balance_created'
+        | 'refund_processed'
+        | 'pos_checkout';
     old_data?: Record<string, unknown>;
     new_data?: Record<string, unknown>;
     user_id?: string;
@@ -246,7 +257,7 @@ export interface AuditTransaction {
 // Audit log filters
 export interface AuditLogFilters {
     search?: string;
-    entity_type?: 'inventory' | 'reservation' | 'transaction' | 'all';
+    entity_type?: 'inventory' | 'reservation' | 'transaction' | 'billing' | 'all';
     action?: string;
     user_id?: string;
     start_date?: string;
