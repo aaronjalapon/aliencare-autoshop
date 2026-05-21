@@ -3,6 +3,7 @@ import InputError from '@/components/shared/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/context/AuthContext';
 import { flattenValidationErrors } from '@/lib/validation-errors';
 import { ApiError } from '@/services/api';
 import { customerService } from '@/services/customerService';
@@ -67,9 +68,21 @@ function emptyVehicle(): VehicleForm {
     };
 }
 
+function splitName(name?: string | null): { firstName: string; lastName: string } {
+    if (!name) return { firstName: '', lastName: '' };
+    const trimmed = name.trim();
+    const spaceIndex = trimmed.indexOf(' ');
+    if (spaceIndex === -1) return { firstName: trimmed, lastName: '' };
+    return {
+        firstName: trimmed.slice(0, spaceIndex),
+        lastName: trimmed.slice(spaceIndex + 1),
+    };
+}
+
 export default function CustomerOnboarding() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAuth();
     const makeListId = 'customer-onboarding-car-brands';
 
     const returnToPath = useMemo(() => {
@@ -113,8 +126,8 @@ export default function CustomerOnboarding() {
 
                 const customer = status.customer;
                 if (customer) {
-                    setFirstName(customer.first_name ?? '');
-                    setLastName(customer.last_name ?? '');
+                    setFirstName(customer.first_name ?? splitName(user?.name).firstName);
+                    setLastName(customer.last_name ?? splitName(user?.name).lastName);
                     setPhoneNumber(customer.phone_number ?? '');
                     setAddress(customer.address ?? '');
                     setLicenseNumber(customer.license_number ?? '');
@@ -139,6 +152,10 @@ export default function CustomerOnboarding() {
                             })),
                         );
                     }
+                } else if (user) {
+                    const { firstName, lastName } = splitName(user.name);
+                    setFirstName(firstName);
+                    setLastName(lastName);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -156,7 +173,7 @@ export default function CustomerOnboarding() {
         return () => {
             cancelled = true;
         };
-    }, [navigate, postOnboardingPath]);
+    }, [navigate, postOnboardingPath, user]);
 
     const updateVehicle = (index: number, key: keyof VehicleForm, value: string) => {
         setVehicles((prev) => prev.map((vehicle, i) => (i === index ? { ...vehicle, [key]: value } : vehicle)));

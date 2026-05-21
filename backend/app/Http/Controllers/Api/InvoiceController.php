@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Enums\InvoiceStatus;
+use App\Events\BillingTransactionUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Invoice\UpdateInvoiceRequest;
 use App\Http\Resources\CustomerTransactionResource;
@@ -73,7 +74,17 @@ class InvoiceController extends Controller
             ], 422);
         }
 
+        $oldData = $transaction->only(['status', 'amount', 'notes']);
+
         $transaction->update($request->validated());
+
+        event(new BillingTransactionUpdated(
+            $transaction->fresh(),
+            'invoice_updated',
+            $oldData,
+            $transaction->only(['status', 'amount', 'notes']),
+            now(),
+        ));
 
         return response()->json([
             'success' => true,
@@ -95,7 +106,17 @@ class InvoiceController extends Controller
             ], 422);
         }
 
+        $oldData = $transaction->only(['status']);
+
         $transaction->update(['status' => InvoiceStatus::Issued]);
+
+        event(new BillingTransactionUpdated(
+            $transaction->fresh(),
+            'invoice_issued',
+            $oldData,
+            $transaction->only(['status']),
+            now(),
+        ));
 
         return response()->json([
             'success' => true,
@@ -125,7 +146,17 @@ class InvoiceController extends Controller
             ], 422);
         }
 
+        $oldData = $transaction->only(['status']);
+
         $transaction->update(['status' => InvoiceStatus::Void]);
+
+        event(new BillingTransactionUpdated(
+            $transaction->fresh(),
+            'invoice_voided',
+            $oldData,
+            $transaction->only(['status']),
+            now(),
+        ));
 
         return response()->json([
             'success' => true,

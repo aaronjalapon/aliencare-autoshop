@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Enums\CustomerTransactionType;
+use App\Events\BillingTransactionUpdated;
 use App\Exceptions\PaymentGatewayException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CustomerTransactionResource;
@@ -58,6 +59,14 @@ class PaymentController extends Controller
             return $this->paymentGatewayErrorResponse($e);
         }
 
+        event(new BillingTransactionUpdated(
+            $transaction->fresh(),
+            'xendit_invoice_created',
+            null,
+            ['xendit_invoice_id' => $transaction->xendit_invoice_id, 'payment_url' => $paymentUrl],
+            now(),
+        ));
+
         return response()->json([
             'success' => true,
             'data' => ['payment_url' => $paymentUrl],
@@ -104,6 +113,18 @@ class PaymentController extends Controller
         } catch (PaymentGatewayException $e) {
             return $this->paymentGatewayErrorResponse($e);
         }
+
+        event(new BillingTransactionUpdated(
+            $pendingTransactions->first()->fresh(),
+            'bulk_invoice_created',
+            null,
+            [
+                'transaction_count' => $pendingTransactions->count(),
+                'total_amount' => (float) $pendingTransactions->sum('amount'),
+                'payment_url' => $paymentUrl,
+            ],
+            now(),
+        ));
 
         return response()->json([
             'success' => true,
@@ -196,6 +217,16 @@ class PaymentController extends Controller
 
             $transaction->update($updateData);
 
+            if ($statusChanged) {
+                event(new BillingTransactionUpdated(
+                    $transaction->fresh(),
+                    'xendit_status_changed',
+                    ['xendit_status' => $previousStatus],
+                    ['xendit_status' => $normalizedStatus],
+                    now(),
+                ));
+            }
+
             if ($statusChanged && $normalizedStatus === 'PAID') {
                 $this->createRemainingBalanceTransaction($transaction);
                 $this->settleJobOrderIfFullyPaid($transaction);
@@ -251,11 +282,20 @@ class PaymentController extends Controller
         $transaction = CustomerTransaction::where('external_id', $externalId)->first();
 
         if ($transaction) {
+            $previousXenditStatus = $transaction->xendit_status;
             $transaction->update([
                 'xendit_status' => $status,
                 'payment_method' => $payload['payment_method'] ?? $transaction->payment_method,
                 'paid_at' => $status === 'PAID' ? now() : $transaction->paid_at,
             ]);
+
+            event(new BillingTransactionUpdated(
+                $transaction->fresh(),
+                'xendit_status_changed',
+                ['xendit_status' => $previousXenditStatus],
+                ['xendit_status' => $status],
+                now(),
+            ));
 
             if ($status === 'PAID') {
                 if ($transaction->reservation_id) {
@@ -287,11 +327,20 @@ class PaymentController extends Controller
         ];
 
         foreach ($batchTransactions as $bt) {
+            $previousXenditStatus = $bt->xendit_status;
             $bt->update([
                 'xendit_status' => $updateData['xendit_status'],
                 'payment_method' => $updateData['payment_method'] ?? $bt->payment_method,
                 'paid_at' => $updateData['paid_at'] ?? $bt->paid_at,
             ]);
+
+            event(new BillingTransactionUpdated(
+                $bt->fresh(),
+                'xendit_status_changed',
+                ['xendit_status' => $previousXenditStatus],
+                ['xendit_status' => $status],
+                now(),
+            ));
 
             if ($status === 'PAID') {
                 if ($bt->reservation_id) {
@@ -374,6 +423,14 @@ class PaymentController extends Controller
             return $this->paymentGatewayErrorResponse($e);
         }
 
+        event(new BillingTransactionUpdated(
+            $transaction->fresh(),
+            'xendit_invoice_created',
+            null,
+            ['xendit_invoice_id' => $transaction->xendit_invoice_id, 'payment_url' => $paymentUrl],
+            now(),
+        ));
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -413,6 +470,14 @@ class PaymentController extends Controller
             'xendit_status' => null,
             'paid_at' => now(),
         ]);
+
+        event(new BillingTransactionUpdated(
+            $transaction,
+            'payment_recorded',
+            null,
+            ['amount' => (float) $validated['amount'], 'payment_method' => $validated['payment_method']],
+            now(),
+        ));
 
         $settled = false;
         if ($validated['job_order_id'] ?? null) {
@@ -474,6 +539,16 @@ class PaymentController extends Controller
                 : $transaction->payment_method,
             'paid_at' => $normalizedStatus === 'PAID' ? now() : $transaction->paid_at,
         ]);
+
+        if ($normalizedStatus !== ($previousStatus ?? '')) {
+            event(new BillingTransactionUpdated(
+                $transaction->fresh(),
+                'xendit_status_changed',
+                ['xendit_status' => $previousStatus],
+                ['xendit_status' => $normalizedStatus],
+                now(),
+            ));
+        }
 
         if ($normalizedStatus === 'PAID' && $previousStatus !== 'PAID') {
             $this->createRemainingBalanceTransaction($transaction);
@@ -537,13 +612,21 @@ class PaymentController extends Controller
             return;
         }
 
-        CustomerTransaction::create([
+        $remainingTransaction = CustomerTransaction::create([
             'customer_id' => $transaction->customer_id,
             'job_order_id' => $jobOrder->id,
             'type' => CustomerTransactionType::Invoice,
             'amount' => $remaining,
             'notes' => 'Remaining balance for '.$jobOrder->jo_number.' (reservation fee of ₱'.number_format($paidAmount, 2).' deducted)',
         ]);
+
+        event(new BillingTransactionUpdated(
+            $remainingTransaction,
+            'remaining_balance_created',
+            null,
+            ['amount' => $remaining, 'job_order_id' => $jobOrder->id],
+            now(),
+        ));
 
         Log::info('Xendit webhook: created remaining balance transaction of ₱'.number_format($remaining, 2).' for job order '.$jobOrder->id);
     }

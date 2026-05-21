@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Events\BillingTransactionUpdated;
 use App\Events\CustomerAccountApproved;
 use App\Events\CustomerAccountCreated;
 use App\Events\CustomerAccountRejected;
@@ -12,6 +13,7 @@ use App\Events\JobOrderStatusChanged;
 use App\Events\ReservationUpdated;
 use App\Events\StockUpdated;
 use App\Listeners\HandleLowStockAlert;
+use App\Listeners\LogBillingActivity;
 use App\Listeners\LogJobOrderActivity;
 use App\Listeners\LogReservationActivity;
 use App\Listeners\LogStockTransaction;
@@ -50,6 +52,11 @@ class EventServiceProvider extends ServiceProvider
 
         JobOrderStatusChanged::class => [
             LogJobOrderActivity::class,
+        ],
+
+        // Billing Events
+        BillingTransactionUpdated::class => [
+            LogBillingActivity::class,
         ],
 
         // CIM Events

@@ -56,6 +56,14 @@ class Archive extends Model
     }
 
     /**
+     * Scope for billing archives.
+     */
+    public function scopeBillingArchives($query)
+    {
+        return $query->where('entity_type', 'billing');
+    }
+
+    /**
      * Scope for archives within date range.
      */
     public function scopeBetweenDates($query, $startDate, $endDate)

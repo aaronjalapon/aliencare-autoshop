@@ -42,7 +42,8 @@ function FacebookIcon() {
 
 export default function Register() {
     const { register, socialLogin } = useAuth();
-    const [name, setName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -54,7 +55,7 @@ export default function Register() {
         setProcessing(true);
         setErrors({});
         try {
-            await register(name, email, password, passwordConfirmation);
+            await register(firstName, lastName, email, password, passwordConfirmation);
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 const flatErrors = flattenValidationErrors(error.validationErrors);
@@ -118,27 +119,49 @@ export default function Register() {
                 {/* Registration form */}
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-4">
-                        {/* Full name */}
+                        {/* First name */}
                         <div className="space-y-2">
-                            <Label htmlFor="name" className="text-sm font-medium text-white/90">
-                                Full name
+                            <Label htmlFor="first_name" className="text-sm font-medium text-white/90">
+                                First name
                             </Label>
                             <div className="group flex items-center gap-3 rounded-xl border border-white/20 bg-white/[0.07] px-3.5 transition focus-within:border-[#d4af37]/60 focus-within:ring-1 focus-within:ring-[#d4af37]/20">
                                 <User className="h-4 w-4 shrink-0 text-white/50 transition group-focus-within:text-[#d4af37]" />
                                 <Input
-                                    id="name"
+                                    id="first_name"
                                     type="text"
                                     required
                                     autoFocus
                                     tabIndex={1}
-                                    autoComplete="name"
-                                    placeholder="John Doe"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    autoComplete="given-name"
+                                    placeholder="John"
+                                    value={firstName}
+                                    onChange={(e) => setFirstName(e.target.value)}
                                     className="h-11 border-0 bg-transparent px-0 text-sm text-white shadow-none placeholder:text-white/40 focus-visible:ring-0"
                                 />
                             </div>
-                            <InputError message={errors.name} className="text-xs text-red-400" />
+                            <InputError message={errors.first_name} className="text-xs text-red-400" />
+                        </div>
+
+                        {/* Last name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="last_name" className="text-sm font-medium text-white/90">
+                                Last name
+                            </Label>
+                            <div className="group flex items-center gap-3 rounded-xl border border-white/20 bg-white/[0.07] px-3.5 transition focus-within:border-[#d4af37]/60 focus-within:ring-1 focus-within:ring-[#d4af37]/20">
+                                <User className="h-4 w-4 shrink-0 text-white/50 transition group-focus-within:text-[#d4af37]" />
+                                <Input
+                                    id="last_name"
+                                    type="text"
+                                    required
+                                    tabIndex={2}
+                                    autoComplete="family-name"
+                                    placeholder="Doe"
+                                    value={lastName}
+                                    onChange={(e) => setLastName(e.target.value)}
+                                    className="h-11 border-0 bg-transparent px-0 text-sm text-white shadow-none placeholder:text-white/40 focus-visible:ring-0"
+                                />
+                            </div>
+                            <InputError message={errors.last_name} className="text-xs text-red-400" />
                         </div>
 
                         {/* Email */}
@@ -152,7 +175,7 @@ export default function Register() {
                                     id="email"
                                     type="email"
                                     required
-                                    tabIndex={2}
+                                    tabIndex={3}
                                     autoComplete="email"
                                     placeholder="name@example.com"
                                     value={email}
@@ -174,7 +197,7 @@ export default function Register() {
                                     id="password"
                                     type="password"
                                     required
-                                    tabIndex={3}
+                                    tabIndex={4}
                                     autoComplete="new-password"
                                     placeholder="Create a password"
                                     value={password}
@@ -196,7 +219,7 @@ export default function Register() {
                                     id="password_confirmation"
                                     type="password"
                                     required
-                                    tabIndex={4}
+                                    tabIndex={5}
                                     autoComplete="new-password"
                                     placeholder="Repeat your password"
                                     value={passwordConfirmation}
@@ -211,7 +234,7 @@ export default function Register() {
                     <Button
                         type="submit"
                         className="h-11 w-full rounded-xl bg-[#d4af37] text-sm font-semibold text-black transition hover:bg-[#e6c24e]"
-                        tabIndex={5}
+                        tabIndex={6}
                         disabled={processing}
                     >
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
@@ -222,7 +245,7 @@ export default function Register() {
                 {/* Footer */}
                 <p className="text-center text-sm text-white/55">
                     Already have an account?{' '}
-                    <Link to="/login" className="font-medium text-white/80 transition hover:text-[#d4af37]" tabIndex={6}>
+                    <Link to="/login" className="font-medium text-white/80 transition hover:text-[#d4af37]" tabIndex={7}>
                         Login
                     </Link>
                 </p>
