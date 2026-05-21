@@ -272,15 +272,20 @@ class ReportController extends Controller
     }
 
     /**
-     * Export a report as CSV or PDF.
+     * Export a report as CSV, HTML, or PDF.
      */
     public function exportReport(int $id): JsonResponse|StreamedResponse
     {
         Gate::authorize('view-reports');
 
+        $format = (string) request()->get('format', 'csv');
+
         try {
             $report = $this->reportService->getReport($id);
-            $format = request()->get('format', 'csv');
+
+            if ($format === 'html') {
+                return $this->streamHtmlReport($report);
+            }
 
             if ($format === 'pdf') {
                 return $this->streamPdfReport($report);
@@ -288,6 +293,12 @@ class ReportController extends Controller
 
             return $this->streamCsvReport($report);
         } catch (\Exception $e) {
+            logger()->error('Report export failed', [
+                'report_id' => $id,
+                'format' => $format,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to export report: '.$e->getMessage(),
@@ -295,12 +306,52 @@ class ReportController extends Controller
         }
     }
 
+    private function normalizeReportDataSummary(mixed $data): array
+    {
+        if (is_array($data)) {
+            return $data;
+        }
+
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        if (is_object($data)) {
+            if (method_exists($data, 'toArray')) {
+                $array = $data->toArray();
+                return is_array($array) ? $array : [];
+            }
+
+            return (array) $data;
+        }
+
+        return [];
+    }
+
     private function streamCsvReport(Report $report): StreamedResponse
     {
-        $data = $report->data_summary ?? [];
+        $data = $this->normalizeReportDataSummary($report->data_summary);
         $filename = sprintf('%s-%s.csv', $report->report_type, $report->report_date);
 
         return response()->streamDownload(function () use ($data, $report) {
+            $formatCsvValue = function ($value): string {
+                if ($value instanceof \DateTimeInterface) {
+                    return $value->format('Y-m-d H:i');
+                }
+
+                if (is_bool($value)) {
+                    return $value ? 'Yes' : 'No';
+                }
+
+                if (is_array($value) || is_object($value)) {
+                    $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    return $encoded === false ? '' : $encoded;
+                }
+
+                return (string) $value;
+            };
+
             $handle = fopen('php://output', 'w');
             fputcsv($handle, ['Report Type', $report->report_type]);
             fputcsv($handle, ['Report Date', $report->report_date]);
@@ -312,11 +363,12 @@ class ReportController extends Controller
                     fputcsv($handle, [ucwords(str_replace('_', ' ', $key))]);
                     foreach ($value as $subKey => $subValue) {
                         $row = is_array($subValue) ? $subValue : [$subKey => $subValue];
-                        fputcsv($handle, array_merge(array_keys($row), array_values($row)));
+                        $cells = array_merge(array_keys($row), array_values($row));
+                        fputcsv($handle, array_map($formatCsvValue, $cells));
                     }
                     fputcsv($handle, []);
                 } else {
-                    fputcsv($handle, [ucwords(str_replace('_', ' ', $key)), $value]);
+                    fputcsv($handle, [ucwords(str_replace('_', ' ', $key)), $formatCsvValue($value)]);
                 }
             }
 
@@ -324,10 +376,19 @@ class ReportController extends Controller
         }, $filename, ['Content-Type' => 'text/csv']);
     }
 
-    private function streamPdfReport(Report $report): StreamedResponse
+    private function streamHtmlReport(Report $report): StreamedResponse
     {
-        $data = $report->data_summary ?? [];
-        $filename = sprintf('%s-%s.pdf', $report->report_type, $report->report_date);
+        $filename = sprintf('%s-%s.html', $report->report_type, $report->report_date);
+        $html = $this->buildReportHtml($report);
+
+        return response()->streamDownload(function () use ($html) {
+            echo $html;
+        }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
+    private function buildReportHtml(Report $report): string
+    {
+        $data = $this->normalizeReportDataSummary($report->data_summary);
         $brand = config('reporting.brand');
         $formatting = config('reporting.formatting');
 
@@ -336,7 +397,15 @@ class ReportController extends Controller
         $logoDataUri = null;
         if (is_file($logoPath)) {
             $logoData = base64_encode((string) file_get_contents($logoPath));
-            $logoDataUri = 'data:image/jpeg;base64,'.$logoData;
+            $extension = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+            $mimeMap = [
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'svg' => 'image/svg+xml',
+            ];
+            $logoMime = $mimeMap[$extension] ?? 'image/png';
+            $logoDataUri = 'data:'.$logoMime.';base64,'.$logoData;
         }
 
         $escape = function ($value): string {
@@ -368,12 +437,9 @@ class ReportController extends Controller
             return number_format($amount, $decimals);
         };
 
-        if (! class_exists(\Dompdf\Dompdf::class)) {
-            throw new \RuntimeException('PDF export requires Dompdf. Run: composer require barryvdh/laravel-dompdf');
-        }
-
-        $html = (function () use ($data, $report, $brand, $formatting, $logoDataUri, $escape, $labelize, $formatDate, $formatCurrency, $formatNumber): string {
-            $title = $labelize((string) $report->report_type).' Report';
+        return (function () use ($data, $report, $brand, $formatting, $logoDataUri, $escape, $labelize, $formatDate, $formatCurrency, $formatNumber): string {
+            $typeLabel = $labelize((string) $report->report_type);
+            $title = $typeLabel.' Report';
             $companyName = $brand['company_name'] ?? config('app.name', 'Alien Care Auto Shop');
             $addressLine1 = $brand['address_line_1'] ?? '';
             $addressLine2 = $brand['address_line_2'] ?? '';
@@ -381,9 +447,48 @@ class ReportController extends Controller
             $contactEmail = $brand['contact_email'] ?? '';
             $website = $brand['website'] ?? '';
             $taxId = $brand['tax_id'] ?? '';
+            $addressLine = trim($addressLine1.' '.$addressLine2);
+            $footerParts = array_filter([
+                $companyName,
+                $contactPhone,
+                $contactEmail,
+                $website,
+            ], static fn ($value) => $value !== '');
+            $footerLeft = implode(' | ', $footerParts);
 
-            $renderTable = function (array $headers, array $rows) use ($escape): string {
-                $html = '<table><thead><tr>';
+            $formatCell = function ($cell) use ($escape): string {
+                if ($cell instanceof \DateTimeInterface) {
+                    return $escape($cell);
+                }
+
+                if (is_bool($cell)) {
+                    return $escape($cell ? 'Yes' : 'No');
+                }
+
+                if (is_array($cell)) {
+                    $parts = [];
+                    foreach ($cell as $key => $value) {
+                        if ($value instanceof \DateTimeInterface) {
+                            $value = $value->format('Y-m-d H:i');
+                        } elseif (is_array($value)) {
+                            $value = json_encode($value);
+                        }
+
+                        $parts[] = is_string($key) ? $key.': '.$value : $value;
+                    }
+
+                    return $escape(implode(' | ', $parts));
+                }
+
+                if ($cell === null) {
+                    return '';
+                }
+
+                return $escape($cell);
+            };
+
+            $renderTable = function (array $headers, array $rows) use ($escape, $formatCell): string {
+                $html = '<table class="data-table"><thead><tr>';
                 foreach ($headers as $header) {
                     $html .= '<th>'.$escape($header).'</th>';
                 }
@@ -391,7 +496,7 @@ class ReportController extends Controller
                 foreach ($rows as $row) {
                     $html .= '<tr>';
                     foreach ($row as $cell) {
-                        $html .= '<td>'.$escape($cell).'</td>';
+                        $html .= '<td>'.$formatCell($cell).'</td>';
                     }
                     $html .= '</tr>';
                 }
@@ -400,33 +505,76 @@ class ReportController extends Controller
                 return $html;
             };
 
-            $renderKpis = function (array $items) use ($renderTable): string {
-                $headers = ['Metric', 'Value'];
-                $rows = [];
+            $renderKpis = function (array $items) use ($escape): string {
+                $cells = [];
                 foreach ($items as $label => $value) {
-                    $rows[] = [$label, $value];
+                    $cells[] = ['label' => $label, 'value' => $value];
                 }
 
-                return '<div class="summary">'.$renderTable($headers, $rows).'</div>';
+                $columns = 2;
+                $html = '<table class="kpi-grid"><tbody>';
+                $total = count($cells);
+
+                for ($i = 0; $i < $total; $i += $columns) {
+                    $html .= '<tr>';
+                    for ($j = 0; $j < $columns; $j++) {
+                        $index = $i + $j;
+                        if (! isset($cells[$index])) {
+                            $html .= '<td></td>';
+                            continue;
+                        }
+                        $cell = $cells[$index];
+                        $html .= '<td><div class="kpi-label">'.$escape($cell['label']).'</div>';
+                        $html .= '<div class="kpi-value">'.$escape($cell['value']).'</div></td>';
+                    }
+                    $html .= '</tr>';
+                }
+
+                $html .= '</tbody></table>';
+
+                return $html;
             };
 
             $sections = [];
 
             switch ((string) $report->report_type) {
                 case 'daily_usage':
+                    $summary = is_array($data['summary'] ?? null) ? $data['summary'] : [];
+                    $topItems = $data['top_items'] ?? $data['top_consumed_items'] ?? $data['usage_by_item'] ?? [];
+                    $topItemCount = is_array($topItems) ? count($topItems) : 0;
                     $kpis = [
-                        'Date' => $formatDate($data['date'] ?? $report->report_date),
-                        'Total Transactions' => $formatNumber($data['total_transactions'] ?? 0),
-                        'Top Items Count' => $formatNumber(count($data['top_items'] ?? [])),
+                        'Report Date' => $formatDate($data['date'] ?? $report->report_date),
+                        'Total Transactions' => $formatNumber($summary['total_transactions'] ?? $data['total_transactions'] ?? 0),
+                        'Total Consumed' => $formatNumber($summary['total_consumed'] ?? $data['total_consumed'] ?? 0),
+                        'Top Items' => $formatNumber($topItemCount),
                     ];
                     $sections[] = ['Executive Summary', $renderKpis($kpis)];
 
                     $byTypeRows = [];
-                    foreach (($data['by_type'] ?? []) as $type => $values) {
+                    $byTypeSource = $data['by_type'] ?? $data['summary_by_type'] ?? [];
+                    foreach ($byTypeSource as $type => $values) {
+                        $count = 0;
+                        $totalQuantity = 0;
+
+                        if (is_array($values)) {
+                            if (array_key_exists('count', $values)) {
+                                $count = (int) ($values['count'] ?? 0);
+                                $totalQuantity = (float) ($values['total_quantity'] ?? $values['quantity'] ?? 0);
+                            } else {
+                                $count = count($values);
+                                foreach ($values as $entry) {
+                                    if (! is_array($entry)) {
+                                        continue;
+                                    }
+                                    $totalQuantity += (float) ($entry['total_quantity'] ?? $entry['quantity'] ?? 0);
+                                }
+                            }
+                        }
+
                         $byTypeRows[] = [
                             $labelize((string) $type),
-                            $formatNumber($values['count'] ?? 0),
-                            $formatNumber($values['total_quantity'] ?? 0),
+                            $formatNumber($count),
+                            $formatNumber($totalQuantity),
                         ];
                     }
                     if ($byTypeRows) {
@@ -434,15 +582,31 @@ class ReportController extends Controller
                     }
 
                     $topItemRows = [];
-                    foreach (($data['top_items'] ?? []) as $item) {
-                        $topItemRows[] = [
-                            $item['item_name'] ?? 'Unknown',
-                            $formatNumber($item['transaction_count'] ?? 0),
-                            $formatNumber($item['total_quantity'] ?? 0),
-                        ];
+                    $topItemHeaders = ['Item', 'Transactions', 'Total Quantity'];
+                    if (is_array($topItems)) {
+                        foreach ($topItems as $item) {
+                            if (! is_array($item)) {
+                                continue;
+                            }
+                            if (array_key_exists('consumed', $item)) {
+                                $topItemHeaders = ['Item', 'Part Number', 'Consumed', 'Cost'];
+                                $topItemRows[] = [
+                                    $item['item_name'] ?? 'Unknown',
+                                    $item['part_number'] ?? 'N/A',
+                                    $formatNumber($item['consumed'] ?? 0),
+                                    $formatCurrency($item['cost'] ?? 0),
+                                ];
+                            } else {
+                                $topItemRows[] = [
+                                    $item['item_name'] ?? 'Unknown',
+                                    $formatNumber($item['transaction_count'] ?? 0),
+                                    $formatNumber($item['total_quantity'] ?? $item['quantity'] ?? 0),
+                                ];
+                            }
+                        }
                     }
                     if ($topItemRows) {
-                        $sections[] = ['Top Moving Items', $renderTable(['Item', 'Transactions', 'Total Quantity'], $topItemRows)];
+                        $sections[] = ['Top Moving Items', $renderTable($topItemHeaders, $topItemRows)];
                     }
                     break;
                 case 'monthly_procurement':
@@ -457,8 +621,14 @@ class ReportController extends Controller
 
                     $categoryRows = [];
                     foreach (($data['by_category'] ?? []) as $category => $values) {
+                        if (is_array($values) && array_key_exists('category', $values)) {
+                            $categoryLabel = (string) ($values['category'] ?? 'Unknown');
+                            $values = $values;
+                        } else {
+                            $categoryLabel = (string) $category;
+                        }
                         $categoryRows[] = [
-                            $category,
+                            $categoryLabel,
                             $formatNumber($values['count'] ?? 0),
                             $formatNumber($values['quantity'] ?? 0),
                             $formatCurrency($values['value'] ?? 0),
@@ -470,8 +640,14 @@ class ReportController extends Controller
 
                     $supplierRows = [];
                     foreach (($data['by_supplier'] ?? []) as $supplier => $values) {
+                        if (is_array($values) && array_key_exists('supplier', $values)) {
+                            $supplierLabel = (string) ($values['supplier'] ?? 'Unknown');
+                            $values = $values;
+                        } else {
+                            $supplierLabel = (string) $supplier;
+                        }
                         $supplierRows[] = [
-                            $supplier,
+                            $supplierLabel,
                             $formatNumber($values['count'] ?? 0),
                             $formatNumber($values['quantity'] ?? 0),
                         ];
@@ -481,15 +657,37 @@ class ReportController extends Controller
                     }
 
                     $dailyRows = [];
-                    foreach (($data['daily_breakdown'] ?? []) as $date => $values) {
-                        $dailyRows[] = [
-                            $date,
-                            $formatNumber($values['count'] ?? 0),
-                            $formatNumber($values['quantity'] ?? 0),
-                        ];
+                    $dailyHeaders = ['Date', 'Count', 'Quantity'];
+                    if (isset($data['monthly_breakdown'])) {
+                        $dailyHeaders = ['Month', 'Quantity', 'Value'];
+                        $dailySource = $data['monthly_breakdown'] ?? [];
+                    } else {
+                        $dailySource = $data['daily_breakdown'] ?? [];
+                    }
+
+                    foreach ($dailySource as $date => $values) {
+                        if (is_array($values) && array_key_exists('month', $values)) {
+                            $dateLabel = (string) ($values['month'] ?? '');
+                        } else {
+                            $dateLabel = (string) $date;
+                        }
+
+                        if ($dailyHeaders[0] === 'Month') {
+                            $dailyRows[] = [
+                                $dateLabel,
+                                $formatNumber($values['quantity'] ?? 0),
+                                $formatCurrency($values['value'] ?? 0),
+                            ];
+                        } else {
+                            $dailyRows[] = [
+                                $dateLabel,
+                                $formatNumber($values['count'] ?? 0),
+                                $formatNumber($values['quantity'] ?? 0),
+                            ];
+                        }
                     }
                     if ($dailyRows) {
-                        $sections[] = ['Daily Breakdown', $renderTable(['Date', 'Count', 'Quantity'], $dailyRows)];
+                        $sections[] = ['Daily Breakdown', $renderTable($dailyHeaders, $dailyRows)];
                     }
                     break;
                 case 'reconciliation':
@@ -550,6 +748,7 @@ class ReportController extends Controller
                         $sections[] = ['Revenue by Transaction Type', $renderTable(['Type', 'Count', 'Total'], $typeRows)];
                     }
                     break;
+                case 'low_stock':
                 case 'low_stock_alert':
                     $kpis = [
                         'Check Date' => $formatDate($data['check_date'] ?? $report->report_date),
@@ -580,47 +779,79 @@ class ReportController extends Controller
 
             ob_start();
 
-            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Report</title>';
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.$escape($title).'</title>';
             echo '<style>';
-            echo '@page{margin:28px 32px}';
-            echo 'body{font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.45}';
-            echo '.header{border-bottom:2px solid #111827;padding-bottom:16px;margin-bottom:16px;display:flex;align-items:center;gap:16px}';
-            echo '.brand{display:flex;align-items:center;gap:12px}';
-            echo '.brand img{height:48px}';
-            echo '.header h1{margin:0;font-size:24px;letter-spacing:0.5px}';
-            echo '.subhead{font-size:12px;color:#6b7280;margin-top:4px}';
-            echo '.meta{display:flex;flex-wrap:wrap;gap:10px 24px;font-size:12px;color:#374151;margin-top:10px}';
-            echo '.pill{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;font-size:11px}';
-            echo '.section{margin:20px 0}';
-            echo '.section h2{font-size:15px;margin:0 0 8px;border-left:4px solid #111827;padding-left:8px}';
-            echo '.summary{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px}';
-            echo 'table{border-collapse:collapse;width:100%;margin-top:8px}';
-            echo 'td,th{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px}';
-            echo 'th{background:#f3f4f6;font-weight:600}';
-            echo '.footer{margin-top:28px;font-size:11px;color:#6b7280;display:flex;justify-content:space-between}';
+            echo '@page{margin:26px 32px}';
+            echo ':root{--brand-gold:#d4af37;--brand-ink:#0a0b0f;--brand-muted:#6b7280;--brand-line:#e5e7eb;--brand-soft:#f9fafb}';
+            echo 'body{font-family:DejaVu Sans,Arial,Helvetica,sans-serif;color:#111827;line-height:1.4;font-size:12px}';
+            echo '.header{border-bottom:2px solid var(--brand-ink);padding-bottom:12px;margin-bottom:14px}';
+            echo '.header-table{width:100%;border-collapse:collapse}';
+            echo '.logo-cell{width:90px;vertical-align:top}';
+            echo '.logo-cell img{width:78px;height:auto}';
+            echo '.company{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--brand-gold);font-weight:700}';
+            echo '.report-title{font-size:22px;font-weight:700;color:var(--brand-ink);margin-top:4px}';
+            echo '.address{font-size:11px;color:var(--brand-muted);margin-top:2px}';
+            echo '.meta{margin-top:10px}';
+            echo '.meta-table{width:100%;border-collapse:collapse}';
+            echo '.meta-table td{font-size:11px;color:#374151;padding:3px 6px;vertical-align:top}';
+            echo '.meta-label{color:var(--brand-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;font-size:9px;margin-bottom:2px}';
+            echo '.section{margin:18px 0}';
+            echo '.section h2{font-size:12px;margin:0 0 8px;border-left:4px solid var(--brand-gold);padding-left:8px;text-transform:uppercase;letter-spacing:1px;color:var(--brand-ink)}';
+            echo '.kpi-grid{width:100%;border-collapse:collapse}';
+            echo '.kpi-grid td{border:1px solid var(--brand-line);background:var(--brand-soft);padding:8px;vertical-align:top}';
+            echo '.kpi-label{font-size:9px;color:var(--brand-muted);text-transform:uppercase;letter-spacing:0.8px}';
+            echo '.kpi-value{font-size:14px;font-weight:700;color:var(--brand-ink);margin-top:4px}';
+            echo '.data-table{border-collapse:collapse;width:100%;margin-top:6px}';
+            echo '.data-table th,.data-table td{border:1px solid var(--brand-line);padding:6px 8px;text-align:left;font-size:11px}';
+            echo '.data-table th{background:#f3f4f6;font-weight:600}';
+            echo '.data-table tbody tr:nth-child(even) td{background:#fbfbfc}';
+            echo '.footer{margin-top:24px;font-size:10px;color:var(--brand-muted);border-top:1px solid var(--brand-line);padding-top:10px}';
+            echo '.footer-table{width:100%;border-collapse:collapse}';
+            echo '.footer-table td{font-size:10px;color:var(--brand-muted)}';
+            echo '.text-right{text-align:right}';
             echo '</style></head><body>';
 
             echo '<div class="header">';
-            echo '<div class="brand">';
+            echo '<table class="header-table"><tr>';
+            echo '<td class="logo-cell">';
             if ($logoDataUri) {
-                echo '<img src="'.$escape($logoDataUri).'" alt="'. $escape($companyName) .'" />';
+                echo '<img src="'.$escape($logoDataUri).'" alt="'.$escape($companyName).'" />';
             }
-            echo '<div>'; 
-            echo '<div class="pill">'.$escape($companyName).'</div>';
-            echo '<h1>'.$escape($title).'</h1>';
-            echo '<div class="subhead">'.$escape($addressLine1).' '.$escape($addressLine2).'</div>';
-            echo '</div>';
-            echo '</div>';
+            echo '</td>';
+            echo '<td>';
+            echo '<div class="company">'.$escape($companyName).'</div>';
+            echo '<div class="report-title">'.$escape($title).'</div>';
+            if ($addressLine !== '') {
+                echo '<div class="address">'.$escape($addressLine).'</div>';
+            }
+            echo '</td>';
+            echo '</tr></table>';
             echo '</div>';
 
             echo '<div class="meta">';
-            echo '<div><strong>Report Date:</strong> '.$escape($formatDate($report->report_date ?? '')).'</div>';
-            echo '<div><strong>Generated:</strong> '.$escape($report->generated_date?->format($formatting['datetime_format'] ?? 'Y-m-d H:i') ?? '').'</div>';
-            echo '<div><strong>Generated By:</strong> '.$escape($report->generated_by ?? 'System').'</div>';
-            echo '<div><strong>Report ID:</strong> '.$escape($report->id).'</div>';
+            echo '<table class="meta-table">';
+            echo '<tr>';
+            echo '<td><div class="meta-label">Report Type</div>'.$escape($typeLabel).'</td>';
+            echo '<td><div class="meta-label">Report Date</div>'.$escape($formatDate($report->report_date ?? '')).'</td>';
+            echo '<td><div class="meta-label">Generated</div>'.$escape($report->generated_date?->format($formatting['datetime_format'] ?? 'Y-m-d H:i') ?? '').'</td>';
+            echo '<td><div class="meta-label">Prepared By</div>'.$escape($report->generated_by ?? 'System').'</td>';
+            echo '</tr>';
+            echo '<tr>';
+            echo '<td><div class="meta-label">Report ID</div>'.$escape($report->id).'</td>';
             if ($taxId) {
-                echo '<div><strong>TIN:</strong> '.$escape($taxId).'</div>';
+                echo '<td><div class="meta-label">TIN</div>'.$escape($taxId).'</td>';
+            } else {
+                echo '<td></td>';
             }
+            echo '<td><div class="meta-label">Contact</div>'.$escape($contactPhone).'</td>';
+            echo '<td><div class="meta-label">Email</div>'.$escape($contactEmail).'</td>';
+            echo '</tr>';
+            if ($website !== '') {
+                echo '<tr>';
+                echo '<td colspan="4"><div class="meta-label">Website</div>'.$escape($website).'</td>';
+                echo '</tr>';
+            }
+            echo '</table>';
             echo '</div>';
 
             foreach ($sections as [$sectionTitle, $sectionHtml]) {
@@ -631,13 +862,26 @@ class ReportController extends Controller
             }
 
             echo '<div class="footer">';
-            echo '<span>'.$escape($contactPhone).' | '.$escape($contactEmail).' | '.$escape($website).'</span>';
-            echo '<span>Confidential - For internal use only</span>';
+            echo '<table class="footer-table"><tr>';
+            echo '<td>'.$escape($footerLeft).'</td>';
+            echo '<td class="text-right">Confidential - For internal use only</td>';
+            echo '</tr></table>';
             echo '</div>';
             echo '</body></html>';
 
             return (string) ob_get_clean();
         })();
+    }
+
+    private function streamPdfReport(Report $report): StreamedResponse
+    {
+        $filename = sprintf('%s-%s.pdf', $report->report_type, $report->report_date);
+
+        if (! class_exists(\Dompdf\Dompdf::class)) {
+            throw new \RuntimeException('PDF export requires Dompdf. Run: composer require barryvdh/laravel-dompdf');
+        }
+
+        $html = $this->buildReportHtml($report);
 
         $options = new \Dompdf\Options();
         $options->set('isRemoteEnabled', true);

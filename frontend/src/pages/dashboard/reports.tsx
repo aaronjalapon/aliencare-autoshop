@@ -4,7 +4,7 @@ import { clampPercent, formatCurrency, formatPercentage, formatTypeLabel, toShor
 import { auditService } from '@/services/auditService';
 import { reportsService, type ReportFilters } from '@/services/reportsService';
 import { type BreadcrumbItem } from '@/types';
-import { type AuditLog, type Report } from '@/types/inventory';
+import { type AuditLog, type AuditTransaction, type Report } from '@/types/inventory';
 import {
     AlertTriangle,
     BarChart3,
@@ -28,6 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Reports and Analytics', href: '
 
 type TabKey = 'overview' | 'usage' | 'procurement' | 'reports' | 'history';
 type RangeKey = 'daily' | '7d' | '30d' | '90d' | 'custom';
+type HistoryEntityType = 'inventory' | 'job_order' | 'reservation' | 'pos';
 
 const RANGE_CONFIG: Record<RangeKey, { label: string; days: number | null }> = {
     daily: { label: 'Today', days: 0 },
@@ -46,6 +47,52 @@ const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
 ];
 
 const GOLD = '#d4af37';
+
+const HISTORY_ENTITY_LABELS: Record<HistoryEntityType, string> = {
+    inventory: 'Inventory',
+    job_order: 'Job Orders',
+    reservation: 'Reservation',
+    pos: 'POS',
+};
+
+function normalizeHistoryToken(value?: string | null): string {
+    return (value ?? '').trim().toUpperCase();
+}
+
+function inferHistoryEntity(reference?: string | null, notes?: string | null): HistoryEntityType {
+    const ref = normalizeHistoryToken(reference);
+    const note = normalizeHistoryToken(notes);
+
+    if (ref.startsWith('POS') || note.includes('POS')) {
+        return 'pos';
+    }
+
+    if (ref.startsWith('RES') || ref.startsWith('RSV') || note.includes('RESERVATION')) {
+        return 'reservation';
+    }
+
+    if (ref.startsWith('JO') || ref.startsWith('JOB') || note.includes('JOB ORDER')) {
+        return 'job_order';
+    }
+
+    return 'inventory';
+}
+
+function mapArchiveEntity(entry: AuditLog): HistoryEntityType {
+    switch (entry.entity_type) {
+        case 'reservation':
+            return 'reservation';
+        case 'job_order':
+        case 'job_order_item':
+        case 'service':
+            return 'job_order';
+        case 'transaction':
+            return inferHistoryEntity(entry.reference_number, entry.notes);
+        case 'inventory':
+        default:
+            return 'inventory';
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
@@ -739,48 +786,104 @@ function ProcurementTab({ proc }: { proc: ProcurementView }) {
 
 function HistoryTab() {
     const [archives, setArchives] = useState<AuditLog[]>([]);
+    const [transactions, setTransactions] = useState<AuditTransaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [entityFilter, setEntityFilter] = useState<string>('all');
+    const [entityFilter, setEntityFilter] = useState<HistoryEntityType | 'all'>('all');
     const [actionFilter, setActionFilter] = useState<string>('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [lastPage, setLastPage] = useState(1);
+    const pageSize = 25;
+    const fetchLimit = 100;
 
-    const fetchArchives = useCallback(async () => {
+    const fetchHistory = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await auditService.getAuditLogs({
-                entity_type: entityFilter,
-                action: actionFilter || undefined,
-                per_page: 25,
-                page: currentPage,
-            });
-
-            if (res.success && res.data) {
-                const paginatedData = res.data;
-                setArchives(paginatedData.data ?? []);
-                setLastPage(paginatedData.last_page ?? 1);
-            }
+            const combined = await auditService.getCombinedAuditData({ per_page: fetchLimit, page: 1 });
+            setArchives(combined.archives ?? []);
+            setTransactions(combined.transactions ?? []);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to fetch history');
         } finally {
             setLoading(false);
         }
-    }, [entityFilter, actionFilter, currentPage]);
+    }, [fetchLimit]);
 
     useEffect(() => {
-        fetchArchives();
-    }, [fetchArchives]);
+        fetchHistory();
+    }, [fetchHistory]);
 
-    const entityOptions = [
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [entityFilter, actionFilter]);
+
+    type HistoryEntry = {
+        id: string;
+        entityType: HistoryEntityType;
+        action: string;
+        reference: string;
+        timestamp: string;
+        by: string;
+        notes: string;
+    };
+
+    const historyEntries = useMemo(() => {
+        const archiveEntries: HistoryEntry[] = archives.map((entry) => ({
+            id: `archive-${entry.archive_id ?? entry.id ?? `${entry.entity_type}-${entry.entity_id}`}`,
+            entityType: mapArchiveEntity(entry),
+            action: entry.action,
+            reference: entry.reference_number ?? String(entry.entity_id),
+            timestamp: entry.archived_date ?? entry.created_at,
+            by: entry.user_id ?? 'System',
+            notes: entry.notes ?? '—',
+        }));
+
+        const transactionEntries: HistoryEntry[] = transactions.map((transaction) => {
+            const action = transaction.transaction_type ?? transaction.type?.toLowerCase() ?? 'transaction';
+            const reference = transaction.reference_number ?? transaction.job_order_id ?? String(transaction.item_id);
+            const notes = transaction.notes ?? transaction.reason ?? '—';
+            return {
+                id: `transaction-${transaction.id ?? `${transaction.item_id}-${transaction.timestamp}`}`,
+                entityType: inferHistoryEntity(reference, notes),
+                action,
+                reference,
+                timestamp: transaction.timestamp ?? transaction.created_at,
+                by: transaction.performed_by ?? transaction.created_by ?? 'System',
+                notes,
+            };
+        });
+
+        const merged = [...archiveEntries, ...transactionEntries];
+        const normalizedAction = actionFilter.trim().toLowerCase();
+
+        return merged
+            .filter((entry) => {
+                if (entityFilter !== 'all' && entry.entityType !== entityFilter) {
+                    return false;
+                }
+                if (normalizedAction) {
+                    return entry.action.toLowerCase().includes(normalizedAction);
+                }
+                return true;
+            })
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }, [archives, transactions, entityFilter, actionFilter]);
+
+    const lastPage = Math.max(1, Math.ceil(historyEntries.length / pageSize));
+    const pagedEntries = historyEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    useEffect(() => {
+        if (currentPage > lastPage) {
+            setCurrentPage(lastPage);
+        }
+    }, [currentPage, lastPage]);
+
+    const entityOptions: { value: HistoryEntityType | 'all'; label: string }[] = [
         { value: 'all', label: 'All Entities' },
-        { value: 'job_order', label: 'Job Orders' },
-        { value: 'job_order_item', label: 'Job Order Items' },
-        { value: 'service', label: 'Services' },
-        { value: 'inventory', label: 'Inventory' },
-        { value: 'reservation', label: 'Reservations' },
-        { value: 'transaction', label: 'Transactions' },
+        { value: 'inventory', label: HISTORY_ENTITY_LABELS.inventory },
+        { value: 'job_order', label: HISTORY_ENTITY_LABELS.job_order },
+        { value: 'reservation', label: HISTORY_ENTITY_LABELS.reservation },
+        { value: 'pos', label: HISTORY_ENTITY_LABELS.pos },
     ];
 
     return (
@@ -791,7 +894,7 @@ function HistoryTab() {
                 <select
                     value={entityFilter}
                     onChange={(e) => {
-                        setEntityFilter(e.target.value);
+                        setEntityFilter(e.target.value as HistoryEntityType | 'all');
                         setCurrentPage(1);
                     }}
                     className="rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-foreground"
@@ -812,7 +915,7 @@ function HistoryTab() {
                     className="h-9 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 text-xs text-foreground placeholder:text-muted-foreground"
                 />
                 <button
-                    onClick={fetchArchives}
+                    onClick={fetchHistory}
                     disabled={loading}
                     className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2e] bg-[#0a0b0f] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[#d4af37]/40 hover:text-foreground"
                 >
@@ -829,8 +932,8 @@ function HistoryTab() {
                     ))}
                 </div>
             ) : error ? (
-                <ErrorBanner message={error} onRetry={fetchArchives} />
-            ) : archives.length === 0 ? (
+                <ErrorBanner message={error} onRetry={fetchHistory} />
+            ) : historyEntries.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[#2a2a2e] bg-[#0d0d10]/90 py-12 text-center">
                     <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
                     <p className="mt-3 text-sm text-muted-foreground">No history events found.</p>
@@ -849,14 +952,14 @@ function HistoryTab() {
                             </tr>
                         </thead>
                         <tbody>
-                            {archives.map((entry) => (
-                                <tr key={entry.archive_id ?? entry.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
-                                    <td className="px-4 py-2.5 font-medium text-foreground capitalize">{formatTypeLabel(entry.entity_type)}</td>
+                            {pagedEntries.map((entry) => (
+                                <tr key={entry.id} className="border-t border-[#2a2a2e] hover:bg-[#0a0b0f]/50">
+                                    <td className="px-4 py-2.5 font-medium text-foreground">{HISTORY_ENTITY_LABELS[entry.entityType]}</td>
                                     <td className="px-4 py-2.5 text-muted-foreground">{formatTypeLabel(entry.action)}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.reference_number ?? String(entry.entity_id)}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.archived_date?.slice(0, 19).replace('T', ' ')}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.user_id ?? 'System'}</td>
-                                    <td className="px-4 py-2.5 text-right text-muted-foreground">{entry.notes ?? '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.reference}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.timestamp?.slice(0, 19).replace('T', ' ')}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground">{entry.by}</td>
+                                    <td className="px-4 py-2.5 text-right text-muted-foreground">{entry.notes}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -952,13 +1055,13 @@ function ReportsTab() {
         }
     };
 
-    const handleExport = async (reportId: number, format: 'pdf' | 'csv') => {
+    const handleExport = async (reportId: number, format: 'html' | 'csv') => {
         try {
             const blob = await reportsService.exportReport(reportId, format);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `report-${reportId}.${format === 'pdf' ? 'html' : 'csv'}`;
+            a.download = `report-${reportId}.${format === 'html' ? 'html' : 'csv'}`;
             a.click();
             window.URL.revokeObjectURL(url);
             success('Export completed successfully.');
@@ -1084,10 +1187,10 @@ function ReportsTab() {
                                                     Excel
                                                 </button>
                                                 <button
-                                                    onClick={() => handleExport(r.id, 'pdf')}
+                                                    onClick={() => handleExport(r.id, 'html')}
                                                     className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-[#1c1e23] hover:text-foreground"
                                                 >
-                                                    PDF
+                                                    Print
                                                 </button>
                                             </div>
                                         </td>

@@ -37,6 +37,8 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
         };
     }, [scheduling]);
 
+    const hasSchedulingContext = !!(scheduling?.arrival_date && scheduling?.arrival_time);
+
     const loadResources = useCallback(async () => {
         setIsLoading(true);
         setLoadError(null);
@@ -55,7 +57,13 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
                     return true;
                 }),
             );
-            setBays(bResponse.data.filter((b) => b.status.toLowerCase() === 'available' && !b.has_time_conflict));
+            setBays(
+                bResponse.data.filter((b) => {
+                    const status = b.status.toLowerCase();
+                    if (!hasSchedulingContext) return status === 'available';
+                    return status !== 'maintenance' && !b.has_time_conflict;
+                }),
+            );
         } catch {
             setLoadError('Failed to load mechanics and bays.');
         } finally {
@@ -98,8 +106,6 @@ export default function StartServiceModal({ open, onClose, onStarted, onSubmit, 
         if (score >= 2) return 'Recommended';
         return null;
     };
-
-    const hasSchedulingContext = !!(scheduling?.arrival_date && scheduling?.arrival_time);
 
     if (!open) return null;
 

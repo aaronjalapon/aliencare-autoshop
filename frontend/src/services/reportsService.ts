@@ -181,9 +181,9 @@ class ReportsService {
         });
     }
 
-    // Export report to PDF/CSV
-    async exportReport(reportId: number, format: 'pdf' | 'csv'): Promise<Blob> {
-        const accept = format === 'pdf' ? 'application/pdf' : 'text/csv';
+    // Export report to HTML/CSV
+    async exportReport(reportId: number, format: 'html' | 'csv'): Promise<Blob> {
+        const accept = format === 'html' ? 'text/html' : 'text/csv';
         return api.getBlob(`/v1/reports/${reportId}/export`, { format }, accept);
     }
 }

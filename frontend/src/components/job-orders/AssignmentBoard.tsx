@@ -109,11 +109,21 @@ export default function AssignmentBoard({ selectedOrder, allOrders, onAssignment
         return isMechanicBusy(m) && m.has_time_conflict;
     });
     const onLeaveMechanics = mechanics.filter((m) => isMechanicOnLeave(m));
-    const availableBays = bays.filter((b) => b.status.toLowerCase() === 'available' && !b.has_time_conflict);
-    const conflictedBays = bays.filter((b) => b.status.toLowerCase() === 'available' && b.has_time_conflict);
-    const occupiedBays = bays.filter((b) => b.status.toLowerCase() !== 'available');
-
     const hasSchedulingContext = !!(selectedOrder?.arrival_date && selectedOrder?.arrival_time);
+
+    const isMaintenanceBay = (b: BayOption) => b.status.toLowerCase() === 'maintenance';
+    const isAvailableBay = (b: BayOption) => b.status.toLowerCase() === 'available';
+    const hasTimeConflict = (b: BayOption) => Boolean(b.has_time_conflict);
+
+    const availableBays = bays.filter((b) => {
+        if (!hasSchedulingContext) return isAvailableBay(b);
+        return !isMaintenanceBay(b) && !hasTimeConflict(b);
+    });
+    const conflictedBays = bays.filter((b) => hasSchedulingContext && !isMaintenanceBay(b) && hasTimeConflict(b));
+    const occupiedBays = bays.filter((b) => {
+        if (!hasSchedulingContext) return !isAvailableBay(b);
+        return isMaintenanceBay(b);
+    });
 
     // ── Empty state ────────────────────────────────────────────────────────
     if (!selectedOrder) {
@@ -287,7 +297,9 @@ export default function AssignmentBoard({ selectedOrder, allOrders, onAssignment
                                             }`}
                                         >
                                             <span className={`text-lg font-bold ${isSelected ? 'text-[#d4af37]' : 'text-foreground'}`}>{b.name}</span>
-                                            <span className="mt-0.5 text-[10px] text-muted-foreground">Available</span>
+                                            <span className="mt-0.5 text-[10px] text-muted-foreground">
+                                                {hasSchedulingContext ? 'Available for schedule' : 'Available'}
+                                            </span>
                                         </button>
                                     );
                                 })}
@@ -308,7 +320,9 @@ export default function AssignmentBoard({ selectedOrder, allOrders, onAssignment
                                         className="flex flex-col items-center justify-center rounded-xl border border-[#2a2a2e]/30 bg-[#0d0d10]/50 p-3 opacity-40"
                                     >
                                         <span className="text-lg font-bold text-muted-foreground">{b.name}</span>
-                                        <span className="mt-0.5 text-[10px] text-muted-foreground">Occupied</span>
+                                        <span className="mt-0.5 text-[10px] text-muted-foreground">
+                                            {b.status.toLowerCase() === 'maintenance' ? 'Maintenance' : 'Occupied'}
+                                        </span>
                                     </div>
                                 ))}
                                 {bays.length === 0 && (
