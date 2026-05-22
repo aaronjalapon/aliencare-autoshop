@@ -181,8 +181,10 @@ class ReservationService implements ReservationServiceInterface
                 );
             }
 
-            // Block approval if reservation fee has not been paid
-            if ($reservation->reservation_fee > 0) {
+            // Block approval if the customer initiated a fee payment but hasn't paid yet.
+            // Staff-created reservations have reservation_fee > 0 but no fee_transaction_id
+            // (no online payment was initiated), so they can be approved directly.
+            if ($reservation->reservation_fee > 0 && $reservation->fee_transaction_id) {
                 $feeTransaction = $reservation->feeTransaction;
                 if (! $feeTransaction || $feeTransaction->xendit_status !== 'PAID') {
                     throw new ReservationStateException(

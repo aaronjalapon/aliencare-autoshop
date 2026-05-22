@@ -70,10 +70,8 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
             try {
                 const response = await reservationService.createReservation(reservation);
 
-                // Immediate refresh
                 await fetchReservations();
 
-                // Dispatch event for real-time updates
                 dispatchReservationUpdate('new', 'created', {
                     item_id: reservation.item_id,
                     quantity: reservation.quantity,
@@ -83,7 +81,6 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
                 return { success: true, data: response.data };
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to create reservation';
-                setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
         },
@@ -95,10 +92,8 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
             try {
                 const response = await reservationService.createMultipleReservations(reservation);
 
-                // Immediate refresh
                 await fetchReservations();
 
-                // Dispatch event for real-time updates
                 dispatchReservationUpdate('multiple', 'created', {
                     items: reservation.items,
                     job_order_number: reservation.job_order_number,
@@ -107,7 +102,6 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
                 return { success: true, data: response.data };
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to create multiple reservations';
-                setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
         },
@@ -118,15 +112,13 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
         async (id: number, action: ReservationAction) => {
             try {
                 const response = await reservationService.approveReservation(id, action);
-                await fetchReservations(); // Refresh data
+                await fetchReservations();
 
-                // Dispatch event for real-time updates
                 dispatchReservationUpdate(id.toString(), 'approved', action);
 
                 return { success: true, data: response.data };
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to approve reservation';
-                setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
         },
@@ -137,15 +129,13 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
         async (id: number, action: ReservationAction) => {
             try {
                 const response = await reservationService.rejectReservation(id, action);
-                await fetchReservations(); // Refresh data
+                await fetchReservations();
 
-                // Dispatch event for real-time updates
                 dispatchReservationUpdate(id.toString(), 'rejected', action);
 
                 return { success: true, data: response.data };
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to reject reservation';
-                setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
         },
@@ -156,15 +146,13 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
         async (id: number, action: ReservationAction) => {
             try {
                 const response = await reservationService.completeReservation(id, action);
-                await fetchReservations(); // Refresh data
+                await fetchReservations();
 
-                // Dispatch event for real-time updates
                 dispatchReservationUpdate(id.toString(), 'completed', action);
 
                 return { success: true, data: response.data };
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to complete reservation';
-                setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
         },
@@ -175,15 +163,13 @@ export function useReservations(initialFilters: ReservationFilters = {}) {
         async (id: number, action: ReservationAction) => {
             try {
                 const response = await reservationService.cancelReservation(id, action);
-                await fetchReservations(); // Refresh data
+                await fetchReservations();
 
-                // Dispatch event for real-time updates
                 dispatchReservationUpdate(id.toString(), 'cancelled', action);
 
                 return { success: true, data: response.data };
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to cancel reservation';
-                setError(errorMessage);
                 return { success: false, error: errorMessage };
             }
         },

@@ -55,6 +55,8 @@ export function ReservationPanel() {
     const [jobOrders, setJobOrders] = useState<JobOrder[]>([]);
     const [jobOrdersLoading, setJobOrdersLoading] = useState(false);
     const [jobOrdersError, setJobOrdersError] = useState<string | null>(null);
+    const [mechanics, setMechanics] = useState<Array<{ id: number; name: string }>>([]);
+    const [mechanicsLoading, setMechanicsLoading] = useState(false);
 
     // Extract data from responses with proper type checking
     const reservations: Reservation[] = useMemo(() => (Array.isArray(reservationsData?.data) ? reservationsData.data : []), [reservationsData?.data]);
@@ -86,6 +88,23 @@ export function ReservationPanel() {
             setJobOrders([]);
         } finally {
             setJobOrdersLoading(false);
+        }
+    }, []);
+
+    const loadMechanics = useCallback(async () => {
+        try {
+            setMechanicsLoading(true);
+            const response = await jobOrderService.getMechanics();
+            const list = Array.isArray(response.data) ? response.data : [];
+            setMechanics(
+                list
+                    .filter((m) => m.availability_status?.toLowerCase() !== 'on_leave')
+                    .map((m) => ({ id: m.id, name: m.name ?? `Mechanic #${m.id}` })),
+            );
+        } catch {
+            setMechanics([]);
+        } finally {
+            setMechanicsLoading(false);
         }
     }, []);
 
@@ -547,6 +566,7 @@ export function ReservationPanel() {
                         setIsDialogOpen(open);
                         if (open) {
                             void loadActiveJobOrders();
+                            void loadMechanics();
                             return;
                         }
 
@@ -644,16 +664,33 @@ export function ReservationPanel() {
                                     <Label htmlFor="requestedBy" className="text-foreground">
                                         Requested By *
                                     </Label>
-                                    <Input
-                                        id="requestedBy"
+                                    <Select
                                         value={reservationDetails.requested_by}
-                                        onChange={(e) => {
-                                            setReservationDetails((prev) => ({ ...prev, requested_by: e.target.value }));
+                                        onValueChange={(value) => {
+                                            setReservationDetails((prev) => ({ ...prev, requested_by: value }));
                                             if (createReservationError) setCreateReservationError(null);
                                         }}
-                                        placeholder="Technician Name"
-                                        className="border-border bg-input text-foreground"
-                                    />
+                                        disabled={mechanicsLoading || mechanics.length === 0}
+                                    >
+                                        <SelectTrigger id="requestedBy" className="border-border bg-input text-foreground">
+                                            <SelectValue
+                                                placeholder={
+                                                    mechanicsLoading
+                                                        ? 'Loading mechanics...'
+                                                        : mechanics.length === 0
+                                                          ? 'No mechanics available'
+                                                          : 'Select mechanic'
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-64 overflow-y-auto border-border bg-popover">
+                                            {mechanics.map((m) => (
+                                                <SelectItem key={m.id} value={m.name}>
+                                                    {m.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div>
                                     <Label htmlFor="notes" className="text-foreground">
