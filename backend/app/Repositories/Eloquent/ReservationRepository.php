@@ -28,7 +28,7 @@ class ReservationRepository extends BaseRepository implements ReservationReposit
      */
     public function findById(int|string $id): ?Reservation
     {
-        return $this->model->find($id);
+        return $this->model->with(['inventory', 'feeTransaction'])->find($id);
     }
 
     /**
@@ -36,7 +36,7 @@ class ReservationRepository extends BaseRepository implements ReservationReposit
      */
     public function findByIdOrFail(int|string $id): Reservation
     {
-        return $this->model->findOrFail($id);
+        return $this->model->with(['inventory', 'feeTransaction'])->findOrFail($id);
     }
 
     /**
